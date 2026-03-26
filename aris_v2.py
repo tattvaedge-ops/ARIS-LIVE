@@ -1168,13 +1168,13 @@ loop autoplay>
 <input name="password" type="password" placeholder="Password" required>
 <br>
 
-<button name="action" value="login" type="submit">
+<button type="submit" name="action" value="login">
 Login →
 </button>
 
 <br><br>
 
-<button name="action" value="signup" type="submit">
+<button type="submit" name="action" value="signup">
 Create Account
 </button>
 
@@ -2617,12 +2617,43 @@ addMessage(data.reply,"aris");
 """
 
 # ================= ROUTES =================
+
+@app.route("/forgot", methods=["GET","POST"])
+def forgot_password():
+
+    if request.method == "POST":
+        email = request.form.get("email")
+
+        conn = sqlite3.connect("aris_memory.db")
+        c = conn.cursor()
+
+        c.execute("SELECT id FROM users WHERE email=?", (email,))
+        user = c.fetchone()
+
+        conn.close()
+
+        if user:
+            # ⚡ TEMP: show password directly (DEV MODE)
+            return f"⚠️ DEV MODE: Password reset link would be sent to {email}"
+        else:
+            return "❌ Email not found"
+
+    return """
+    <h2>Reset Password</h2>
+    <form method="POST">
+        <input name="email" placeholder="Enter your email" required>
+        <button type="submit">Send Reset Link</button>
+    </form>
+    """
+
+    
 @app.route("/", methods=["GET", "POST"])
 def login():
 
     if request.method == "POST":
 
         action = request.form.get("action")
+        print("ACTION RECEIVED:", action)
         email = request.form["email"]
         password = request.form["password"]
 
