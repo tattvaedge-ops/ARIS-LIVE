@@ -2784,8 +2784,14 @@ def upload():
     })
 
 # ================= BUY TOKENS =================
+
 @app.route("/buy_tokens")
 def buy_tokens():
+
+    user_id = session.get("user_id")
+
+    if not user_id:
+        return jsonify({"message": "⚠️ Session expired. Please login again."})
 
     conn = sqlite3.connect("aris_memory.db")
     c = conn.cursor()
@@ -2794,12 +2800,13 @@ def buy_tokens():
         UPDATE token_wallet
         SET balance = balance + 20
         WHERE user_id = ?
-    """, (session["user_id"],))
+    """, (user_id,))
 
     conn.commit()
     conn.close()
 
     return jsonify({"message": "20 tokens added"})
+
 
 @app.route("/solve_image_question", methods=["POST"])
 def solve_image_question():
