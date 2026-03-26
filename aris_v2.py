@@ -838,56 +838,10 @@ def process_ai_request(user_id, msg):
         "tokens_left": tokens_left
     }
 
-    # ===== AGENT ROUTING (FINAL LOCK) =====
-    m = msg.lower()
+        # 🚀 DIRECT AI (STABLE MODE - NO AGENTS)
+    reply = brain(msg, user_id)
 
-    # 🎓 STUDENT AI (HIGH PRIORITY)
-    if any(x in m for x in [
-        "question", "solve", "numerical", "problem",
-        "physics", "chemistry", "math", "biology",
-        "equation", "derivation", "formula",
-        "exam", "jee", "neet", "assignment",
-        "notes", "concept", "study", "revision",
-        "test", "mcq"
-    ]):
-        reply = brain(msg, user_id)
-
-        # 🎨 CREATOR
-    elif any(x in m for x in [
-        "image", "poster", "thumbnail", "design",
-        "generate image", "create image",
-        "video", "reel", "animation", "generate video"
-    ]):
-        agent_reply = route_agent(msg, msg)
-
-        if not agent_reply or "No suitable agent" in agent_reply:
-            reply = brain(msg, user_id)
-        else:
-            reply = agent_reply
-
-    # 🔬 RESEARCH
-    elif any(x in m for x in [
-        "research paper", "literature review",
-        "journal", "citation", "methodology",
-        "thesis", "dissertation"
-    ]):
-        agent_reply = route_agent(msg, msg)
-
-        if not agent_reply or "No suitable agent" in agent_reply:
-            reply = brain(msg, user_id)
-        else:
-            reply = agent_reply
-
-    # 💼 PROFESSIONAL / DEFAULT
-    else:
-        agent_reply = route_agent(msg, msg)
-
-        if not agent_reply or "No suitable agent" in agent_reply:
-            reply = brain(msg, user_id)
-        else:
-            reply = agent_reply
-            
-       # ===== TOKEN LOGIC (AFTER SUCCESS) =====
+    # ===== TOKEN LOGIC =====
     if reply and "⚠️" not in reply:
 
         success = deduct_token(user_id, 1)
