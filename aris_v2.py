@@ -1,20 +1,20 @@
 from flask import Flask, render_template_string, request, jsonify, send_from_directory, session, redirect
-from aris_coordinator import ARISCoordinator
 import sqlite3
 import datetime
 import os
-import pytesseract
 from PIL import Image
-from aris_student_engine import solve_academic_question
 from openai import OpenAI
+
+try:
+    import pytesseract
+except:
+    pytesseract = None
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 app = Flask(__name__)
 app.secret_key = "aris_secret_key"
 
-# Initialize ARIS Coordinator
-coordinator = ARISCoordinator()
 
 # ===== ARIS GLOBAL CONTROL =====
 ARIS_ACTIVE = True
@@ -389,19 +389,10 @@ def ask_openai(prompt):
 
     except Exception as e:
         print("🔥 OPENAI ERROR:", str(e))
-        return f"⚠️ ERROR: {str(e)}" 
+        return f"⚠️ ERROR: {str(e)}"
 
-        # 🚨 QUOTA ERROR
-        if "insufficient_quota" in error_msg or "429" in error_msg:
-            return "__OPENAI_QUOTA_ERROR__"
 
-        # 🚨 RATE LIMIT
-        if "rate limit" in error_msg.lower():
-            return "__OPENAI_RATE_LIMIT__"
-
-        return "__OPENAI_ERROR__"
-
-        # ================= DALL·E IMAGE GENERATION =================
+       # ================= DALL·E IMAGE GENERATION =================
 
 def generate_image(prompt):
 
@@ -431,18 +422,19 @@ def generate_image(prompt):
 
 def extract_text_from_image(image_path):
 
+    if not pytesseract:
+        return "⚠️ OCR not available on server."
+
     try:
         img = Image.open(image_path)
-
         text = pytesseract.image_to_string(img)
-
         return text.strip()
 
     except Exception as e:
         return f"OCR Error: {str(e)}"
 
 
-from aris_student_engine import solve_academic_question
+
 
 def solve_question_from_image(image_path, user_id=None):
 
@@ -518,7 +510,7 @@ def detect_intent(msg):
 def build_prompt(intent, msg, memory_context="", goal_context=""):
 
     if intent == "creator_image":
-        return generate_image(msg)
+        return f"Generate an image based on this request: {msg}"
 
     if intent == "student":
         return f"""
@@ -649,7 +641,7 @@ User Request:
 """
 
     return f"""
-You are ARIS, an intelligent AI assistant.You are ARIS, an intelligent AI assistant.
+You are ARIS, an intelligent AI assistant.
 
 Adapt to user intent:
 - Short question → short answer
@@ -699,21 +691,9 @@ def brain(msg, user_id=None):
 
     return response.strip() if response else "⚠️ No response"
 
-    # 🧹 CLEAN OUTPUT
-    bad_phrases = [
-        "Conversation so far:",
-        "User goal:",
-        "You are ARIS",
-        "Conversation:",
-        "User Goal:"
-    ]
-
-    for b in bad_phrases:
-        response = response.replace(b, "")
-
-    return response.strip()
     
-   # ================= SUGGESTION ENGINE =================
+    
+  # ================= SUGGESTION ENGINE =================
 def generate_suggestions(message):
 
     msg = message.lower()
@@ -838,31 +818,6 @@ def process_ai_request(user_id, msg):
         "tokens_left": tokens_left
     }
 
-        # 🚀 DIRECT AI (STABLE MODE - NO AGENTS)
-    reply = brain(msg, user_id)
-
-    # ===== TOKEN LOGIC =====
-    if reply and "⚠️" not in reply:
-
-        success = deduct_token(user_id, 1)
-
-        if success:
-            log_usage(user_id, 1)
-
-    tokens_left = get_tokens(user_id)
-
-    warning = low_token_warning(tokens_left)
-
-    if warning:
-        reply += "\n\n" + warning
-
-    suggestions = generate_suggestions(msg)
-
-    return {
-        "reply": reply,
-        "suggestions": suggestions,
-        "tokens_left": tokens_left
-    }
 
 # ================= LOGIN PAGE =================
 LOGIN_HTML = """
@@ -2720,38 +2675,6 @@ def chat():
         "suggestions": suggestions
     })
 
-    # ===== SAVE MEMORY =====
-
-    save_message(user_id, "user", user_input)
-    save_message(user_id, "aris", reply)
-
-    # ===== GET REMAINING TOKENS =====
-
-    tokens_left = get_tokens(user_id)
-
-    return jsonify({
-        "reply": reply,
-        "tokens_left": tokens_left
-    })
-    # ---- TOKEN COST ----
-
-    token_cost = 1
-
-    if "image" in user_input.lower():
-        token_cost = 5
-
-    elif "research" in user_input.lower():
-        token_cost = 3
-
-    # ---- DEDUCT TOKENS ----
-
-    deduct_tokens(user_id, token_cost)
-
-    # ---- GENERATE AI RESPONSE ----
-
-    response = coordinator.coordinate_request(user_input)
-
-    return jsonify({"reply": response})
 
 @app.route("/live_users")
 def live_users():
