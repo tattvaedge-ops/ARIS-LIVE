@@ -380,7 +380,7 @@ def ask_openai(prompt):
                 {"role": "user", "content": prompt}
             ],
             temperature=0.1,
-            max_tokens=300
+            max_tokens=400
         )
 
         reply = response.choices[0].message.content
@@ -652,6 +652,11 @@ Always complete the answer properly.
 Do not cut mid-sentence.
 Always complete equations and formulas properly.
 Do not leave expressions incomplete.
+
+Always complete the answer fully.
+If you start a list or section, finish it completely.
+Do not stop in the middle of a sentence or bullet point.
+Ensure the response ends properly with a complete thought.
 
 Answer clearly and directly.
 
