@@ -2419,7 +2419,17 @@ async function buyTokens(){
 
     alert(data.message);
 
-    await loadTokens();   // refresh instantly
+    await loadTokens();   // refresh tokens
+
+    // ✅ FIX: hide lock screen
+    const lock = document.getElementById("lockScreen");
+    if (lock) {
+        lock.style.display = "none";
+    }
+
+    // ✅ re-enable input
+    const input = document.getElementById("msg");
+    if (input) input.disabled = false;
 }
 
 // load on start
