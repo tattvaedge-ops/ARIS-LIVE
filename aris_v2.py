@@ -380,7 +380,7 @@ def ask_openai(prompt):
                 {"role": "user", "content": prompt}
             ],
             temperature=0.1,
-            max_tokens=80
+            max_tokens=150
         )
 
         reply = response.choices[0].message.content
@@ -498,7 +498,7 @@ def detect_intent(msg):
 
     # 🧭 LIFE
     if any(x in m for x in [
-        "life", "goal", "career", "habit", "plan",
+        "life", "goal", "career", "habit",
         "productivity", "decision", "schedule"
     ]):
         return "life"
@@ -647,6 +647,9 @@ Adapt to user intent:
 - Short question → short answer
 - Complex request → structured response
 - Avoid unnecessary long outputs
+
+Always complete the answer properly.
+Do not cut mid-sentence.
 
 Answer clearly and directly.
 
