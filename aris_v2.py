@@ -900,8 +900,10 @@ def process_ai_request(user_id, msg):
             reply = agent_reply
             
     # ===== TOKEN LOGIC (OUTSIDE IF BLOCK) =====
-    deduct_token(user_id, 1)
-    log_usage(user_id, 1)
+   success = deduct_token(user_id, 1)
+
+    if success:
+        log_usage(user_id, 1)
 
     tokens_left = get_tokens(user_id)
 
