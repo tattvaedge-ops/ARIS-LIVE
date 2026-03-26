@@ -2665,9 +2665,10 @@ def login():
     if request.method == "POST":
 
         action = request.form.get("action")
-        print("ACTION RECEIVED:", action)
-        email = request.form["email"]
-        password = request.form["password"]
+        email = request.form["email"].strip()
+        password = request.form["password"].strip()
+
+        print("ACTION:", action, email, password)
 
         if action == "signup":
             user_id = create_user(email, password)
@@ -2676,7 +2677,7 @@ def login():
                 session["user_id"] = user_id
                 return redirect("/aris")
             else:
-                return LOGIN_HTML.replace("{{error}}", "User already exists")
+                return render_template_string(LOGIN_HTML, error="User already exists")
 
         if action == "login":
             user_id = authenticate_user(email, password)
@@ -2685,9 +2686,9 @@ def login():
                 session["user_id"] = user_id
                 return redirect("/aris")
             else:
-                return LOGIN_HTML.replace("{{error}}", "Invalid credentials")
+                return render_template_string(LOGIN_HTML, error="Invalid credentials")
 
-    return LOGIN_HTML.replace("{{error}}", "")
+    return render_template_string(LOGIN_HTML, error="")
 
     
 
