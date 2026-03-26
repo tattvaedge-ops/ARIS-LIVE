@@ -373,23 +373,25 @@ def get_profit_metrics():
 def ask_openai(prompt):
 
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are ARIS AI. Be clear and helpful."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.2,
-            max_tokens=120
-        )
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are ARIS AI. Be clear and helpful."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.1,
+        max_tokens=80
+    )
 
-        reply = response.choices[0].message.content
+    reply = response.choices[0].message.content
 
-        return reply.strip() if reply else "⚠️ No response generated."
+    return reply.strip() if reply else "⚠️ No response generated."
 
-    except Exception as e:
-        print("🔥 OPENAI ERROR:", str(e))
-        return f"⚠️ ERROR: {str(e)}"
+except Exception as e:
+    print("🔥 OPENAI ERROR:", str(e))
+
+    # ⚡ FAST FALLBACK
+    return "⚠️ ARIS is thinking slower than usual. Please retry."
 
 
        # ================= DALL·E IMAGE GENERATION =================
