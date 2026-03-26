@@ -373,6 +373,15 @@ def get_profit_metrics():
 def ask_openai(prompt):
 
     try:
+
+        # 🔥 SMART TOKEN CONTROL
+        if len(prompt) < 800:
+            max_tokens = 500
+        elif len(prompt) < 2000:
+            max_tokens = 800
+        else:
+            max_tokens = 1200
+
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -380,7 +389,7 @@ def ask_openai(prompt):
                 {"role": "user", "content": prompt}
             ],
             temperature=0.1,
-            max_tokens=1500
+            max_tokens=max_tokens
         )
 
         reply = response.choices[0].message.content
