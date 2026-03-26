@@ -541,8 +541,12 @@ Key Points
 Example
 Summary
 
-Conversation:
+Previous Conversation (IMPORTANT CONTEXT):
 {memory_context}
+
+Use the above context to continue the discussion.
+Do NOT restart from scratch.
+If the user asks follow-up questions like "what else", "continue", "break this", or "next", build on the previous answer.
 
 User Goal:
 {goal_context}
@@ -563,8 +567,12 @@ Explanation
 Action Steps
 Summary
 
-Conversation:
+Previous Conversation (IMPORTANT CONTEXT):
 {memory_context}
+
+Use the above context to continue the discussion.
+Do NOT restart from scratch.
+If the user asks follow-up questions like "what else", "continue", "break this", or "next", build on the previous answer.
 
 User Goal:
 {goal_context}
@@ -585,8 +593,12 @@ Description
 Execution Steps
 Tips
 
-Conversation:
+Previous Conversation (IMPORTANT CONTEXT):
 {memory_context}
+
+Use the above context to continue the discussion.
+Do NOT restart from scratch.
+If the user asks follow-up questions like "what else", "continue", "break this", or "next", build on the previous answer.
 
 User Goal:
 {goal_context}
@@ -608,8 +620,12 @@ Explanation
 Key Insights
 Conclusion
 
-Conversation:
+Previous Conversation (IMPORTANT CONTEXT):
 {memory_context}
+
+Use the above context to continue the discussion.
+Do NOT restart from scratch.
+If the user asks follow-up questions like "what else", "continue", "break this", or "next", build on the previous answer.
 
 User Goal:
 {goal_context}
@@ -630,8 +646,12 @@ Analysis
 Recommended Actions
 Summary
 
-Conversation:
+Previous Conversation (IMPORTANT CONTEXT):
 {memory_context}
+
+Use the above context to continue the discussion.
+Do NOT restart from scratch.
+If the user asks follow-up questions like "what else", "continue", "break this", or "next", build on the previous answer.
 
 User Goal:
 {goal_context}
@@ -658,10 +678,16 @@ If you start a list or section, finish it completely.
 Do not stop in the middle of a sentence or bullet point.
 Ensure the response ends properly with a complete thought.
 
+
+
 Answer clearly and directly.
 
-Conversation:
+Previous Conversation (IMPORTANT CONTEXT):
 {memory_context}
+
+Use the above context to continue the discussion.
+Do NOT restart from scratch.
+If the user asks follow-up questions like "what else", "continue", "break this", or "next", build on the previous answer.
 
 User Goal:
 {goal_context}
