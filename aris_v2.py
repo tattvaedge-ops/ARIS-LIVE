@@ -171,8 +171,14 @@ def get_last_task(user_id):
     return row[0] if row else None
 
 def authenticate_user(email, password):
+
+    email = email.strip()
+    password = password.strip()
+
     conn = sqlite3.connect("aris_memory.db")
     c = conn.cursor()
+
+    print("LOGIN TRY:", email, password)
 
     c.execute(
         "SELECT id FROM users WHERE email=? AND password=?",
@@ -1167,6 +1173,12 @@ loop autoplay>
 
 <input name="password" type="password" placeholder="Password" required>
 <br>
+
+<div style="margin-bottom:10px;">
+<a href="/forgot" style="color:#f97316;text-decoration:none;">
+Forgot Password?
+</a>
+</div>
 
 <button type="submit" name="action" value="login">
 Login →
