@@ -380,7 +380,7 @@ def ask_openai(prompt):
                 {"role": "user", "content": prompt}
             ],
             temperature=0.1,
-            max_tokens=400
+            max_tokens=1500
         )
 
         reply = response.choices[0].message.content
