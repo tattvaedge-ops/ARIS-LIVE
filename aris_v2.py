@@ -380,7 +380,7 @@ def ask_openai(prompt):
                 {"role": "user", "content": prompt}
             ],
             temperature=0.1,
-            max_tokens=150
+            max_tokens=300
         )
 
         reply = response.choices[0].message.content
@@ -650,6 +650,8 @@ Adapt to user intent:
 
 Always complete the answer properly.
 Do not cut mid-sentence.
+Always complete equations and formulas properly.
+Do not leave expressions incomplete.
 
 Answer clearly and directly.
 
