@@ -12,7 +12,7 @@ from openai import OpenAI
 def ask_ollama(prompt):
     try:
         response = requests.post(
-            https://chaim-mentholated-alfredia.ngrok-free.dev/,
+          
             json={
                 "model": "phi3:mini",
                 "prompt": prompt,
