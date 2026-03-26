@@ -452,10 +452,7 @@ def solve_question_from_image(image_path, user_id=None):
         return "⚠️ ARIS could not detect a valid question from the image."
 
     # 🚀 NEW STRUCTURED STUDENT AI
-    answer = solve_academic_question(
-        question_text,
-        ask_ollama
-    )
+    answer = ask_openai(question_text)
 
     return f"""📸 Question Detected:
 
@@ -693,6 +690,10 @@ def brain(msg, user_id=None):
         goal_context=goal_context
     )
 
+    # ===== DEBUG (ADD THIS) =====
+    print("➡️ USER MSG:", msg)
+    print("➡️ PROMPT:", prompt[:200])
+
     # 🚀 CORE AI CALL
     response = ask_openai(prompt)
 
@@ -800,11 +801,9 @@ def low_token_warning(tokens_left):
     # ARIS THINKS
 def process_ai_request(user_id, msg):
 
-   reply = brain(msg, user_id)
-
     if not ARIS_ACTIVE:
         return {
-            "reply": "⚠️ ARIS is temporarily paused by the system administrator.",
+            "reply": "⚠️ ARIS is paused.",
             "suggestions": [],
             "tokens_left": get_tokens(user_id)
         }
@@ -813,10 +812,31 @@ def process_ai_request(user_id, msg):
 
     if tokens <= 0:
         return {
-            "reply": "⚠️ Intelligence credits exhausted.",
+            "reply": "⚠️ No tokens left.",
             "suggestions": [],
             "tokens_left": 0
         }
+
+    # 🚀 DIRECT CALL (NO AGENTS)
+    reply = brain(msg, user_id)
+
+    # ===== TOKEN LOGIC =====
+    if reply and "⚠️" not in reply:
+
+        success = deduct_token(user_id, 1)
+
+        if success:
+            log_usage(user_id, 1)
+
+    tokens_left = get_tokens(user_id)
+
+    suggestions = generate_suggestions(msg)
+
+    return {
+        "reply": reply,
+        "suggestions": suggestions,
+        "tokens_left": tokens_left
+    }
 
     # ===== AGENT ROUTING (FINAL LOCK) =====
     m = msg.lower()
