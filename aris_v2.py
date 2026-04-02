@@ -2796,7 +2796,7 @@ removeThinking();
 addMessage(data.reply,"aris");addMessage(data.reply,"aris");
 
 // 🔥 AUTO TRIGGER POLLING
-if(data.reply.includes("Generating your image")){
+if(data.is_image){
     startImagePolling();
 }
 
@@ -2948,11 +2948,11 @@ def chat():
     save_message(user_id, "aris", reply)
 
     return jsonify({
-        "reply": reply,
-        "tokens_left": tokens_left,
-        "suggestions": suggestions
-    })
-
+    "reply": reply,
+    "tokens_left": tokens_left,
+    "suggestions": suggestions,
+    "is_image": "Generating your image" in reply
+})
 
 # ================= IMAGE RESULT ROUTE =================
 @app.route("/get_image_result")
