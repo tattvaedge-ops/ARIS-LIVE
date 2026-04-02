@@ -726,6 +726,10 @@ def brain(msg, user_id=None):
 
     intent = detect_intent(msg)
 
+    # 🎯 IMAGE INTENT DIRECT EXECUTION (FIXED POSITION)
+    if intent == "creator_image":
+        return generate_image(msg)
+
     prompt = build_prompt(
         intent=intent,
         msg=msg,
@@ -733,16 +737,12 @@ def brain(msg, user_id=None):
         goal_context=goal_context
     )
 
-    # ===== DEBUG (ADD THIS) =====
     print("➡️ USER MSG:", msg)
     print("➡️ PROMPT:", prompt[:200])
 
-    # 🚀 CORE AI CALL
     response = ask_openai(prompt)
 
-    return response.strip() if response else "⚠️ No response"
-
-    
+    return response.strip() if response else "⚠️ No response"    
     
   # ================= SUGGESTION ENGINE =================
 def generate_suggestions(message):
