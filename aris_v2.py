@@ -409,6 +409,9 @@ def ask_openai(prompt):
 
        # ================= DALL·E IMAGE GENERATION =================
 
+import base64
+import uuid
+
 def generate_image(prompt):
 
     try:
@@ -418,7 +421,19 @@ def generate_image(prompt):
             size="1024x1024"
         )
 
-        image_url = response.data[0].url
+        # 🔥 FIX: GET BASE64 IMAGE
+        image_base64 = response.data[0].b64_json
+
+        # 🔥 CREATE FILE NAME
+        filename = f"{uuid.uuid4().hex}.png"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+
+        # 🔥 SAVE IMAGE
+        with open(filepath, "wb") as f:
+            f.write(base64.b64decode(image_base64))
+
+        # 🔥 RETURN URL
+        image_url = f"/uploads/{filename}"
 
         return f"""
 🎨 ARIS IMAGE GENERATED
@@ -427,7 +442,10 @@ def generate_image(prompt):
 {prompt}
 
 🖼️ Image:
-{image_url}
+<a href="{image_url}" target="_blank">View Image</a>
+
+⬇️ Download:
+<a href="{image_url}" download>Download Image</a>
 """
 
     except Exception as e:
@@ -2827,6 +2845,12 @@ def upload():
         "solution": solution
     })
 
+    # ================= FILE SERVING =================
+
+@app.route("/uploads/<filename>")
+def uploaded_file(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
 # ================= BUY TOKENS =================
 
 @app.route("/buy_tokens")
@@ -3171,6 +3195,7 @@ def ai_status():
 def logout():
     session.clear()
     return redirect("/")
+    
 
 
 if __name__ == "__main__":
