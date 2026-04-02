@@ -4,7 +4,11 @@ import datetime
 import os
 from PIL import Image
 from openai import OpenAI
-import replicate
+try:
+    import replicate
+except:
+    replicate = None
+import os
 
 try:
     import pytesseract
@@ -495,6 +499,9 @@ def generate_avatar(image_path, style_prompt):
 # ================= GPU IMAGE GENERATION =================
 def generate_image_fast(prompt):
 
+    if not replicate:
+        return generate_image(prompt)  # fallback to OpenAI
+
     try:
         output = replicate.run(
             "stability-ai/sdxl:latest",
@@ -518,7 +525,7 @@ def generate_image_fast(prompt):
 """
 
     except Exception as e:
-        return f"❌ GPU Image error: {str(e)}"
+        return generate_image(prompt)  # fallback
 
 # ================= OCR QUESTION ENGINE =================
 
