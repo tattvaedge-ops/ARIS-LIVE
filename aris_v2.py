@@ -506,12 +506,12 @@ def generate_image_fast(prompt):
     try:
         # 🔥 PROMPT BOOSTER
         prompt = f"""
-{prompt}, ultra detailed, 4K, cinematic lighting, highly realistic,
+{prompt}, high quality, clean illustration, highly realistic,
 educational illustration, professional quality, vibrant colors
 """
 
         output = replicate.run(
-            "stability-ai/sdxl-lightning:latest",
+            "stability-ai/sdxl:latest",
             input={
                 "prompt": prompt,
                 "width": 768,
@@ -2907,6 +2907,7 @@ def get_image_result():
     result = image_results.get(user_id)
 
     if result:
+        app.config["image_results"].pop(user_id, None)  # 🔥 clear after send
         return result
     else:
         return ""
@@ -3201,6 +3202,34 @@ async function checkStatus(){
 }
 
 checkStatus();
+
+</script>
+
+<script>
+
+// ================= REAL-TIME IMAGE FETCH =================
+setInterval(async () => {
+    try {
+        const res = await fetch('/get_image_result');
+        const text = await res.text();
+
+        if (text && text.includes("ARIS")) {
+
+            const chat = document.getElementById("chat");
+
+            const msg = document.createElement("div");
+            msg.classList.add("message","aris");
+
+            msg.innerHTML = text;
+
+            chat.appendChild(msg);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+    } catch (e) {
+        console.log("Polling error", e);
+    }
+}, 1000);   // ⚡ every 1 second
 
 </script>
 
