@@ -10,6 +10,11 @@ try:
 except:
     pytesseract = None
 
+
+    # ===== TESSERACT PATH CONFIG =====
+if pytesseract:
+    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 app = Flask(__name__)
@@ -412,6 +417,7 @@ def ask_openai(prompt):
 import base64
 import uuid
 
+# ================= IMAGE GENERATION =================
 def generate_image(prompt):
 
     try:
@@ -421,18 +427,14 @@ def generate_image(prompt):
             size="1024x1024"
         )
 
-        # 🔥 FIX: GET BASE64 IMAGE
         image_base64 = response.data[0].b64_json
 
-        # 🔥 CREATE FILE NAME
         filename = f"{uuid.uuid4().hex}.png"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
 
-        # 🔥 SAVE IMAGE
         with open(filepath, "wb") as f:
             f.write(base64.b64decode(image_base64))
 
-        # 🔥 RETURN URL
         image_url = f"/uploads/{filename}"
 
         return f"""
@@ -450,6 +452,43 @@ def generate_image(prompt):
 
     except Exception as e:
         return f"❌ Image generation error: {str(e)}"
+
+
+# ================= AVATAR GENERATION =================
+def generate_avatar(image_path, style_prompt):
+
+    try:
+        response = client.images.generate(
+            model="gpt-image-1",
+            prompt=f"Create a realistic AI avatar portrait of a person: {style_prompt}, ultra detailed, cinematic lighting, 4K",
+            size="1024x1024"
+        )
+
+        image_base64 = response.data[0].b64_json
+
+        filename = f"avatar_{uuid.uuid4().hex}.png"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+
+        with open(filepath, "wb") as f:
+            f.write(base64.b64decode(image_base64))
+
+        image_url = f"/uploads/{filename}"
+
+        return f"""
+🔥 ARIS AVATAR GENERATED
+
+🎨 Style:
+{style_prompt}
+
+🖼️ Avatar:
+<a href="{image_url}" target="_blank">View Avatar</a>
+
+⬇️ Download:
+<a href="{image_url}" download>Download Avatar</a>
+"""
+
+    except Exception as e:
+        return f"❌ Avatar generation error: {str(e)}"
 
 # ================= OCR QUESTION ENGINE =================
 
