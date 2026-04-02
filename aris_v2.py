@@ -4,6 +4,7 @@ import datetime
 import os
 from PIL import Image
 from openai import OpenAI
+import replicate
 
 try:
     import pytesseract
@@ -490,6 +491,35 @@ def generate_avatar(image_path, style_prompt):
     except Exception as e:
         return f"❌ Avatar generation error: {str(e)}"
 
+
+# ================= GPU IMAGE GENERATION =================
+def generate_image_fast(prompt):
+
+    try:
+        output = replicate.run(
+            "stability-ai/sdxl:latest",
+            input={
+                "prompt": prompt,
+                "width": 1024,
+                "height": 1024
+            }
+        )
+
+        image_url = output[0]
+
+        return f"""
+🚀 ARIS GPU IMAGE GENERATED
+
+🧠 Prompt:
+{prompt}
+
+🖼️ Image:
+<a href="{image_url}" target="_blank">View Image</a>
+"""
+
+    except Exception as e:
+        return f"❌ GPU Image error: {str(e)}"
+
 # ================= OCR QUESTION ENGINE =================
 
 def extract_text_from_image(image_path):
@@ -783,9 +813,9 @@ def brain(msg, user_id=None):
 
     intent = detect_intent(msg)
 
-    # 🎯 IMAGE INTENT DIRECT EXECUTION (FIXED POSITION)
+    # 🎯 IMAGE INTENT DIRECT EXECUTION (GPU ENABLED)
     if intent == "creator_image":
-        return generate_image(msg)
+        return generate_image_fast(msg)
 
     prompt = build_prompt(
         intent=intent,
