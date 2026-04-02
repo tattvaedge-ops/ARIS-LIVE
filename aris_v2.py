@@ -500,15 +500,21 @@ def generate_avatar(image_path, style_prompt):
 def generate_image_fast(prompt):
 
     if not replicate:
-        return generate_image(prompt)  # fallback to OpenAI
+        return generate_image(prompt)
 
     try:
+        # 🔥 PROMPT BOOSTER
+        prompt = f"""
+{prompt}, ultra detailed, 4K, cinematic lighting, highly realistic,
+educational illustration, professional quality, vibrant colors
+"""
+
         output = replicate.run(
-            "stability-ai/sdxl:latest",
+            "stability-ai/sdxl-lightning:latest",  # ⚡ faster model
             input={
                 "prompt": prompt,
-                "width": 1024,
-                "height": 1024
+                "width": 768,   # ⚡ smaller = faster
+                "height": 768
             }
         )
 
@@ -525,7 +531,7 @@ def generate_image_fast(prompt):
 """
 
     except Exception as e:
-        return generate_image(prompt)  # fallback
+        return generate_image(prompt)
 
 # ================= OCR QUESTION ENGINE =================
 
@@ -619,7 +625,7 @@ def detect_intent(msg):
 def build_prompt(intent, msg, memory_context="", goal_context=""):
 
     if intent == "creator_image":
-        return f"Generate an image based on this request: {msg}"
+        return "🎨 Generating your image... please wait a few seconds."
 
     if intent == "student":
         return f"""
