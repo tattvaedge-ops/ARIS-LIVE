@@ -535,30 +535,37 @@ educational illustration, professional quality, vibrant colors
         return generate_image(prompt)
 
 
-# ================= BACKGROUND IMAGE GENERATION =================
+# ================= BACKGROUND IMAGE GENERATION (FAST + REAL-TIME) =================
 def generate_image_background(prompt, user_id):
 
-    result = generate_image_fast(prompt)
-
+    # Ensure storage exists
     if "image_results" not in app.config:
         app.config["image_results"] = {}
 
-    app.config["image_results"][user_id] = result
-# ================= OCR QUESTION ENGINE =================
-
-def extract_text_from_image(image_path):
-
-    if not pytesseract:
-        return "⚠️ OCR not available on server."
+    # 🔥 STEP 1: Set processing state immediately (UI feels instant)
+    app.config["image_results"][user_id] = {
+        "status": "processing",
+        "data": None
+    }
 
     try:
-        img = Image.open(image_path)
-        text = pytesseract.image_to_string(img)
-        return text.strip()
+        # 🔥 STEP 2: Generate image (this is slow part)
+        result = generate_image_fast(prompt)
+
+        # 🔥 STEP 3: Store final result
+        app.config["image_results"][user_id] = {
+            "status": "done",
+            "data": result
+        }
 
     except Exception as e:
-        return f"OCR Error: {str(e)}"
+        print("IMAGE ERROR:", e)
 
+        # 🔥 STEP 4: Error handling
+        app.config["image_results"][user_id] = {
+            "status": "error",
+            "data": str(e)
+        }
 
 
 
@@ -846,6 +853,7 @@ def brain(msg, user_id=None):
             target=generate_image_background,
             args=(msg, uid)
         )
+        thread.daemon = True
         thread.start()
 
         return "🎨 Generating your image... please wait a few seconds."
@@ -2447,6 +2455,52 @@ showSuggestions(data.suggestions);
 
 }
 
+// ================= SMART IMAGE POLLING =================
+
+let imagePolling = false;
+
+function startImagePolling(){
+
+    if(imagePolling) return;
+    imagePolling = true;
+
+    const interval = setInterval(async () => {
+
+        try {
+
+            const res = await fetch('/get_image_result');
+            const data = await res.json();
+
+            console.log("Polling:", data);
+
+            if(data.status === "processing"){
+                return;
+            }
+
+            if(data.status === "done"){
+
+                clearInterval(interval);
+                imagePolling = false;
+
+                addMessage(data.data, "aris");
+
+            }
+
+            if(data.status === "error"){
+
+                clearInterval(interval);
+                imagePolling = false;
+
+                addMessage("❌ Image failed: " + data.data, "aris");
+            }
+
+        } catch(e){
+            console.log("Polling error:", e);
+        }
+
+    }, 1000);
+}
+
 function showSuggestions(list){
 
 const chat = document.getElementById("chat");
@@ -2739,8 +2793,11 @@ const data = await res.json();
 
 removeThinking();
 
-addMessage(data.reply,"aris");
+addMessage(data.reply,"aris");addMessage(data.reply,"aris");
 
+// 🔥 AUTO TRIGGER POLLING
+if(data.reply.includes("Generating your image")){
+    startImagePolling();
 }
 
 </script>
@@ -2906,11 +2963,17 @@ def get_image_result():
     image_results = app.config.get("image_results", {})
     result = image_results.get(user_id)
 
-    if result:
-        app.config["image_results"].pop(user_id, None)  # 🔥 clear after send
-        return result
-    else:
-        return ""
+    if not result:
+        return jsonify({"status": "idle"})
+
+    # 🔥 send response
+    response = result
+
+    # 🔥 clear ONLY after done (important for stability)
+    if result["status"] == "done":
+        app.config["image_results"].pop(user_id, None)
+
+    return jsonify(response)
 
 @app.route("/live_users")
 def live_users():
@@ -3208,7 +3271,7 @@ checkStatus();
 <script>
 
 // ================= REAL-TIME IMAGE FETCH =================
-setInterval(async () => {
+
     try {
         const res = await fetch('/get_image_result');
         const text = await res.text();
@@ -3230,6 +3293,43 @@ setInterval(async () => {
         console.log("Polling error", e);
     }
 }, 1000);   // ⚡ every 1 second
+
+</script>
+
+<script>
+
+// 🔥 DEBUG CHECK
+console.log("IMAGE POLLING STARTED");
+
+// ================= IMAGE POLLING =================
+
+
+    try {
+        console.log("Checking image result...");  // 👈 must appear in console
+
+        const res = await fetch('/get_image_result');
+        const text = await res.text();
+
+        if (text && text.includes("ARIS")) {
+
+            console.log("IMAGE RECEIVED");
+
+            const chat = document.getElementById("chat");
+
+            const msg = document.createElement("div");
+            msg.classList.add("message","aris");
+
+            msg.innerHTML = text;
+
+            chat.appendChild(msg);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+    } catch (e) {
+        console.log("Polling error:", e);
+    }
+
+}, 1000);
 
 </script>
 
