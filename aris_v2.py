@@ -3,6 +3,7 @@ import sqlite3
 import datetime
 import os
 from PIL import Image
+import threading
 from openai import OpenAI
 try:
     import replicate
@@ -510,10 +511,10 @@ educational illustration, professional quality, vibrant colors
 """
 
         output = replicate.run(
-            "stability-ai/sdxl-lightning:latest",  # ⚡ faster model
+            "stability-ai/sdxl-lightning:latest",
             input={
                 "prompt": prompt,
-                "width": 768,   # ⚡ smaller = faster
+                "width": 768,
                 "height": 768
             }
         )
@@ -533,6 +534,16 @@ educational illustration, professional quality, vibrant colors
     except Exception as e:
         return generate_image(prompt)
 
+
+# ================= BACKGROUND IMAGE GENERATION =================
+def generate_image_background(prompt, user_id):
+
+    result = generate_image_fast(prompt)
+
+    if "image_results" not in app.config:
+        app.config["image_results"] = {}
+
+    app.config["image_results"][user_id] = result
 # ================= OCR QUESTION ENGINE =================
 
 def extract_text_from_image(image_path):
@@ -826,10 +837,20 @@ def brain(msg, user_id=None):
 
     intent = detect_intent(msg)
 
-    # 🎯 IMAGE INTENT DIRECT EXECUTION (GPU ENABLED)
+    # 🎯 IMAGE INTENT DIRECT EXECUTION (REAL-TIME)
     if intent == "creator_image":
-        return generate_image_fast(msg)
 
+        uid = session.get("user_id", "guest")
+
+        thread = threading.Thread(
+            target=generate_image_background,
+            args=(msg, uid)
+        )
+        thread.start()
+
+        return "🎨 Generating your image... please wait a few seconds."
+
+    # 🔹 NORMAL FLOW
     prompt = build_prompt(
         intent=intent,
         msg=msg,
@@ -842,7 +863,7 @@ def brain(msg, user_id=None):
 
     response = ask_openai(prompt)
 
-    return response.strip() if response else "⚠️ No response"    
+    return response.strip() if response else "⚠️ No response"
     
   # ================= SUGGESTION ENGINE =================
 def generate_suggestions(message):
@@ -2789,6 +2810,7 @@ def login():
                 return render_template_string(LOGIN_HTML, error="Invalid credentials")
 
     return render_template_string(LOGIN_HTML, error="")
+    
 
     
 
@@ -2864,7 +2886,7 @@ def chat():
     tokens_left = result["tokens_left"]
     suggestions = result["suggestions"]
 
-    # ===== SAVE MEMORY =====
+   # ===== SAVE MEMORY =====
     save_message(user_id, "user", user_input)
     save_message(user_id, "aris", reply)
 
@@ -2874,6 +2896,20 @@ def chat():
         "suggestions": suggestions
     })
 
+
+# ================= IMAGE RESULT ROUTE =================
+@app.route("/get_image_result")
+def get_image_result():
+
+    user_id = session.get("user_id", "guest")
+
+    image_results = app.config.get("image_results", {})
+    result = image_results.get(user_id)
+
+    if result:
+        return result
+    else:
+        return ""
 
 @app.route("/live_users")
 def live_users():
