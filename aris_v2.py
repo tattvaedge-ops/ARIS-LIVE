@@ -434,7 +434,7 @@ def generate_image(prompt):
         response = client.images.generate(
             model="gpt-image-1",
             prompt=prompt,
-            size="1024x1024"
+            size="512x512"
         )
 
         image_base64 = response.data[0].b64_json
@@ -832,7 +832,7 @@ def brain(msg, user_id=None):
         thread.daemon = True
         thread.start()
 
-        return "🎨 Generating your image... please wait a few seconds."
+        return "🎨 Creating your AI image... this may take 10–20 seconds. Please wait ⏳"
 
     # 🔹 NORMAL FLOW
     prompt = build_prompt(
@@ -2419,11 +2419,14 @@ mode:ARIS_MODE
 
 const data = await res.json();
 
-removeThinking();
-
 addMessage(data.reply,"aris");
 
-startImagePolling();
+// ❌ DO NOT remove thinking yet for image
+if(data.reply.includes("🎨")){
+    startImagePolling();
+} else {
+    removeThinking();
+}
 
 await loadTokens();
 
@@ -3185,6 +3188,47 @@ async function checkStatus(){
 }
 
 checkStatus();
+
+// ================= IMAGE POLLING (SAFE ADD) =================
+let imagePolling = false;
+
+function startImagePolling(){
+
+    if(imagePolling) return;
+    imagePolling = true;
+    // ⭐ FIX 4 ADD EXACTLY HERE
+    addMessage("🎨 ARIS is generating your image... please wait ⏳","aris");
+
+
+    const interval = setInterval(async () => {
+
+        try {
+            const res = await fetch('/get_image_result');
+            const data = await res.json();
+
+            if(data.status === "processing"){
+                return;
+            }
+
+            if(data.status === "done"){
+                clearInterval(interval);
+                imagePolling = false;
+                addMessage(data.data, "aris");
+                removeThinking();   // ⭐ ADD HERE
+            }
+
+            if(data.status === "error"){
+                clearInterval(interval);
+                imagePolling = false;
+                addMessage("❌ Image failed: " + data.data, "aris");
+            }
+
+        } catch(e){
+            console.log("Polling error:", e);
+        }
+
+    }, 1000);
+}
 
 </script>
 
