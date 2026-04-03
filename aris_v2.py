@@ -936,7 +936,7 @@ def process_ai_request(user_id, msg):
 def process_ai_request(msg, user_id):
     
     from aris_agents import route_agent as route_request
-    route = route_request(msg)
+    route = route_request(user_id, msg)
 
     try:
         if route == "image":
