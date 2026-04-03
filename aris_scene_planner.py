@@ -1,4 +1,8 @@
-import ollama
+try:
+    import ollama
+except:
+    ollama = None
+
 import re
 
 from aris_cinematic_story_engine import generate_story_arc
@@ -12,12 +16,10 @@ def generate_scenes(topic):
 
     # Step 1: cinematic story
     story = generate_story_arc(topic)
-
     print("CINEMATIC STORY ARC READY")
 
     # Step 2: semantic structure
     semantic = generate_semantic_scenes(topic)
-
     print("SEMANTIC SCENES READY")
 
     prompt = f"""
@@ -66,20 +68,34 @@ Rules:
 • educational clarity
 """
 
-    response = ollama.chat(
-        model="phi3:mini",
-        messages=[{"role": "user", "content": prompt}]
-    )
+    # =========================
+    # OLLAMA (LOCAL MODE)
+    # =========================
+    if ollama:
+        try:
+            response = ollama.chat(
+                model="phi3:mini",
+                messages=[{"role": "user", "content": prompt}]
+            )
 
-    scene_script = response["message"]["content"]
+            scene_script = response["message"]["content"]
+
+        except Exception as e:
+            print("Ollama error:", str(e))
+            return "⚠️ Scene generation failed"
+
+    # =========================
+    # CLOUD FALLBACK
+    # =========================
+    else:
+        return "⚠️ Scene planning not available in cloud mode"
 
     print("\nSCENE SCRIPT GENERATED\n")
     print(scene_script)
 
-    # -------------------------------------------------
-    # Extract VISUAL prompts from the scene script
-    # -------------------------------------------------
-
+    # =========================
+    # Extract VISUAL prompts
+    # =========================
     visual_prompts = re.findall(r"VISUAL:\s*(.*)", scene_script)
 
     scenes = []
