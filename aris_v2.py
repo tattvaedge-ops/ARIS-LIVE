@@ -3,13 +3,8 @@ import sqlite3
 import datetime
 import os
 from PIL import Image
-import threading
 from openai import OpenAI
-try:
-    import replicate
-except:
-    replicate = None
-import os
+import replicate
 
 try:
     import pytesseract
@@ -495,77 +490,23 @@ def generate_avatar(image_path, style_prompt):
 
     except Exception as e:
         return f"❌ Avatar generation error: {str(e)}"
+        
 
+# ================= OCR QUESTION ENGINE =================
 
-# ================= GPU IMAGE GENERATION =================
-def generate_image_fast(prompt):
+def extract_text_from_image(image_path):
 
-    if not replicate:
-        return generate_image(prompt)
-
-    try:
-        # 🔥 PROMPT BOOSTER
-        prompt = f"""
-{prompt}, high quality, clean illustration, highly realistic,
-educational illustration, professional quality, vibrant colors
-"""
-
-        output = replicate.run(
-            "stability-ai/sdxl:latest",
-            input={
-                "prompt": prompt,
-                "width": 768,
-                "height": 768
-            }
-        )
-
-        image_url = output[0]
-
-        return f"""
-🚀 ARIS GPU IMAGE GENERATED
-
-🧠 Prompt:
-{prompt}
-
-🖼️ Image:
-<a href="{image_url}" target="_blank">View Image</a>
-"""
-
-    except Exception as e:
-        return generate_image(prompt)
-
-
-# ================= BACKGROUND IMAGE GENERATION (FAST + REAL-TIME) =================
-def generate_image_background(prompt, user_id):
-
-    # Ensure storage exists
-    if "image_results" not in app.config:
-        app.config["image_results"] = {}
-
-    # 🔥 STEP 1: Set processing state immediately (UI feels instant)
-    app.config["image_results"][user_id] = {
-        "status": "processing",
-        "data": None
-    }
+    if not pytesseract:
+        return "⚠️ OCR not available on server."
 
     try:
-        # 🔥 STEP 2: Generate image (this is slow part)
-        result = generate_image_fast(prompt)
-
-        # 🔥 STEP 3: Store final result
-        app.config["image_results"][user_id] = {
-            "status": "done",
-            "data": result
-        }
+        img = Image.open(image_path)
+        text = pytesseract.image_to_string(img)
+        return text.strip()
 
     except Exception as e:
-        print("IMAGE ERROR:", e)
+        return f"OCR Error: {str(e)}"
 
-        # 🔥 STEP 4: Error handling
-        app.config["image_results"][user_id] = {
-            "status": "error",
-            "data": str(e)
-        }
 
 
 
@@ -643,7 +584,7 @@ def detect_intent(msg):
 def build_prompt(intent, msg, memory_context="", goal_context=""):
 
     if intent == "creator_image":
-        return "🎨 Generating your image... please wait a few seconds."
+        return f"Generate an image based on this request: {msg}"
 
     if intent == "student":
         return f"""
@@ -844,7 +785,7 @@ def brain(msg, user_id=None):
 
     intent = detect_intent(msg)
 
-    # 🎯 IMAGE INTENT DIRECT EXECUTION (REAL-TIME)
+    # 🎨 IMAGE INTENT (ASYNC)
     if intent == "creator_image":
 
         uid = session.get("user_id", "guest")
@@ -2455,52 +2396,6 @@ showSuggestions(data.suggestions);
 
 }
 
-// ================= SMART IMAGE POLLING =================
-
-let imagePolling = false;
-
-function startImagePolling(){
-
-    if(imagePolling) return;
-    imagePolling = true;
-
-    const interval = setInterval(async () => {
-
-        try {
-
-            const res = await fetch('/get_image_result');
-            const data = await res.json();
-
-            console.log("Polling:", data);
-
-            if(data.status === "processing"){
-                return;
-            }
-
-            if(data.status === "done"){
-
-                clearInterval(interval);
-                imagePolling = false;
-
-                addMessage(data.data, "aris");
-
-            }
-
-            if(data.status === "error"){
-
-                clearInterval(interval);
-                imagePolling = false;
-
-                addMessage("❌ Image failed: " + data.data, "aris");
-            }
-
-        } catch(e){
-            console.log("Polling error:", e);
-        }
-
-    }, 1000);
-}
-
 function showSuggestions(list){
 
 const chat = document.getElementById("chat");
@@ -2793,11 +2688,8 @@ const data = await res.json();
 
 removeThinking();
 
-addMessage(data.reply,"aris");addMessage(data.reply,"aris");
+addMessage(data.reply,"aris");
 
-// 🔥 AUTO TRIGGER POLLING
-if(data.is_image){
-    startImagePolling();
 }
 
 </script>
@@ -2867,7 +2759,6 @@ def login():
                 return render_template_string(LOGIN_HTML, error="Invalid credentials")
 
     return render_template_string(LOGIN_HTML, error="")
-    
 
     
 
@@ -2943,37 +2834,16 @@ def chat():
     tokens_left = result["tokens_left"]
     suggestions = result["suggestions"]
 
-   # ===== SAVE MEMORY =====
+    # ===== SAVE MEMORY =====
     save_message(user_id, "user", user_input)
     save_message(user_id, "aris", reply)
 
     return jsonify({
-    "reply": reply,
-    "tokens_left": tokens_left,
-    "suggestions": suggestions,
-    "is_image": "Generating your image" in reply
-})
+        "reply": reply,
+        "tokens_left": tokens_left,
+        "suggestions": suggestions
+    })
 
-# ================= IMAGE RESULT ROUTE =================
-@app.route("/get_image_result")
-def get_image_result():
-
-    user_id = session.get("user_id", "guest")
-
-    image_results = app.config.get("image_results", {})
-    result = image_results.get(user_id)
-
-    if not result:
-        return jsonify({"status": "idle"})
-
-    # 🔥 send response
-    response = result
-
-    # 🔥 clear ONLY after done (important for stability)
-    if result["status"] == "done":
-        app.config["image_results"].pop(user_id, None)
-
-    return jsonify(response)
 
 @app.route("/live_users")
 def live_users():
@@ -3265,71 +3135,6 @@ async function checkStatus(){
 }
 
 checkStatus();
-
-</script>
-
-<script>
-
-// ================= REAL-TIME IMAGE FETCH =================
-
-    try {
-        const res = await fetch('/get_image_result');
-        const text = await res.text();
-
-        if (text && text.includes("ARIS")) {
-
-            const chat = document.getElementById("chat");
-
-            const msg = document.createElement("div");
-            msg.classList.add("message","aris");
-
-            msg.innerHTML = text;
-
-            chat.appendChild(msg);
-            chat.scrollTop = chat.scrollHeight;
-        }
-
-    } catch (e) {
-        console.log("Polling error", e);
-    }
-}, 1000);   // ⚡ every 1 second
-
-</script>
-
-<script>
-
-// 🔥 DEBUG CHECK
-console.log("IMAGE POLLING STARTED");
-
-// ================= IMAGE POLLING =================
-
-
-    try {
-        console.log("Checking image result...");  // 👈 must appear in console
-
-        const res = await fetch('/get_image_result');
-        const text = await res.text();
-
-        if (text && text.includes("ARIS")) {
-
-            console.log("IMAGE RECEIVED");
-
-            const chat = document.getElementById("chat");
-
-            const msg = document.createElement("div");
-            msg.classList.add("message","aris");
-
-            msg.innerHTML = text;
-
-            chat.appendChild(msg);
-            chat.scrollTop = chat.scrollHeight;
-        }
-
-    } catch (e) {
-        console.log("Polling error:", e);
-    }
-
-}, 1000);
 
 </script>
 
