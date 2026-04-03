@@ -4,7 +4,10 @@ import sqlite3
 import datetime
 import requests
 import os
-import pytesseract
+try:
+    import pytesseract
+except:
+    pytesseract = None
 from PIL import Image
 from aris_student_engine import solve_academic_question
 from openai import OpenAI
@@ -482,6 +485,9 @@ def generate_image(prompt):
 # ================= OCR QUESTION ENGINE =================
 
 def extract_text_from_image(image_path):
+
+    if pytesseract is None:
+        return "⚠️ OCR not available in cloud mode"
 
     try:
         img = Image.open(image_path)
