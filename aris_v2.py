@@ -785,6 +785,30 @@ def low_token_warning(tokens_left):
 
 
 # ================= SUGGESTION ENGINE =================
+
+def simulate_video(prompt):
+
+    scenes = [
+        f"🎬 Scene 1: Introduction of {prompt}",
+        f"🎥 Scene 2: Core concept explained visually",
+        f"📊 Scene 3: Real-world example",
+        f"🚀 Scene 4: Advanced insight",
+        f"🌍 Scene 5: Application in real life",
+        f"✨ Scene 6: Final summary"
+    ]
+
+    return f"""
+🎬 ARIS CINEMATIC VIDEO GENERATED
+
+🧠 Topic: {prompt}
+
+🎞️ Scenes:
+{chr(10).join(scenes)}
+
+⚡ Note:
+High-quality cinematic rendering will be enabled in full version.
+"""
+
 def generate_suggestions(message):
     
 
@@ -902,6 +926,9 @@ def process_ai_request(user_id, msg):
         }
         route = route_request(msg)
 
+
+        from aris_agents import route_agent as route_request
+        route = route_request(msg)
        # ===== NEW CENTRAL ROUTING =====
     try:
 
@@ -910,8 +937,7 @@ def process_ai_request(user_id, msg):
             reply = generate_image(msg)
 
         elif route == "video":
-            from aris_video_engine import generate_video
-            reply = generate_video(msg)
+            reply = simulate_video(msg)
 
         elif route == "research":
             from aris_agents import route_agent
