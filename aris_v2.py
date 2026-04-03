@@ -2433,46 +2433,6 @@ showSuggestions(data.suggestions);
 
 }
 
-}
-
-// ✅ PASTE HERE
-
-// ================= IMAGE POLLING =================
-let imagePolling = false;
-
-function startImagePolling(){
-
-    if(imagePolling) return;
-    imagePolling = true;
-
-    const interval = setInterval(async () => {
-
-        try {
-            const res = await fetch('/get_image_result');
-            const data = await res.json();
-
-            if(data.status === "processing"){
-                return;
-            }
-
-            if(data.status === "done"){
-                clearInterval(interval);
-                imagePolling = false;
-                addMessage(data.data, "aris");
-            }
-
-            if(data.status === "error"){
-                clearInterval(interval);
-                imagePolling = false;
-                addMessage("❌ Image failed: " + data.data, "aris");
-            }
-
-        } catch(e){
-            console.log("Polling error:", e);
-        }
-
-    }, 1000);
-}
 
 
 function showSuggestions(list){
