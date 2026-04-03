@@ -1,4 +1,7 @@
-import ollama
+try:
+    import ollama
+except:
+    ollama = None
 
 
 def plan_task(user_input):
@@ -22,9 +25,19 @@ GENERAL_CHAT
 Return ONLY one task type.
 """
 
-    response = ollama.chat(
-        model="phi3:mini",
-        messages=[{"role": "user", "content": prompt}]
-    )
+    if ollama:
+        try:
+            response = ollama.chat(
+                model="phi3:mini",
+                messages=[{"role": "user", "content": prompt}]
+            )
 
-    return response["message"]["content"].strip()
+            return response["message"]["content"].strip()
+
+        except Exception as e:
+            print("Ollama error:", str(e))
+            return "GENERAL_CHAT"
+
+    else:
+        # Cloud fallback (no ollama)
+        return "GENERAL_CHAT"
