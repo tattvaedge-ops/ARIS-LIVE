@@ -1,35 +1,48 @@
 from flask import Flask, render_template_string, request, jsonify, send_from_directory, session, redirect
+from aris_coordinator import ARISCoordinator
 import sqlite3
 import datetime
+import requests
 import os
+import pytesseract
 from PIL import Image
+from aris_student_engine import solve_academic_question
 from openai import OpenAI
-try:
-    import replicate
-except:
-    replicate = None
-    
-import threading
+from werkzeug.security import generate_password_hash, check_password_hash
+from dotenv import load_dotenv
+load_dotenv()
 
-try:
-    import pytesseract
-except:
-    pytesseract = None
+def ask_ollama(prompt):
+    try:
+        response = requests.post(
+            "https://chaim-mentholated-alfredia.ngrok-free.dev/api/generate",
+            json={
+                "model": "phi3:mini",
+                "prompt": prompt,
+                "stream": False
+            },
+            timeout=120
+        )
 
-# ===== TESSERACT PATH CONFIG =====
-if pytesseract:
-    pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
+        return response.json()["response"]
 
-
-    # ===== TESSERACT PATH CONFIG =====
-if pytesseract:
-    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    except Exception as e:
+        return f"Ollama error: {str(e)}"
+        
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 app = Flask(__name__)
-app.secret_key = "aris_secret_key"
 
+app.secret_key = os.getenv("SECRET_KEY", "aris_super_secret_key")
+
+app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_TYPE"] = "filesystem"
+app.config["SESSION_COOKIE_SECURE"] = False  # True later in production (HTTPS)
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+
+# Initialize ARIS Coordinator
+coordinator = ARISCoordinator()
 
 # ===== ARIS GLOBAL CONTROL =====
 ARIS_ACTIVE = True
@@ -126,9 +139,11 @@ def create_user(email, password):
     c = conn.cursor()
 
     try:
+        hashed_password = generate_password_hash(password)
+
         c.execute(
             "INSERT INTO users (email, password, created_at) VALUES (?, ?, ?)",
-            (email, password, str(datetime.datetime.now()))
+            (email, hashed_password, str(datetime.datetime.now()))
         )
 
         conn.commit()
@@ -187,23 +202,21 @@ def get_last_task(user_id):
 
 def authenticate_user(email, password):
 
-    email = email.strip()
-    password = password.strip()
-
-    conn = sqlite3.connect("aris_memory.db")
+    conn = sqlite3.connect("aris_memory.db", check_same_thread=False)
     c = conn.cursor()
 
-    print("LOGIN TRY:", email, password)
-
-    c.execute(
-        "SELECT id FROM users WHERE email=? AND password=?",
-        (email, password)
-    )
-
+    c.execute("SELECT id, password FROM users WHERE email=?", (email,))
     row = c.fetchone()
+
     conn.close()
 
-    return row[0] if row else None
+    if row:
+        user_id, hashed_password = row
+
+        if check_password_hash(hashed_password, password):
+            return user_id
+
+    return None
 
 # ================= TOKEN SYSTEM =================
 
@@ -389,63 +402,69 @@ def get_profit_metrics():
     }
 
 
+
 # ================= OPENAI BRAIN =================
 
 def ask_openai(prompt):
 
     try:
-
-        # 🔥 SMART TOKEN CONTROL
-        if len(prompt) < 800:
-            max_tokens = 500
-        elif len(prompt) < 2000:
-            max_tokens = 800
-        else:
-            max_tokens = 1200
-
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are ARIS AI. Be clear and helpful."},
+                {
+                    "role": "system",
+                    "content": """
+You are ARIS — Advanced Real-Time Integrated System.
+
+You help in study, business, and life.
+
+Rules:
+- Be clear
+- Be structured
+- No fluff
+"""
+                },
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.1,
-            max_tokens=max_tokens
+            temperature=0.3,
+            max_tokens=300
         )
 
-        reply = response.choices[0].message.content
+        output = response.choices[0].message.content.strip()
 
-        return reply.strip() if reply else "⚠️ No response generated."
+        print("✅ OPENAI SUCCESS:", output[:100])
+
+        return output
 
     except Exception as e:
-        print("🔥 OPENAI ERROR:", str(e))
-        return "⚠️ ARIS is thinking slower than usual. Please retry."
+
+        error_msg = str(e)
+
+        print("❌ OPENAI ERROR:", error_msg)
+
+        # 🚨 QUOTA ERROR
+        if "insufficient_quota" in error_msg or "429" in error_msg:
+            return "__OPENAI_QUOTA_ERROR__"
+
+        # 🚨 RATE LIMIT
+        if "rate limit" in error_msg.lower():
+            return "__OPENAI_RATE_LIMIT__"
+
+        return "__OPENAI_ERROR__"
 
 
-       # ================= DALL·E IMAGE GENERATION =================
+        # ================= DALL·E IMAGE GENERATION =================
 
-import base64
-import uuid
-
-# ================= IMAGE GENERATION =================
 def generate_image(prompt):
 
     try:
         response = client.images.generate(
             model="gpt-image-1",
             prompt=prompt,
-            size="512x512"
+            size="1024x1024"
         )
 
-        image_base64 = response.data[0].b64_json
-
-        filename = f"{uuid.uuid4().hex}.png"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-
-        with open(filepath, "wb") as f:
-            f.write(base64.b64decode(image_base64))
-
-        image_url = f"/uploads/{filename}"
+        image_url = response.data[0].url
 
         return f"""
 🎨 ARIS IMAGE GENERATED
@@ -454,96 +473,28 @@ def generate_image(prompt):
 {prompt}
 
 🖼️ Image:
-<a href="{image_url}" target="_blank">View Image</a>
-
-⬇️ Download:
-<a href="{image_url}" download>Download Image</a>
+{image_url}
 """
 
     except Exception as e:
         return f"❌ Image generation error: {str(e)}"
 
-
-# ================= BACKGROUND IMAGE GENERATION =================
-def generate_image_background(prompt, user_id):
-
-    if "image_results" not in app.config:
-        app.config["image_results"] = {}
-
-    app.config["image_results"][user_id] = {
-        "status": "processing",
-        "data": None
-    }
-
-    try:
-        result = generate_image(prompt)
-
-        app.config["image_results"][user_id] = {
-            "status": "done",
-            "data": result
-        }
-
-    except Exception as e:
-        app.config["image_results"][user_id] = {
-            "status": "error",
-            "data": str(e)
-        }       
-
-
-# ================= AVATAR GENERATION =================
-def generate_avatar(image_path, style_prompt):
-
-    try:
-        response = client.images.generate(
-            model="gpt-image-1",
-            prompt=f"Create a realistic AI avatar portrait of a person: {style_prompt}, ultra detailed, cinematic lighting, 4K",
-            size="1024x1024"
-        )
-
-        image_base64 = response.data[0].b64_json
-
-        filename = f"avatar_{uuid.uuid4().hex}.png"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-
-        with open(filepath, "wb") as f:
-            f.write(base64.b64decode(image_base64))
-
-        image_url = f"/uploads/{filename}"
-
-        return f"""
-🔥 ARIS AVATAR GENERATED
-
-🎨 Style:
-{style_prompt}
-
-🖼️ Avatar:
-<a href="{image_url}" target="_blank">View Avatar</a>
-
-⬇️ Download:
-<a href="{image_url}" download>Download Avatar</a>
-"""
-
-    except Exception as e:
-        return f"❌ Avatar generation error: {str(e)}"
-        
-
 # ================= OCR QUESTION ENGINE =================
 
 def extract_text_from_image(image_path):
 
-    if not pytesseract:
-        return "⚠️ OCR not available on server."
-
     try:
         img = Image.open(image_path)
+
         text = pytesseract.image_to_string(img)
+
         return text.strip()
 
     except Exception as e:
         return f"OCR Error: {str(e)}"
 
 
-
+from aris_student_engine import solve_academic_question
 
 def solve_question_from_image(image_path, user_id=None):
 
@@ -553,7 +504,10 @@ def solve_question_from_image(image_path, user_id=None):
         return "⚠️ ARIS could not detect a valid question from the image."
 
     # 🚀 NEW STRUCTURED STUDENT AI
-    answer = ask_openai(question_text)
+    answer = solve_academic_question(
+        question_text,
+        ask_ollama
+    )
 
     return f"""📸 Question Detected:
 
@@ -607,7 +561,7 @@ def detect_intent(msg):
 
     # 🧭 LIFE
     if any(x in m for x in [
-        "life", "goal", "career", "habit",
+        "life", "goal", "career", "habit", "plan",
         "productivity", "decision", "schedule"
     ]):
         return "life"
@@ -619,7 +573,8 @@ def detect_intent(msg):
 def build_prompt(intent, msg, memory_context="", goal_context=""):
 
     if intent == "creator_image":
-        return f"Generate an image based on this request: {msg}"
+        from aris_creation_agent import creation_agent
+        return creation_agent(msg)
 
     if intent == "student":
         return f"""
@@ -631,8 +586,8 @@ Supported exam types include JEE, NEET, Olympiads, NTSE, NSTSE, CLAT, AILET, TOE
 
 Adapt response based on user input:
 
-- If the user asks a simple question → give a short, clear answer.
-- If the user asks for detailed explanation → give structured detailed output.
+- If the user asks a simple question -> give a short, clear answer.
+- If the user asks for detailed explanation -> give structured detailed output.
 - Do not over-explain unnecessarily.
 
 Rules:
@@ -650,12 +605,8 @@ Key Points
 Example
 Summary
 
-Previous Conversation (IMPORTANT CONTEXT):
+Conversation:
 {memory_context}
-
-Use the above context to continue the discussion.
-Do NOT restart from scratch.
-If the user asks follow-up questions like "what else", "continue", "break this", or "next", build on the previous answer.
 
 User Goal:
 {goal_context}
@@ -676,12 +627,8 @@ Explanation
 Action Steps
 Summary
 
-Previous Conversation (IMPORTANT CONTEXT):
+Conversation:
 {memory_context}
-
-Use the above context to continue the discussion.
-Do NOT restart from scratch.
-If the user asks follow-up questions like "what else", "continue", "break this", or "next", build on the previous answer.
 
 User Goal:
 {goal_context}
@@ -702,12 +649,8 @@ Description
 Execution Steps
 Tips
 
-Previous Conversation (IMPORTANT CONTEXT):
+Conversation:
 {memory_context}
-
-Use the above context to continue the discussion.
-Do NOT restart from scratch.
-If the user asks follow-up questions like "what else", "continue", "break this", or "next", build on the previous answer.
 
 User Goal:
 {goal_context}
@@ -729,12 +672,8 @@ Explanation
 Key Insights
 Conclusion
 
-Previous Conversation (IMPORTANT CONTEXT):
+Conversation:
 {memory_context}
-
-Use the above context to continue the discussion.
-Do NOT restart from scratch.
-If the user asks follow-up questions like "what else", "continue", "break this", or "next", build on the previous answer.
 
 User Goal:
 {goal_context}
@@ -755,12 +694,8 @@ Analysis
 Recommended Actions
 Summary
 
-Previous Conversation (IMPORTANT CONTEXT):
+Conversation:
 {memory_context}
-
-Use the above context to continue the discussion.
-Do NOT restart from scratch.
-If the user asks follow-up questions like "what else", "continue", "break this", or "next", build on the previous answer.
 
 User Goal:
 {goal_context}
@@ -773,30 +708,14 @@ User Request:
 You are ARIS, an intelligent AI assistant.
 
 Adapt to user intent:
-- Short question → short answer
-- Complex request → structured response
+- Short question -> short answer
+- Complex request -> structured response
 - Avoid unnecessary long outputs
-
-Always complete the answer properly.
-Do not cut mid-sentence.
-Always complete equations and formulas properly.
-Do not leave expressions incomplete.
-
-Always complete the answer fully.
-If you start a list or section, finish it completely.
-Do not stop in the middle of a sentence or bullet point.
-Ensure the response ends properly with a complete thought.
-
-
 
 Answer clearly and directly.
 
-Previous Conversation (IMPORTANT CONTEXT):
+Conversation:
 {memory_context}
-
-Use the above context to continue the discussion.
-Do NOT restart from scratch.
-If the user asks follow-up questions like "what else", "continue", "break this", or "next", build on the previous answer.
 
 User Goal:
 {goal_context}
@@ -806,7 +725,6 @@ User Question:
 
 Answer:
 """
-
 
 # ================= ARIS BRAIN =================
 def brain(msg, user_id=None):
@@ -820,21 +738,6 @@ def brain(msg, user_id=None):
 
     intent = detect_intent(msg)
 
-    # 🎨 IMAGE INTENT (ASYNC)
-    if intent == "creator_image":
-
-        uid = session.get("user_id", "guest")
-
-        thread = threading.Thread(
-            target=generate_image_background,
-            args=(msg, uid)
-        )
-        thread.daemon = True
-        thread.start()
-
-        return "🎨 Creating your AI image... this may take 10–20 seconds. Please wait ⏳"
-
-    # 🔹 NORMAL FLOW
     prompt = build_prompt(
         intent=intent,
         msg=msg,
@@ -842,15 +745,49 @@ def brain(msg, user_id=None):
         goal_context=goal_context
     )
 
-    print("➡️ USER MSG:", msg)
-    print("➡️ PROMPT:", prompt[:200])
-
+    # 🔥 THIS BLOCK (4 spaces)
     response = ask_openai(prompt)
 
-    return response.strip() if response else "⚠️ No response"
-    
-  # ================= SUGGESTION ENGINE =================
+    if response in ["__OPENAI_QUOTA_ERROR__", "__OPENAI_RATE_LIMIT__", "__OPENAI_ERROR__"]:
+        try:
+            backup = ask_ollama(prompt)
+            response = backup
+        except:
+            response = "⚠️ ARIS is temporarily unavailable. Please try again."
+
+    # 🧹 CLEAN OUTPUT
+    bad_phrases = [
+        "Conversation so far:",
+        "User goal:",
+        "You are ARIS",
+        "Conversation:",
+        "User Goal:"
+    ]
+
+    for b in bad_phrases:
+        response = response.replace(b, "")
+
+    return response.strip()
+
+    # ================= LOW TOKEN WARNING =================
+def low_token_warning(tokens_left):
+
+    if tokens_left <= 0:
+        return "⚠️ Intelligence credits exhausted."
+
+    if tokens_left <= 3:
+        return "⚡ Only a few tokens left. Recharge soon."
+
+    if tokens_left <= 7:
+        return "🧠 You are actively using ARIS. Consider adding tokens."
+
+    return None
+
+
+# ================= SUGGESTION ENGINE =================
 def generate_suggestions(message):
+    
+
 
     msg = message.lower()
 
@@ -918,28 +855,15 @@ def generate_suggestions(message):
         "Create structured plan"
     ]
 
-# ================= LOW TOKEN INTELLIGENCE =================
-def low_token_warning(tokens_left):
-
-    if tokens_left <= 0:
-        return '<span class="token-warning">⚠️ Intelligence credits exhausted.</span>'
-
-    if tokens_left <= 3:
-        return '<span class="token-warning">⚡ Only a few intelligence credits left. Add credits to continue uninterrupted.</span>'
-
-    if tokens_left <= 7:
-        return '<span class="token-warning">🧠 You\'re actively using ARIS intelligence. Consider adding credits soon.</span>'
-
-    return None
-    
-# ================= CONTROL LAYER =================
-
-    # ARIS THINKS
 def process_ai_request(user_id, msg):
+
+    print("MSG:", msg)
+
+    from aris_agents import route_agent
 
     if not ARIS_ACTIVE:
         return {
-            "reply": "⚠️ ARIS is paused.",
+            "reply": "⚠️ ARIS is temporarily paused by the system administrator.",
             "suggestions": [],
             "tokens_left": get_tokens(user_id)
         }
@@ -948,33 +872,79 @@ def process_ai_request(user_id, msg):
 
     if tokens <= 0:
         return {
-            "reply": "⚠️ No tokens left.",
+            "reply": "⚠️ Intelligence credits exhausted.",
             "suggestions": [],
             "tokens_left": 0
         }
 
-    # 🚀 DIRECT CALL (NO AGENTS)
-    reply = brain(msg, user_id)
+    # ===== TOKEN COST LOGIC =====
+    token_cost = 1
+    m = msg.lower()
 
-    # ===== TOKEN LOGIC =====
-    if reply and "⚠️" not in reply:
+    if any(x in m for x in ["image", "poster", "thumbnail", "design", "generate image", "create image"]):
+        token_cost = 7
 
-        success = deduct_token(user_id, 1)
+    elif any(x in m for x in ["video", "reel", "animation", "generate video"]):
+        token_cost = 20
 
-        if success:
-            log_usage(user_id, 1)
+    elif any(x in m for x in ["research paper", "literature review", "journal", "citation", "methodology", "thesis", "dissertation"]):
+        token_cost = 3
+
+    elif any(x in m for x in ["pdf", "file", "document"]):
+        token_cost = 5
+
+    # ===== CHECK TOKENS =====
+    if tokens < token_cost:
+        return {
+            "reply": f"⚠️ This action requires {token_cost} tokens. You have {tokens}. Please recharge.",
+            "suggestions": [],
+            "tokens_left": tokens
+        }
+        route = route_request(msg)
+
+       # ===== NEW CENTRAL ROUTING =====
+    try:
+
+        if route == "image":
+            from aris_image_engine import generate_image
+            reply = generate_image(msg)
+
+        elif route == "video":
+            from aris_video_engine import generate_video
+            reply = generate_video(msg)
+
+        elif route == "research":
+            from aris_agents import route_agent
+            reply = route_agent(msg, msg)
+
+        elif route == "study":
+            reply = brain(msg, user_id)
+
+        else:
+            reply = brain(msg, user_id)
+
+    except Exception as e:
+        print("ERROR:", str(e))
+        reply = "⚠️ ARIS encountered an error. Check system logs."
+
+    # ===== TOKEN DEDUCTION =====
+    deduct_token(user_id, token_cost)
+    log_usage(user_id, token_cost)
 
     tokens_left = get_tokens(user_id)
 
+    warning = low_token_warning(tokens_left)
+
     suggestions = generate_suggestions(msg)
+
+    print("FINAL REPLY:", reply)
 
     return {
         "reply": reply,
         "suggestions": suggestions,
         "tokens_left": tokens_left
     }
-
-
+    
 # ================= LOGIN PAGE =================
 LOGIN_HTML = """
 <!DOCTYPE html>
@@ -1279,21 +1249,39 @@ loop autoplay>
 <input name="password" type="password" placeholder="Password" required>
 <br>
 
-<div style="margin-bottom:10px;">
-<a href="/forgot" style="color:#f97316;text-decoration:none;">
-Forgot Password?
-</a>
-</div>
-
-<button type="submit" name="action" value="login">
+<button name="action" value="login">
 Login →
+</button>
+
+<button name="action" value="signup">
+Create Account
 </button>
 
 <br><br>
 
-<button type="submit" name="action" value="signup">
-Create Account
+<button type="button" onclick="showForgotPassword()" style="background:#444;color:#fff;padding:10px;border-radius:8px;border:none;">
+Forgot Password?
 </button>
+
+<script>
+function showForgotPassword() {
+    const email = prompt("Enter your registered email:");
+
+    if (!email) return;
+
+    fetch("/forgot-password", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email: email })
+    })
+    .then(res => res.json())
+    .then(data => {
+        alert(data.message);
+    });
+}
+</script>
 
 </form>
 
@@ -2419,55 +2407,36 @@ mode:ARIS_MODE
 
 const data = await res.json();
 
+removeThinking();
+
+// ✅ SAFE TOKEN UPDATE
+if(data.tokens_left !== undefined){
+
+    const tokenBox = document.getElementById("tokenBox");
+    const profileTokens = document.getElementById("profileTokens");
+
+    if(tokenBox){
+        tokenBox.innerText = "🧠 Tokens: " + data.tokens_left;
+    }
+
+    if(profileTokens){
+        profileTokens.innerText = data.tokens_left;
+    }
+
+}
+
 addMessage(data.reply,"aris");
 
-// ❌ DO NOT remove thinking yet for image
-if(data.reply.includes("🎨")){
-    startImagePolling();
-} else {
-    removeThinking();
+// Suggestions
+if(data.suggestions){
+    showSuggestions(data.suggestions);
 }
 
+// 🔥 FINAL STABLE SYNC (IMPORTANT)
 await loadTokens();
 
-if(data.suggestions){
-showSuggestions(data.suggestions);
 }
 
-}
-
-
-
-function showSuggestions(list){
-
-const chat = document.getElementById("chat");
-
-const box = document.createElement("div");
-box.style.marginTop = "10px";
-box.style.display = "flex";
-box.style.flexWrap = "wrap";
-box.style.gap = "8px";
-
-list.forEach(item=>{
-
-const btn = document.createElement("button");
-
-btn.innerText = item;
-btn.className = "wow-btn";   // 🔥 USE EXISTING STYLE
-
-btn.onclick = ()=>{
-document.getElementById("msg").value = item;
-send();
-};
-
-box.appendChild(btn);
-
-});
-
-chat.appendChild(box);
-chat.scrollTop = chat.scrollHeight;
-
-}
 
 loadTokens();
 showWelcome();
@@ -2488,7 +2457,12 @@ if(type === "aris"){
         msg.innerHTML = text;
     }
     else{
-        typeWriter(msg,text);
+
+        typeWriter(msg, text, () => {
+
+   
+
+});
     }
 
 }else{
@@ -2499,21 +2473,21 @@ chat.scrollTop = chat.scrollHeight;
 
 }
 
-function typeWriter(element,text){
+function typeWriter(element, text, callback){
 
 let i = 0;
 element.innerHTML = "";
 
 function typing(){
 
-if(i < text.length){
-
-element.innerHTML += text[i];
-i++;
-
-setTimeout(typing,12);
-
-}
+    if(i < text.length){
+        element.innerHTML += text[i];
+        i++;
+        setTimeout(typing, 12);
+    } else {
+        // ✅ AFTER TYPING COMPLETE
+        if(callback) callback();
+    }
 
 }
 
@@ -2526,7 +2500,7 @@ async function loadTokens(){
     const res = await fetch("/tokens");
     const data = await res.json();
 
-    const tokens = data.tokens;
+    const tokens = data.tokens;   // ✅ ONLY USE THIS
 
     document.getElementById("tokenBox").innerText =
         "🧠 Tokens: " + tokens;
@@ -2547,26 +2521,18 @@ async function loadTokens(){
 
 async function buyTokens(){
 
+
+
     const res = await fetch("/buy_tokens");
     const data = await res.json();
 
     alert(data.message);
 
-    await loadTokens();   // refresh tokens
-
-    // ✅ FIX: hide lock screen
-    const lock = document.getElementById("lockScreen");
-    if (lock) {
-        lock.style.display = "none";
-    }
-
-    // ✅ re-enable input
-    const input = document.getElementById("msg");
-    if (input) input.disabled = false;
+    await loadTokens();   // refresh instantly
 }
 
 // load on start
-loadTokens();
+
 
 
 
@@ -2732,6 +2698,20 @@ removeThinking();
 
 addMessage(data.reply,"aris");
 
+// 🔥 DELAYED TOKEN UPDATE (FINAL FIX)
+setTimeout(() => {
+
+    if(data.tokens_left !== undefined && data.tokens_left !== null){
+
+        document.getElementById("tokenBox").innerText =
+            "🧠 Tokens: " + data.tokens_left;
+
+        document.getElementById("profileTokens").innerText =
+            data.tokens_left;
+
+    }
+
+}, 100);
 }
 
 </script>
@@ -2742,45 +2722,38 @@ addMessage(data.reply,"aris");
 
 # ================= ROUTES =================
 
-@app.route("/forgot", methods=["GET","POST"])
+@app.route("/forgot-password", methods=["POST"])
 def forgot_password():
 
-    if request.method == "POST":
-        email = request.form.get("email")
+    data = request.get_json()
+    email = data.get("email")
 
-        conn = sqlite3.connect("aris_memory.db")
-        c = conn.cursor()
+    conn = sqlite3.connect("aris_memory.db", check_same_thread=False)
+    c = conn.cursor()
 
-        c.execute("SELECT id FROM users WHERE email=?", (email,))
-        user = c.fetchone()
+    c.execute("SELECT id FROM users WHERE email=?", (email,))
+    user = c.fetchone()
 
-        conn.close()
+    conn.close()
 
-        if user:
-            # ⚡ TEMP: show password directly (DEV MODE)
-            return f"⚠️ DEV MODE: Password reset link would be sent to {email}"
-        else:
-            return "❌ Email not found"
+    if user:
+        return jsonify({
+            "message": "Password reset feature coming soon. Please contact support for now."
+        })
+    else:
+        return jsonify({
+            "message": "Email not found."
+        })
 
-    return """
-    <h2>Reset Password</h2>
-    <form method="POST">
-        <input name="email" placeholder="Enter your email" required>
-        <button type="submit">Send Reset Link</button>
-    </form>
-    """
 
-    
 @app.route("/", methods=["GET", "POST"])
 def login():
 
     if request.method == "POST":
 
         action = request.form.get("action")
-        email = request.form["email"].strip()
-        password = request.form["password"].strip()
-
-        print("ACTION:", action, email, password)
+        email = request.form["email"]
+        password = request.form["password"]
 
         if action == "signup":
             user_id = create_user(email, password)
@@ -2789,7 +2762,7 @@ def login():
                 session["user_id"] = user_id
                 return redirect("/aris")
             else:
-                return render_template_string(LOGIN_HTML, error="User already exists")
+                return LOGIN_HTML.replace("{{error}}", "User already exists")
 
         if action == "login":
             user_id = authenticate_user(email, password)
@@ -2798,25 +2771,9 @@ def login():
                 session["user_id"] = user_id
                 return redirect("/aris")
             else:
-                return render_template_string(LOGIN_HTML, error="Invalid credentials")
+                return LOGIN_HTML.replace("{{error}}", "Invalid credentials")
 
-    return render_template_string(LOGIN_HTML, error="")
-
-@app.route("/get_image_result")
-def get_image_result():
-
-    user_id = session.get("user_id", "guest")
-
-    image_results = app.config.get("image_results", {})
-    result = image_results.get(user_id)
-
-    if not result:
-        return jsonify({"status": "idle"})
-
-    if result["status"] == "done":
-        app.config["image_results"].pop(user_id, None)
-
-    return jsonify(result)
+    return LOGIN_HTML.replace("{{error}}", "")
 
     
 
@@ -2868,8 +2825,6 @@ def chat():
 
     data = request.get_json()
 
-    mode = data.get("mode", "general")
-
     user_input = (
         data.get("message")
         or data.get("msg")
@@ -2896,16 +2851,21 @@ def chat():
     save_message(user_id, "user", user_input)
     save_message(user_id, "aris", reply)
 
+    # ===== FINAL RESPONSE =====
     return jsonify({
         "reply": reply,
         "tokens_left": tokens_left,
         "suggestions": suggestions
     })
 
-
 @app.route("/live_users")
 def live_users():
     return jsonify({"online": get_live_users()})
+
+    UPLOAD_FOLDER = "uploads"
+
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
 
 @app.route("/upload", methods=["POST"])
@@ -2950,21 +2910,9 @@ def upload():
         "solution": solution
     })
 
-    # ================= FILE SERVING =================
-
-@app.route("/uploads/<filename>")
-def uploaded_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
-
 # ================= BUY TOKENS =================
-
 @app.route("/buy_tokens")
 def buy_tokens():
-
-    user_id = session.get("user_id")
-
-    if not user_id:
-        return jsonify({"message": "⚠️ Session expired. Please login again."})
 
     conn = sqlite3.connect("aris_memory.db")
     c = conn.cursor()
@@ -2973,13 +2921,12 @@ def buy_tokens():
         UPDATE token_wallet
         SET balance = balance + 20
         WHERE user_id = ?
-    """, (user_id,))
+    """, (session["user_id"],))
 
     conn.commit()
     conn.close()
 
     return jsonify({"message": "20 tokens added"})
-
 
 @app.route("/solve_image_question", methods=["POST"])
 def solve_image_question():
@@ -3189,47 +3136,6 @@ async function checkStatus(){
 
 checkStatus();
 
-// ================= IMAGE POLLING (SAFE ADD) =================
-let imagePolling = false;
-
-function startImagePolling(){
-
-    if(imagePolling) return;
-    imagePolling = true;
-    // ⭐ FIX 4 ADD EXACTLY HERE
-    addMessage("🎨 ARIS is generating your image... please wait ⏳","aris");
-
-
-    const interval = setInterval(async () => {
-
-        try {
-            const res = await fetch('/get_image_result');
-            const data = await res.json();
-
-            if(data.status === "processing"){
-                return;
-            }
-
-            if(data.status === "done"){
-                clearInterval(interval);
-                imagePolling = false;
-                addMessage(data.data, "aris");
-                removeThinking();   // ⭐ ADD HERE
-            }
-
-            if(data.status === "error"){
-                clearInterval(interval);
-                imagePolling = false;
-                addMessage("❌ Image failed: " + data.data, "aris");
-            }
-
-        } catch(e){
-            console.log("Polling error:", e);
-        }
-
-    }, 1000);
-}
-
 </script>
 
 </body>
@@ -3341,8 +3247,7 @@ def ai_status():
 def logout():
     session.clear()
     return redirect("/")
-    
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    app.run(debug=True, port=5001)
