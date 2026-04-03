@@ -4,12 +4,21 @@ import datetime
 import os
 from PIL import Image
 from openai import OpenAI
-import replicate
+try:
+    import replicate
+except:
+    replicate = None
+    
+import threading
 
 try:
     import pytesseract
 except:
     pytesseract = None
+
+# ===== TESSERACT PATH CONFIG =====
+if pytesseract:
+    pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
 
 
     # ===== TESSERACT PATH CONFIG =====
@@ -453,6 +462,32 @@ def generate_image(prompt):
 
     except Exception as e:
         return f"❌ Image generation error: {str(e)}"
+
+
+# ================= BACKGROUND IMAGE GENERATION =================
+def generate_image_background(prompt, user_id):
+
+    if "image_results" not in app.config:
+        app.config["image_results"] = {}
+
+    app.config["image_results"][user_id] = {
+        "status": "processing",
+        "data": None
+    }
+
+    try:
+        result = generate_image(prompt)
+
+        app.config["image_results"][user_id] = {
+            "status": "done",
+            "data": result
+        }
+
+    except Exception as e:
+        app.config["image_results"][user_id] = {
+            "status": "error",
+            "data": str(e)
+        }       
 
 
 # ================= AVATAR GENERATION =================
@@ -2760,6 +2795,22 @@ def login():
 
     return render_template_string(LOGIN_HTML, error="")
 
+@app.route("/get_image_result")
+def get_image_result():
+
+    user_id = session.get("user_id", "guest")
+
+    image_results = app.config.get("image_results", {})
+    result = image_results.get(user_id)
+
+    if not result:
+        return jsonify({"status": "idle"})
+
+    if result["status"] == "done":
+        app.config["image_results"].pop(user_id, None)
+
+    return jsonify(result)
+
     
 
 @app.route("/aris")
@@ -2848,11 +2899,6 @@ def chat():
 @app.route("/live_users")
 def live_users():
     return jsonify({"online": get_live_users()})
-
-    UPLOAD_FOLDER = "uploads"
-
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
 
 
 @app.route("/upload", methods=["POST"])
@@ -3251,4 +3297,4 @@ def logout():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    app.run(host="0.0.0.0", port=10000)
