@@ -9,7 +9,10 @@ from aris_agent_engine import plan_task
 
 # NEW IMPORTS FOR VIDEO PIPELINE
 from aris_scene_planner import generate_scenes
-from aris_video_builder import build_video
+try:
+    from aris_video_builder import build_video
+except:
+    build_video = None
 
 
 class ARISCoordinator:
