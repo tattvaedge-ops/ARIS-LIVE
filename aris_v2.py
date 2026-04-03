@@ -933,34 +933,36 @@ def process_ai_request(user_id, msg):
         route = route_request(msg)
 
 
-        from aris_agents import route_agent as route_request
-        route = route_request(msg)
-       # ===== NEW CENTRAL ROUTING =====
-    try:
-
-    if route == "image":
-        from aris_image_engine import generate_image
-        reply = generate_image(msg)
-
-    elif route == "video":
-        from aris_video_ai import generate_ai_video
-        reply = generate_ai_video(msg)
-
-    elif route == "research":
-        from aris_agents import route_agent
-        reply = route_agent(msg, msg)
-
-    elif route == "study":
-        reply = brain(msg, user_id)
-
-    else:
-        reply = brain(msg, user_id)
-
-except Exception as e:
-    print("ERROR:", str(e))
-    reply = "⚠️ ARIS encountered an error. Check system logs."
-
+def process_ai_request(msg, user_id):
     
+    from aris_agents import route_agent as route_request
+    route = route_request(msg)
+
+    try:
+        if route == "image":
+            from aris_image_engine import generate_image
+            reply = generate_image(msg)
+
+        elif route == "video":
+            from aris_video_ai import generate_ai_video
+            reply = generate_ai_video(msg)
+
+        elif route == "research":
+            from aris_agents import route_agent
+            reply = route_agent(msg, msg)
+
+        elif route == "study":
+            reply = brain(msg, user_id)
+
+        else:
+            reply = brain(msg, user_id)
+
+    except Exception as e:
+        print("ERROR:", str(e))
+        reply = "⚠️ ARIS encountered an error. Check system logs."
+
+    return reply
+
     # ===== TOKEN DEDUCTION =====
     deduct_token(user_id, token_cost)
     log_usage(user_id, token_cost)
