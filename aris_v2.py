@@ -944,6 +944,7 @@ def process_ai_request(user_id, msg):
         "suggestions": suggestions,
         "tokens_left": tokens_left
     }
+    
 # ================= LOGIN PAGE =================
 LOGIN_HTML = """
 <!DOCTYPE html>
