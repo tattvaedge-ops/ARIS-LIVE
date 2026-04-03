@@ -1,4 +1,7 @@
-import ollama
+try:
+    import ollama
+except:
+    ollama = None
 
 
 def generate_semantic_scenes(topic):
@@ -47,9 +50,24 @@ Rules:
 • Keep scenes cinematic
 """
 
-    response = ollama.chat(
-        model="phi3:mini",
-        messages=[{"role": "user", "content": prompt}]
-    )
+    # =========================
+    # LOCAL MODE (OLLAMA)
+    # =========================
+    if ollama:
+        try:
+            response = ollama.chat(
+                model="phi3:mini",
+                messages=[{"role": "user", "content": prompt}]
+            )
 
-    return response["message"]["content"]
+            return response["message"]["content"]
+
+        except Exception as e:
+            print("Ollama error:", str(e))
+            return "⚠️ Semantic scene generation failed"
+
+    # =========================
+    # CLOUD MODE (RENDER)
+    # =========================
+    else:
+        return "⚠️ Semantic scene generation not available in cloud mode"
