@@ -1,7 +1,0 @@
-flask
-openai
-requests
-gunicorn
-pytesseract
-Pillow
-replicate
