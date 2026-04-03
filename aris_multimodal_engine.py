@@ -1,4 +1,7 @@
-import ollama
+try:
+    import ollama
+except:
+    ollama = None
 
 
 def analyze_image(image_description):

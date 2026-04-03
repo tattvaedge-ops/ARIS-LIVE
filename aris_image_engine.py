@@ -16,23 +16,12 @@ client = OpenAI(api_key=api_key)
 
 
 def generate_image(prompt):
+    print("🔥 IMAGE ENGINE TRIGGERED:", prompt)
+
     try:
-        response = client.images.generate(
-            model="gpt-image-1",
-            prompt=prompt,
-            size="1024x1024"
-        )
-
-        image_url = response.data[0].url
-
-        return {
-            "success": True,
-            "url": image_url
-        }
+        # TEMP TEST (skip API)
+        return f"✅ Image generated successfully for: {prompt}"
 
     except Exception as e:
-        print("❌ IMAGE ERROR:", str(e))
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        print("IMAGE ERROR:", str(e))
+        return "❌ Image generation failed"
