@@ -423,7 +423,7 @@ def ask_openai(prompt):
     try:
 
         if len(prompt) < 800:
-            max_tokens = 500
+            max_tokens = 700
         elif len(prompt) < 2000:
             max_tokens = 800
         else:
@@ -459,9 +459,13 @@ import base64
 import uuid
 
 # ================= IMAGE GENERATION =================
+# ================= IMAGE GENERATION =================
 def generate_image_local(prompt):
 
     try:
+        import base64
+        import uuid
+
         response = client.images.generate(
             model="gpt-image-1",
             prompt=prompt,
@@ -492,7 +496,9 @@ def generate_image_local(prompt):
 """
 
     except Exception as e:
+        print("🔥 IMAGE ERROR:", str(e))   # ✅ IMPORTANT DEBUG
         return f"❌ Image generation error: {str(e)}"
+
 
 # ================= BACKGROUND IMAGE GENERATION =================
 def generate_image_background(prompt, user_id):
@@ -506,7 +512,7 @@ def generate_image_background(prompt, user_id):
     }
 
     try:
-        result = generate_image(prompt)
+        result = generate_image_local(prompt)   # ✅ FIXED
 
         app.config["image_results"][user_id] = {
             "status": "done",
@@ -517,13 +523,16 @@ def generate_image_background(prompt, user_id):
         app.config["image_results"][user_id] = {
             "status": "error",
             "data": str(e)
-        }       
+        }
 
 
 # ================= AVATAR GENERATION =================
 def generate_avatar(image_path, style_prompt):
 
     try:
+        import base64
+        import uuid
+
         response = client.images.generate(
             model="gpt-image-1",
             prompt=f"Create a realistic AI avatar portrait of a person: {style_prompt}, ultra detailed, cinematic lighting, 4K",
@@ -554,6 +563,7 @@ def generate_avatar(image_path, style_prompt):
 """
 
     except Exception as e:
+        print("🔥 AVATAR ERROR:", str(e))   # ✅ DEBUG
         return f"❌ Avatar generation error: {str(e)}"
 
 
@@ -1007,8 +1017,7 @@ def process_ai_request(user_id, msg):
         route = route_agent(user_id, msg)
 
         if route == "image":
-            from aris_image_engine import generate_image
-            reply = generate_image(msg)
+            reply = generate_image_local(msg)
 
         elif route == "video":
             from aris_video_ai import generate_ai_video
