@@ -430,13 +430,26 @@ def ask_openai(prompt):
             max_tokens=max_tokens
         )
 
-        reply = response.choices[0].message.content
+        # ✅ SAFE EXTRACTION
+        if not response or not hasattr(response, "choices") or len(response.choices) == 0:
+            print("❌ EMPTY RESPONSE OBJECT")
+            return "__OPENAI_ERROR__"
 
-        return reply.strip() if reply else "⚠️ No response generated."
+        message = response.choices[0].message
+
+        if not message or not message.content:
+            print("❌ EMPTY MESSAGE CONTENT")
+            return "__OPENAI_ERROR__"
+
+        reply = message.content.strip()
+
+        print("✅ OPENAI SUCCESS:", reply[:80])
+
+        return reply
 
     except Exception as e:
         print("🔥 OPENAI ERROR:", str(e))
-        return "⚠️ ARIS is thinking slower than usual. Please retry."
+        return "__OPENAI_ERROR__"
  # ================= DALL·E IMAGE GENERATION =================
 
 import base64
@@ -539,6 +552,7 @@ def generate_avatar(image_path, style_prompt):
 
     except Exception as e:
         return f"❌ Avatar generation error: {str(e)}"
+
 
 # ================= OCR QUESTION ENGINE =================
 
