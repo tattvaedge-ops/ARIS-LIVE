@@ -16,7 +16,7 @@ client = OpenAI(api_key=api_key)
 
 
 def generate_image(prompt):
-    print("🔥 IMAGE ENGINE TRIGGERED:", prompt)
+    return "❌ OLD IMAGE ENGINE DISABLED"
 
     try:
         # TEMP TEST (skip API)

@@ -513,6 +513,7 @@ def generate_image_background(prompt, user_id):
     }
 
     try:
+        print("🚀 LOCAL IMAGE FUNCTION CALLED")
         result = generate_image_local(prompt)   # ✅ FIXED
 
         app.config["image_results"][user_id] = {
