@@ -13,8 +13,17 @@ from aris_student_engine import solve_academic_question
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 load_dotenv()
+
+print("OPENAI KEY:", os.getenv("OPENAI_API_KEY"))
+
 from openai import OpenAI
-client = OpenAI()
+api_key = os.getenv("OPENAI_API_KEY")
+
+if not api_key:
+    raise ValueError("❌ OPENAI_API_KEY NOT FOUND")
+
+client = OpenAI(api_key=api_key)
+
 
 def ask_ollama(prompt):
     try:
@@ -442,7 +451,7 @@ def ask_openai(prompt):
 
     except Exception as e:
         print("🔥 OPENAI ERROR:", str(e))
-        return "__OPENAI_ERROR__"
+        return f"❌ OPENAI ERROR: {str(e)}"
         
  # ================= DALL·E IMAGE GENERATION =================
 
