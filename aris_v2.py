@@ -449,7 +449,7 @@ def ask_openai(prompt):
     except Exception as e:
         print("❌ OPENAI FULL ERROR:", str(e))
         return "__OPENAI_ERROR__"
-
+        
  # ================= DALL·E IMAGE GENERATION =================
 
 import base64
@@ -3341,6 +3341,24 @@ def ai_status():
 def logout():
     session.clear()
     return redirect("/")
+
+@app.route("/test_openai")
+def test_openai():
+    try:
+        from openai import OpenAI
+        client = OpenAI()
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "user", "content": "Say hello"}
+            ]
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        return f"ERROR: {str(e)}"
 
 
 import os
