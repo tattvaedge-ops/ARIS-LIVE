@@ -411,50 +411,32 @@ def get_profit_metrics():
 def ask_openai(prompt):
 
     try:
+
+        # 🔥 SMART TOKEN CONTROL
+        if len(prompt) < 800:
+            max_tokens = 500
+        elif len(prompt) < 2000:
+            max_tokens = 800
+        else:
+            max_tokens = 1200
+
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {
-                    "role": "system",
-                    "content": """
-You are ARIS — Advanced Real-Time Integrated System.
-
-You help in study, business, and life.
-
-Rules:
-- Be clear
-- Be structured
-- No fluff
-"""
-                },
+                {"role": "system", "content": "You are ARIS AI. Be clear and helpful."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.3,
-            max_tokens=300
+            temperature=0.1,
+            max_tokens=max_tokens
         )
 
-        output = response.choices[0].message.content.strip()
+        reply = response.choices[0].message.content
 
-        print("✅ OPENAI SUCCESS:", output[:100])
-
-        return output
+        return reply.strip() if reply else "⚠️ No response generated."
 
     except Exception as e:
-
-        error_msg = str(e)
-
-        print("❌ OPENAI ERROR:", error_msg)
-
-        # 🚨 QUOTA ERROR
-        if "insufficient_quota" in error_msg or "429" in error_msg:
-            return "__OPENAI_QUOTA_ERROR__"
-
-        # 🚨 RATE LIMIT
-        if "rate limit" in error_msg.lower():
-            return "__OPENAI_RATE_LIMIT__"
-
-        return "__OPENAI_ERROR__"
-
+        print("🔥 OPENAI ERROR:", str(e))
+        return "⚠️ ARIS is thinking slower than usual. Please retry."
 
         # ================= DALL·E IMAGE GENERATION =================
 
