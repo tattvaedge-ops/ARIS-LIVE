@@ -889,8 +889,6 @@ def process_ai_request(user_id, msg):
 
     print("MSG:", msg)
 
-    from aris_agents import route_agent
-
     if not ARIS_ACTIVE:
         return {
             "reply": "⚠️ ARIS is temporarily paused by the system administrator.",
@@ -930,15 +928,13 @@ def process_ai_request(user_id, msg):
             "suggestions": [],
             "tokens_left": tokens
         }
-        route = route_request(msg)
 
-
-def process_ai_request(msg, user_id):
-    
-    from aris_agents import route_agent as route_request
-    route = route_request(user_id, msg)
+    # ===== ROUTING START =====
+    from aris_agents import route_agent
 
     try:
+        route = route_agent(user_id, msg)
+
         if route == "image":
             from aris_image_engine import generate_image
             reply = generate_image(msg)
@@ -948,11 +944,7 @@ def process_ai_request(msg, user_id):
             reply = generate_ai_video(msg)
 
         elif route == "research":
-            from aris_agents import route_agent
-            reply = route_agent(msg, msg)
-
-        elif route == "study":
-            reply = brain(msg, user_id)
+            reply = route_agent(user_id, msg)
 
         else:
             reply = brain(msg, user_id)
@@ -960,16 +952,13 @@ def process_ai_request(msg, user_id):
     except Exception as e:
         print("ERROR:", str(e))
         reply = "⚠️ ARIS encountered an error. Check system logs."
-
-    return reply
+    # ===== ROUTING END =====
 
     # ===== TOKEN DEDUCTION =====
     deduct_token(user_id, token_cost)
     log_usage(user_id, token_cost)
 
     tokens_left = get_tokens(user_id)
-
-    warning = low_token_warning(tokens_left)
 
     suggestions = generate_suggestions(msg)
 
@@ -981,6 +970,7 @@ def process_ai_request(msg, user_id):
         "tokens_left": tokens_left
     }
     
+        
 # ================= LOGIN PAGE =================
 LOGIN_HTML = """
 <!DOCTYPE html>
