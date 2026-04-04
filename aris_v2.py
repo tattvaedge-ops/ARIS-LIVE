@@ -755,11 +755,7 @@ def brain(msg, user_id=None):
     response = ask_openai(prompt)
 
     if response in ["__OPENAI_QUOTA_ERROR__", "__OPENAI_RATE_LIMIT__", "__OPENAI_ERROR__"]:
-        try:
-            backup = ask_ollama(prompt)
-            response = backup
-        except:
-            response = "⚠️ ARIS is temporarily unavailable. Please try again."
+        response = "⚠️ ARIS AI service temporarily unavailable. Please try again shortly."
 
     # 🧹 CLEAN OUTPUT
     bad_phrases = [
@@ -969,8 +965,8 @@ def process_ai_request(user_id, msg):
         "suggestions": suggestions,
         "tokens_left": tokens_left
     }
-    
-        
+
+
 # ================= LOGIN PAGE =================
 LOGIN_HTML = """
 <!DOCTYPE html>
