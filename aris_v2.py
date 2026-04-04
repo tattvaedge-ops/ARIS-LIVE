@@ -437,19 +437,30 @@ def ask_openai(prompt):
     except Exception as e:
         print("🔥 OPENAI ERROR:", str(e))
         return "⚠️ ARIS is thinking slower than usual. Please retry."
+ # ================= DALL·E IMAGE GENERATION =================
 
-        # ================= DALL·E IMAGE GENERATION =================
+import base64
+import uuid
 
+# ================= IMAGE GENERATION =================
 def generate_image(prompt):
 
     try:
         response = client.images.generate(
             model="gpt-image-1",
             prompt=prompt,
-            size="1024x1024"
+            size="512x512"
         )
 
-        image_url = response.data[0].url
+        image_base64 = response.data[0].b64_json
+
+        filename = f"{uuid.uuid4().hex}.png"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+
+        with open(filepath, "wb") as f:
+            f.write(base64.b64decode(image_base64))
+
+        image_url = f"/uploads/{filename}"
 
         return f"""
 🎨 ARIS IMAGE GENERATED
@@ -458,11 +469,76 @@ def generate_image(prompt):
 {prompt}
 
 🖼️ Image:
-{image_url}
+<a href="{image_url}" target="_blank">View Image</a>
+
+⬇️ Download:
+<a href="{image_url}" download>Download Image</a>
 """
 
     except Exception as e:
         return f"❌ Image generation error: {str(e)}"
+
+# ================= BACKGROUND IMAGE GENERATION =================
+def generate_image_background(prompt, user_id):
+
+    if "image_results" not in app.config:
+        app.config["image_results"] = {}
+
+    app.config["image_results"][user_id] = {
+        "status": "processing",
+        "data": None
+    }
+
+    try:
+        result = generate_image(prompt)
+
+        app.config["image_results"][user_id] = {
+            "status": "done",
+            "data": result
+        }
+
+    except Exception as e:
+        app.config["image_results"][user_id] = {
+            "status": "error",
+            "data": str(e)
+        }       
+
+
+# ================= AVATAR GENERATION =================
+def generate_avatar(image_path, style_prompt):
+
+    try:
+        response = client.images.generate(
+            model="gpt-image-1",
+            prompt=f"Create a realistic AI avatar portrait of a person: {style_prompt}, ultra detailed, cinematic lighting, 4K",
+            size="1024x1024"
+        )
+
+        image_base64 = response.data[0].b64_json
+
+        filename = f"avatar_{uuid.uuid4().hex}.png"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+
+        with open(filepath, "wb") as f:
+            f.write(base64.b64decode(image_base64))
+
+        image_url = f"/uploads/{filename}"
+
+        return f"""
+🔥 ARIS AVATAR GENERATED
+
+🎨 Style:
+{style_prompt}
+
+🖼️ Avatar:
+<a href="{image_url}" target="_blank">View Avatar</a>
+
+⬇️ Download:
+<a href="{image_url}" download>Download Avatar</a>
+"""
+
+    except Exception as e:
+        return f"❌ Avatar generation error: {str(e)}"
 
 # ================= OCR QUESTION ENGINE =================
 
