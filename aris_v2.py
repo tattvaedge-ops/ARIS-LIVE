@@ -460,19 +460,15 @@ import uuid
 
 # ================= IMAGE GENERATION =================
 # ================= IMAGE GENERATION =================
-def generate_image_local(prompt):
+def generate_image(prompt):
 
     try:
-        import base64
-        import uuid
-
         response = client.images.generate(
             model="gpt-image-1",
             prompt=prompt,
             size="512x512"
         )
-        if not response or not hasattr(response, "data") or len(response.data) == 0:
-            return "❌ Image generation failed: empty response"
+
         image_base64 = response.data[0].b64_json
 
         filename = f"{uuid.uuid4().hex}.png"
@@ -497,9 +493,7 @@ def generate_image_local(prompt):
 """
 
     except Exception as e:
-        print("🔥 IMAGE ERROR:", str(e))   # ✅ IMPORTANT DEBUG
         return f"❌ Image generation error: {str(e)}"
-
 
 # ================= BACKGROUND IMAGE GENERATION =================
 def generate_image_background(prompt, user_id):
