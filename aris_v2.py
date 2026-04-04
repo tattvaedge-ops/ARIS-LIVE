@@ -33,7 +33,7 @@ def ask_ollama(prompt):
         return f"Ollama error: {str(e)}"
         
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 
 app = Flask(__name__)
 
@@ -411,8 +411,11 @@ def get_profit_metrics():
 def ask_openai(prompt):
 
     try:
+        from openai import OpenAI
 
-        # 🔥 SMART TOKEN CONTROL
+        # ✅ Create client INSIDE function
+        client = OpenAI()
+
         if len(prompt) < 800:
             max_tokens = 500
         elif len(prompt) < 2000:
@@ -430,26 +433,23 @@ def ask_openai(prompt):
             max_tokens=max_tokens
         )
 
-        # ✅ SAFE EXTRACTION
-        if not response or not hasattr(response, "choices") or len(response.choices) == 0:
-            print("❌ EMPTY RESPONSE OBJECT")
+        # ✅ HARD DEBUG
+        print("RAW RESPONSE:", response)
+
+        if not response or not response.choices:
             return "__OPENAI_ERROR__"
 
-        message = response.choices[0].message
+        content = response.choices[0].message.content
 
-        if not message or not message.content:
-            print("❌ EMPTY MESSAGE CONTENT")
+        if not content:
             return "__OPENAI_ERROR__"
 
-        reply = message.content.strip()
-
-        print("✅ OPENAI SUCCESS:", reply[:80])
-
-        return reply
+        return content.strip()
 
     except Exception as e:
-        print("🔥 OPENAI ERROR:", str(e))
+        print("❌ OPENAI FULL ERROR:", str(e))
         return "__OPENAI_ERROR__"
+
  # ================= DALL·E IMAGE GENERATION =================
 
 import base64
