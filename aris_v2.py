@@ -10,10 +10,11 @@ except:
     pytesseract = None
 from PIL import Image
 from aris_student_engine import solve_academic_question
-from openai import OpenAI
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 load_dotenv()
+from openai import OpenAI
+client = OpenAI()
 
 def ask_ollama(prompt):
     try:
@@ -411,10 +412,6 @@ def get_profit_metrics():
 def ask_openai(prompt):
 
     try:
-        from openai import OpenAI
-
-        # ✅ Create client INSIDE function
-        client = OpenAI()
 
         if len(prompt) < 800:
             max_tokens = 500
@@ -433,9 +430,6 @@ def ask_openai(prompt):
             max_tokens=max_tokens
         )
 
-        # ✅ HARD DEBUG
-        print("RAW RESPONSE:", response)
-
         if not response or not response.choices:
             return "__OPENAI_ERROR__"
 
@@ -447,7 +441,7 @@ def ask_openai(prompt):
         return content.strip()
 
     except Exception as e:
-        print("❌ OPENAI FULL ERROR:", str(e))
+        print("🔥 OPENAI ERROR:", str(e))
         return "__OPENAI_ERROR__"
         
  # ================= DALL·E IMAGE GENERATION =================
@@ -456,7 +450,7 @@ import base64
 import uuid
 
 # ================= IMAGE GENERATION =================
-def generate_image(prompt):
+def generate_image_local(prompt):
 
     try:
         response = client.images.generate(
@@ -1012,7 +1006,7 @@ def process_ai_request(user_id, msg):
             reply = generate_ai_video(msg)
 
         elif route == "research":
-            reply = route_agent(user_id, msg)
+            reply = brain(msg, user_id)
 
         else:
             reply = brain(msg, user_id)
