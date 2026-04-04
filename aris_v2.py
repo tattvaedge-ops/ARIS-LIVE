@@ -471,7 +471,8 @@ def generate_image_local(prompt):
             prompt=prompt,
             size="512x512"
         )
-
+        if not response or not hasattr(response, "data") or len(response.data) == 0:
+            return "❌ Image generation failed: empty response"
         image_base64 = response.data[0].b64_json
 
         filename = f"{uuid.uuid4().hex}.png"
@@ -1010,14 +1011,19 @@ def process_ai_request(user_id, msg):
             "tokens_left": tokens
         }
 
-    # ===== ROUTING START =====
+        # ===== ROUTING START =====
     from aris_agents import route_agent
 
     try:
         route = route_agent(user_id, msg)
 
         if route == "image":
-            reply = generate_image_local(msg)
+            print("🎯 USING LOCAL IMAGE ENGINE")
+            try:
+                reply = generate_image_local(msg)
+            except Exception as img_err:
+                print("🔥 IMAGE ROUTE ERROR:", str(img_err))
+                reply = f"❌ Image system failed: {str(img_err)}"
 
         elif route == "video":
             from aris_video_ai import generate_ai_video
