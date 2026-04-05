@@ -459,17 +459,34 @@ import base64
 import uuid
 
 # ================= IMAGE GENERATION =================
-# ================= IMAGE GENERATION =================
-def generate_image(prompt):
+def generate_image_local(prompt):
 
     try:
+        import base64
+        import uuid
+
+        print("🚀 LOCAL IMAGE FUNCTION CALLED")
+
         response = client.images.generate(
             model="gpt-image-1",
             prompt=prompt,
             size="512x512"
         )
 
-        image_base64 = response.data[0].b64_json
+        print("🔍 RAW RESPONSE:", response)
+
+        # 🔒 FORCE SAFE PARSING
+        try:
+            image_base64 = response.data[0].b64_json
+        except Exception:
+            try:
+                image_base64 = response["data"][0]["b64_json"]
+            except Exception as parse_error:
+                print("❌ PARSE ERROR:", str(parse_error))
+                return f"❌ Image parse failed: {str(parse_error)}"
+
+        if not image_base64:
+            return "❌ No image data returned"
 
         filename = f"{uuid.uuid4().hex}.png"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -493,6 +510,7 @@ def generate_image(prompt):
 """
 
     except Exception as e:
+        print("🔥 FINAL IMAGE ERROR:", str(e))
         return f"❌ Image generation error: {str(e)}"
 
 # ================= BACKGROUND IMAGE GENERATION =================
