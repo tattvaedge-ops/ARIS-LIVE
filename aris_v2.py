@@ -2911,7 +2911,12 @@ def aris():
     c = conn.cursor()
 
     c.execute("SELECT email FROM users WHERE id=?", (user_id,))
-    email = c.fetchone()[0]
+    row = c.fetchone()
+
+    if not row:
+        return redirect("/")
+
+    email = row[0]
 
     conn.close()
 
