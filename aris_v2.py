@@ -1017,19 +1017,26 @@ def process_ai_request(user_id, msg):
             "tokens_left": tokens
         }
 
+    # ===== ROUTING START =====
     from aris_agents import route_agent
 
     try:
-        route = route_agent(user_id, msg)
+        # 🔥 FORCE IMAGE DETECTION FIRST (OVERRIDE AGENT)
+        msg_lower = msg.lower()
 
-        # ===== IMAGE ROUTE FIX (CRITICAL) =====
+        if any(x in msg_lower for x in [
+            "generate image", "create image", "draw", "image", "picture", "photo"
+        ]):
+            route = "creator_image"
+        else:
+            route = route_agent(user_id, msg)
+
         if route in ["image", "creator_image"]:
             print("🎯 USING LOCAL IMAGE ENGINE")
 
             try:
                 result = generate_image_local(msg)
 
-                # ✅ HANDLE DICT RESPONSE
                 if isinstance(result, dict):
                     reply = f"""
 🎨 ARIS IMAGE GENERATED
@@ -1064,6 +1071,8 @@ def process_ai_request(user_id, msg):
         print("ERROR:", str(e))
         reply = "⚠️ ARIS encountered an error. Check system logs."
 
+    # ===== ROUTING END =====
+
     # ===== TOKEN DEDUCTION =====
     deduct_token(user_id, token_cost)
     log_usage(user_id, token_cost)
@@ -1079,6 +1088,7 @@ def process_ai_request(user_id, msg):
         "suggestions": suggestions,
         "tokens_left": tokens_left
     }
+
 
 # ================= LOGIN PAGE =================
 LOGIN_HTML = """
