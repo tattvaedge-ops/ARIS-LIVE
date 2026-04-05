@@ -1027,7 +1027,7 @@ def process_ai_request(user_id, msg):
     try:
         route = route_agent(user_id, msg)
 
-        if route == "image":
+        if route in ["image", "creator_image"]:
             print("🎯 USING LOCAL IMAGE ENGINE")
             try:
                 reply = generate_image_local(msg)
