@@ -473,17 +473,22 @@ def generate_image_local(prompt):
             size="512x512"
         )
 
+        print("🔍 RESPONSE TYPE:", type(response))
         print("🔍 RAW RESPONSE:", response)
 
-        # 🔒 FINAL SAFE PARSING (OBJECT ONLY — NO DICT FALLBACK)
-        if hasattr(response, "data") and len(response.data) > 0:
-            image_base64 = getattr(response.data[0], "b64_json", None)
-        else:
-            image_base64 = None
+        # 🔒 HARD SAFE EXTRACTION
+        image_base64 = None
 
+        try:
+            if hasattr(response, "data") and len(response.data) > 0:
+                image_base64 = getattr(response.data[0], "b64_json", None)
+        except Exception as parse_err:
+            print("❌ OBJECT PARSE FAILED:", str(parse_err))
+
+        # 🚨 FINAL VALIDATION
         if not image_base64:
-            print("❌ PARSE ERROR: No base64 image found")
-            return "❌ Image parse failed"
+            print("❌ FINAL PARSE FAILURE — RAW:", response)
+            return "❌ Image parse failed (invalid API response)"
 
         filename = f"{uuid.uuid4().hex}.png"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
