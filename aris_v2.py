@@ -476,7 +476,6 @@ def generate_image_local(prompt):
         print("🔍 RESPONSE TYPE:", type(response))
         print("🔍 RAW RESPONSE:", response)
 
-        # 🔒 HARD SAFE EXTRACTION
         image_base64 = None
 
         try:
@@ -485,7 +484,6 @@ def generate_image_local(prompt):
         except Exception as parse_err:
             print("❌ OBJECT PARSE FAILED:", str(parse_err))
 
-        # 🚨 FINAL VALIDATION
         if not image_base64:
             print("❌ FINAL PARSE FAILURE — RAW:", response)
             return "❌ Image parse failed (invalid API response)"
@@ -498,18 +496,11 @@ def generate_image_local(prompt):
 
         image_url = f"/uploads/{filename}"
 
-        return f"""
-🎨 ARIS IMAGE GENERATED
-
-🧠 Prompt:
-{prompt}
-
-🖼️ Image:
-<a href="{image_url}" target="_blank">View Image</a>
-
-⬇️ Download:
-<a href="{image_url}" download>Download Image</a>
-"""
+        return {
+            "type": "image",
+            "url": image_url,
+            "prompt": prompt
+        }
 
     except Exception as e:
         print("🔥 FINAL IMAGE ERROR:", str(e))
@@ -1026,16 +1017,35 @@ def process_ai_request(user_id, msg):
             "tokens_left": tokens
         }
 
-        # ===== ROUTING START =====
     from aris_agents import route_agent
 
     try:
         route = route_agent(user_id, msg)
 
+        # ===== IMAGE ROUTE FIX (CRITICAL) =====
         if route in ["image", "creator_image"]:
             print("🎯 USING LOCAL IMAGE ENGINE")
+
             try:
-                reply = generate_image_local(msg)
+                result = generate_image_local(msg)
+
+                # ✅ HANDLE DICT RESPONSE
+                if isinstance(result, dict):
+                    reply = f"""
+🎨 ARIS IMAGE GENERATED
+
+🧠 Prompt:
+{result['prompt']}
+
+🖼️ Image:
+<a href="{result['url']}" target="_blank">View Image</a>
+
+⬇️ Download:
+<a href="{result['url']}" download>Download Image</a>
+"""
+                else:
+                    reply = result
+
             except Exception as img_err:
                 print("🔥 IMAGE ROUTE ERROR:", str(img_err))
                 reply = f"❌ Image system failed: {str(img_err)}"
@@ -1053,7 +1063,6 @@ def process_ai_request(user_id, msg):
     except Exception as e:
         print("ERROR:", str(e))
         reply = "⚠️ ARIS encountered an error. Check system logs."
-    # ===== ROUTING END =====
 
     # ===== TOKEN DEDUCTION =====
     deduct_token(user_id, token_cost)
@@ -1070,7 +1079,6 @@ def process_ai_request(user_id, msg):
         "suggestions": suggestions,
         "tokens_left": tokens_left
     }
-
 
 # ================= LOGIN PAGE =================
 LOGIN_HTML = """
