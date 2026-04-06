@@ -44,7 +44,7 @@ if not api_key:
 client = OpenAI(api_key=api_key)
 
 
-def ask_ollama(prompt):
+def ask_openai(prompt):
     try:
         response = requests.post(
             "https://chaim-mentholated-alfredia.ngrok-free.dev/api/generate",
