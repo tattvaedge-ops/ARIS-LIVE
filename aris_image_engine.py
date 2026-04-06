@@ -9,7 +9,11 @@ load_dotenv()
 
 # Debug (optional - remove later)
 api_key = os.getenv("OPENAI_API_KEY")
-print("API KEY LOADED:", api_key[:10] if api_key else "NOT FOUND")
+
+if not api_key:
+    raise ValueError("❌ OPENAI_API_KEY NOT FOUND")
+
+print("Image Engine Initialized")
 
 # Initialize client
 client = OpenAI(api_key=api_key)

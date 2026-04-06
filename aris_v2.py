@@ -13,8 +13,27 @@ from aris_student_engine import solve_academic_question
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 load_dotenv()
+import jwt
+import datetime
 
-print("OPENAI KEY:", os.getenv("OPENAI_API_KEY"))
+JWT_SECRET = os.getenv("SECRET_KEY")
+JWT_ALGO = "HS256"
+
+def generate_token(user_id):
+    payload = {
+        "user_id": user_id,
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=1)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
+
+def verify_token(token):
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
+        return payload["user_id"]
+    except:
+        return None
+
+print("API KEY LOADED SUCCESSFULLY")  # Safe log
 
 from openai import OpenAI
 api_key = os.getenv("OPENAI_API_KEY")
@@ -47,7 +66,9 @@ def ask_ollama(prompt):
 
 app = Flask(__name__)
 
-app.secret_key = os.getenv("SECRET_KEY", "aris_super_secret_key")
+app.secret_key = os.getenv("SECRET_KEY")
+if not app.secret_key:
+    raise ValueError("❌ SECRET_KEY NOT SET")
 
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
@@ -1025,9 +1046,10 @@ def process_ai_request(user_id, msg):
         msg_lower = msg.lower()
 
         if any(x in msg_lower for x in [
-            "generate image", "create image", "draw", "image", "picture", "photo"
+            "generate image", "create image", "make image",
+            "draw an image", "draw a picture", "create a picture"
         ]):
-            route = "creator_image"
+            return "creator_image"
         else:
             route = route_agent(user_id, msg)
 
@@ -2913,8 +2935,14 @@ def login():
             user_id = authenticate_user(email, password)
 
             if user_id:
-                session["user_id"] = user_id
-                return redirect("/aris")
+                session["user_id"] = user_id  # keep for UI
+
+                token = generate_token(user_id)
+
+                resp = redirect("/aris")
+                resp.set_cookie("aris_token", token, httponly=True, secure=True)
+
+                return resp
             else:
                 return LOGIN_HTML.replace("{{error}}", "Invalid credentials")
 
@@ -2960,12 +2988,21 @@ def logo():
 @app.route("/tokens")
 def tokens():
 
-    user_id = session.get("user_id")
+    token = request.cookies.get("aris_token")
+
+    user_id = None
+
+    if token:
+        user_id = verify_token(token)
+
+    # fallback to session (temporary support)
+    if not user_id:
+        user_id = session.get("user_id")
 
     if not user_id:
         return jsonify({"tokens": 0})
 
-    tokens = get_tokens(user_id)
+    balance = get_tokens(user_id)
 
     return jsonify({"tokens": tokens})
 
@@ -3422,6 +3459,6 @@ import os
 if __name__ == "__main__":
     if os.environ.get("RENDER"):
         port = int(os.environ.get("PORT", 10000))
-        app.run(host="0.0.0.0", port=port)
+        app.run(host="0.0.0.0", port=port, debug=False)
     else:
-        app.run(debug=True, port=5001)
+        app.run(host="0.0.0.0", port=5001, debug=False, use_reloader=False)
