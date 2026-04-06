@@ -2985,6 +2985,7 @@ def logo():
     return send_from_directory(".", "tattva_logo.png")
 
 
+# ===== TOKENS ROUTE (FIXED) =====
 @app.route("/tokens")
 def tokens():
 
@@ -3004,9 +3005,10 @@ def tokens():
 
     balance = get_tokens(user_id)
 
-    return jsonify({"tokens": tokens})
+    return jsonify({"tokens": int(balance)})
 
 
+# ===== CHAT ROUTE (JWT + SESSION HYBRID) =====
 @app.route("/chat", methods=["POST"])
 def chat():
 
@@ -3022,7 +3024,16 @@ def chat():
     if not user_input.strip():
         return jsonify({"reply": "Please enter a message."})
 
-    user_id = session.get("user_id")
+    # ===== AUTH (JWT FIRST, THEN SESSION) =====
+    token = request.cookies.get("aris_token")
+
+    user_id = None
+
+    if token:
+        user_id = verify_token(token)
+
+    if not user_id:
+        user_id = session.get("user_id")
 
     if not user_id:
         return jsonify({"reply": "Session expired. Please login again."})
@@ -3030,9 +3041,9 @@ def chat():
     # ===== PROCESS REQUEST =====
     result = process_ai_request(user_id, user_input)
 
-    reply = result["reply"]
-    tokens_left = result["tokens_left"]
-    suggestions = result["suggestions"]
+    reply = result.get("reply", "")
+    tokens_left = result.get("tokens_left", 0)
+    suggestions = result.get("suggestions", [])
 
     # ===== SAVE MEMORY =====
     save_message(user_id, "user", user_input)
