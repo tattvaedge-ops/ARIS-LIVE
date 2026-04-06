@@ -4,3 +4,4 @@ gunicorn
 python-dotenv
 openai
 Pillow
+pyjwt==2.12.1
