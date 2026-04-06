@@ -45,13 +45,13 @@ Give one useful tip.
 """
 
 
-def solve_academic_question(question, ask_ollama_func):
+def solve_academic_question(question, ask_openai_func):
 
     subject = detect_subject(question)
 
     prompt = build_student_prompt(question, subject)
 
-    answer = ask_ollama_func(prompt)
+    answer = ask_openai_func(prompt)
 
     return f"""
 🎓 ARIS STUDENT AI

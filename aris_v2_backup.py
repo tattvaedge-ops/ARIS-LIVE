@@ -9,7 +9,7 @@ from PIL import Image
 from aris_student_engine import solve_academic_question
 from openai import OpenAI
 
-def ask_ollama(prompt):
+def ask_openai(prompt):
     try:
         response = requests.post(
             "https://chaim-mentholated-alfredia.ngrok-free.dev/api/generate",
@@ -484,7 +484,7 @@ def solve_question_from_image(image_path, user_id=None):
     # 🚀 NEW STRUCTURED STUDENT AI
     answer = solve_academic_question(
         question_text,
-        ask_ollama
+        ask_openai
     )
 
     return f"""📸 Question Detected:
@@ -728,7 +728,7 @@ def brain(msg, user_id=None):
 
     if response in ["__OPENAI_QUOTA_ERROR__", "__OPENAI_RATE_LIMIT__", "__OPENAI_ERROR__"]:
         try:
-            backup = ask_ollama(prompt)
+            backup = ask_openai(prompt)
             response = backup
         except:
             response = "⚠️ ARIS is temporarily unavailable. Please try again."

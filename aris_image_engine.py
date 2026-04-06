@@ -7,7 +7,6 @@ from openai import OpenAI
 # Load environment variables
 load_dotenv()
 
-# Debug (optional - remove later)
 api_key = os.getenv("OPENAI_API_KEY")
 
 if not api_key:
@@ -15,17 +14,24 @@ if not api_key:
 
 print("Image Engine Initialized")
 
-# Initialize client
 client = OpenAI(api_key=api_key)
 
 
 def generate_image(prompt):
-    return "❌ OLD IMAGE ENGINE DISABLED"
 
     try:
-        # TEMP TEST (skip API)
-        return f"✅ Image generated successfully for: {prompt}"
+        response = client.images.generate(
+            model="gpt-image-1",
+            prompt=prompt,
+            size="1024x1024"
+        )
+
+        image_base64 = response.data[0].b64_json
+
+        image_url = f"data:image/png;base64,{image_base64}"
+
+        return image_url
 
     except Exception as e:
         print("IMAGE ERROR:", str(e))
-        return "❌ Image generation failed"
+        return None

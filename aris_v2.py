@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import jwt
 import datetime
+from aris_image_engine import generate_image
 
 JWT_SECRET = os.getenv("SECRET_KEY")
 JWT_ALGO = "HS256"
@@ -480,7 +481,7 @@ import base64
 import uuid
 
 # ================= IMAGE GENERATION =================
-def generate_image_local(prompt):
+def generate_image(msg):
 
     try:
         import base64
@@ -540,7 +541,7 @@ def generate_image_background(prompt, user_id):
 
     try:
         print("🚀 LOCAL IMAGE FUNCTION CALLED")
-        result = generate_image_local(prompt)   # ✅ FIXED
+        result = generate_image(msg)   # ✅ FIXED
 
         app.config["image_results"][user_id] = {
             "status": "done",
@@ -1016,18 +1017,18 @@ def process_ai_request(user_id, msg):
 
     # ===== TOKEN COST LOGIC =====
     token_cost = 1
-    m = msg.lower()
+    msg_lower = msg.lower()
 
-    if any(x in m for x in ["image", "poster", "thumbnail", "design", "generate image", "create image"]):
+    if any(x in msg_lower for x in ["generate image", "create image", "make image", "draw an image", "draw a picture"]):
         token_cost = 7
 
-    elif any(x in m for x in ["video", "reel", "animation", "generate video"]):
+    elif any(x in msg_lower for x in ["video", "reel", "animation", "generate video"]):
         token_cost = 20
 
-    elif any(x in m for x in ["research paper", "literature review", "journal", "citation", "methodology", "thesis", "dissertation"]):
+    elif any(x in msg_lower for x in ["research paper", "literature review", "journal", "citation", "methodology", "thesis", "dissertation"]):
         token_cost = 3
 
-    elif any(x in m for x in ["pdf", "file", "document"]):
+    elif any(x in msg_lower for x in ["pdf", "file", "document"]):
         token_cost = 5
 
     # ===== CHECK TOKENS =====
@@ -1040,60 +1041,52 @@ def process_ai_request(user_id, msg):
 
     # ===== ROUTING START =====
     from aris_agents import route_agent
+    from aris_image_engine import generate_image
 
     try:
-        # 🔥 FORCE IMAGE DETECTION FIRST (OVERRIDE AGENT)
-        msg_lower = msg.lower()
-
+        # 🔥 FORCE IMAGE DETECTION FIRST
         if any(x in msg_lower for x in [
             "generate image", "create image", "make image",
             "draw an image", "draw a picture", "create a picture"
         ]):
-            return "creator_image"
+            route = "creator_image"
         else:
             route = route_agent(user_id, msg)
 
+        # ===== IMAGE ROUTE =====
         if route in ["image", "creator_image"]:
-            print("🎯 USING LOCAL IMAGE ENGINE")
+            print("🎯 USING OPENAI IMAGE ENGINE")
 
-            try:
-                result = generate_image_local(msg)
+            image_url = generate_image(msg)
 
-                if isinstance(result, dict):
-                    reply = f"""
+            if image_url:
+                reply = f"""
 🎨 ARIS IMAGE GENERATED
 
 🧠 Prompt:
-{result['prompt']}
+{msg}
 
 🖼️ Image:
-<a href="{result['url']}" target="_blank">View Image</a>
+<img src="{image_url}" style="max-width:300px; border-radius:10px;"/>
 
 ⬇️ Download:
-<a href="{result['url']}" download>Download Image</a>
+<a href="{image_url}" download>Download Image</a>
 """
-                else:
-                    reply = result
+            else:
+                reply = "❌ Image generation failed"
 
-            except Exception as img_err:
-                print("🔥 IMAGE ROUTE ERROR:", str(img_err))
-                reply = f"❌ Image system failed: {str(img_err)}"
-
+        # ===== VIDEO ROUTE =====
         elif route == "video":
             from aris_video_ai import generate_ai_video
             reply = generate_ai_video(msg)
 
-        elif route == "research":
-            reply = brain(msg, user_id)
-
+        # ===== RESEARCH / DEFAULT =====
         else:
             reply = brain(msg, user_id)
 
     except Exception as e:
         print("ERROR:", str(e))
         reply = "⚠️ ARIS encountered an error. Check system logs."
-
-    # ===== ROUTING END =====
 
     # ===== TOKEN DEDUCTION =====
     deduct_token(user_id, token_cost)
