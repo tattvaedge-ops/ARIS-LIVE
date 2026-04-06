@@ -625,7 +625,7 @@ def solve_question_from_image(image_path, user_id=None):
     # 🚀 NEW STRUCTURED STUDENT AI
     answer = solve_academic_question(
         question_text,
-        ask_ollama
+        ask_openai
     )
 
     return f"""📸 Question Detected:
