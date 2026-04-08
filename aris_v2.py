@@ -45,26 +45,6 @@ if not api_key:
 client = OpenAI(api_key=api_key)
 
 
-def ask_openai(prompt):
-    try:
-        response = requests.post(
-            "https://chaim-mentholated-alfredia.ngrok-free.dev/api/generate",
-            json={
-                "model": "phi3:mini",
-                "prompt": prompt,
-                "stream": False
-            },
-            timeout=120
-        )
-
-        return response.json()["response"]
-
-    except Exception as e:
-        return f"Ollama error: {str(e)}"
-        
-
-
-
 app = Flask(__name__)
 
 app.secret_key = os.getenv("SECRET_KEY")
@@ -447,17 +427,37 @@ def ask_openai(prompt):
         if len(prompt) < 800:
             max_tokens = 700
         elif len(prompt) < 2000:
-            max_tokens = 800
+            max_tokens = 900
         else:
             max_tokens = 1200
+
+        # 🔥 STRONG SYSTEM BRAIN
+        system_prompt = """
+You are ARIS (Advanced Real-Time Integrated System) — a high-level AI intelligence engine.
+
+Rules you MUST follow:
+
+1. Always respond as if it is the year 2026 (latest real-world context)
+2. NEVER say "my knowledge cutoff is 2023" or similar
+3. Give clear, structured, and practical answers
+4. Use headings, bullet points, and clean formatting
+5. Focus on real-world insights, not textbook theory
+6. Speak with confidence like an expert system
+7. Avoid generic chatbot tone
+8. If topic is business, tech, education → give strategic insights
+9. Keep answers crisp but powerful
+
+Your goal:
+Act like a real-world decision-making intelligence system, not a chatbot.
+"""
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are ARIS AI. Be clear and helpful."},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.1,
+            temperature=0.5,
             max_tokens=max_tokens
         )
 
@@ -475,86 +475,6 @@ def ask_openai(prompt):
         print("🔥 OPENAI ERROR:", str(e))
         return f"❌ OPENAI ERROR: {str(e)}"
         
- # ================= DALL·E IMAGE GENERATION =================
-
-import base64
-import uuid
-
-# ================= IMAGE GENERATION =================
-def generate_image(msg):
-
-    try:
-        import base64
-        import uuid
-
-        print("🚀 LOCAL IMAGE FUNCTION CALLED")
-
-        response = client.images.generate(
-            model="gpt-image-1",
-            prompt=prompt,
-            size="512x512"
-        )
-
-        print("🔍 RESPONSE TYPE:", type(response))
-        print("🔍 RAW RESPONSE:", response)
-
-        image_base64 = None
-
-        try:
-            if hasattr(response, "data") and len(response.data) > 0:
-                image_base64 = getattr(response.data[0], "b64_json", None)
-        except Exception as parse_err:
-            print("❌ OBJECT PARSE FAILED:", str(parse_err))
-
-        if not image_base64:
-            print("❌ FINAL PARSE FAILURE — RAW:", response)
-            return "❌ Image parse failed (invalid API response)"
-
-        filename = f"{uuid.uuid4().hex}.png"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-
-        with open(filepath, "wb") as f:
-            f.write(base64.b64decode(image_base64))
-
-        image_url = f"/uploads/{filename}"
-
-        return {
-            "type": "image",
-            "url": image_url,
-            "prompt": prompt
-        }
-
-    except Exception as e:
-        print("🔥 FINAL IMAGE ERROR:", str(e))
-        return f"❌ Image generation error: {str(e)}"
-
-# ================= BACKGROUND IMAGE GENERATION =================
-def generate_image_background(prompt, user_id):
-
-    if "image_results" not in app.config:
-        app.config["image_results"] = {}
-
-    app.config["image_results"][user_id] = {
-        "status": "processing",
-        "data": None
-    }
-
-    try:
-        print("🚀 LOCAL IMAGE FUNCTION CALLED")
-        result = generate_image(msg)   # ✅ FIXED
-
-        app.config["image_results"][user_id] = {
-            "status": "done",
-            "data": result
-        }
-
-    except Exception as e:
-        app.config["image_results"][user_id] = {
-            "status": "error",
-            "data": str(e)
-        }
-
-
 # ================= AVATAR GENERATION =================
 def generate_avatar(image_path, style_prompt):
 
@@ -1051,11 +971,11 @@ def process_ai_request(user_id, msg):
 
         else:
             print("⚠️ ORCHESTRATOR FALLBACK → OpenAI")
-            reply = ask_openai(msg)
+            reply = brain(msg, user_id)
 
     except Exception as e:
         print("❌ ORCHESTRATOR ERROR:", str(e))
-        reply = ask_openai(msg)
+        reply = brain(msg, user_id)
 
     # ===== TOKEN DEDUCTION =====
     deduct_token(user_id, token_cost)
