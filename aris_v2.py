@@ -9,13 +9,13 @@ try:
 except:
     pytesseract = None
 from PIL import Image
-from aris_student_engine import solve_academic_question
+from aris_engines.aris_student_engine import solve_academic_question
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 load_dotenv()
 import jwt
 import datetime
-from aris_image_engine import generate_image
+from aris_tools.aris_image_engine import generate_image
 
 JWT_SECRET = os.getenv("SECRET_KEY")
 JWT_ALGO = "HS256"
@@ -614,7 +614,7 @@ def extract_text_from_image(image_path):
         return f"OCR Error: {str(e)}"
 
 
-from aris_student_engine import solve_academic_question
+from aris_engines.aris_student_engine import solve_academic_question
 
 def solve_question_from_image(image_path, user_id=None):
 
@@ -1052,7 +1052,8 @@ def process_ai_request(user_id, msg):
         ]):
             route = "creator_image"
         else:
-            route = route_agent(user_id, msg)
+            from aris_core.orchestrator import run_orchestrator
+            route = run_orchestrator(user_id, msg)
 
         # ===== IMAGE ROUTE =====
         if route in ["image", "creator_image"]:

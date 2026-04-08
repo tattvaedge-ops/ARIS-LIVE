@@ -1,7 +1,7 @@
 # ===== ARIS CREATION AGENT (IMAGE + CREATIVE ENGINE) =====
 
 from aris_brain import ask_ai
-from aris_image_engine import generate_image
+from aris_tools.aris_image_engine import generate_image
 
 
 def creation_agent(user_input):

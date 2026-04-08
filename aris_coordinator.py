@@ -1,11 +1,12 @@
 from aris_planner_agent import planner_agent
-from aris_research_agent import research_agent
-from aris_creation_agent import creation_agent
+from aris_engines.aris_research_agent import research_agent
+from aris_engines.aris_creation_agent import creation_agent
 from aris_analyzer_agent import analyzer_agent
 from aris_executor import executor_agent
-from aris_google_search import google_search
+from aris_tools.aris_google_search import google_search
 from aris_multimodal_engine import analyze_image, analyze_video
 from aris_agent_engine import plan_task
+from aris_scene_planner import generate_scenes
 
 # NEW IMPORTS FOR VIDEO PIPELINE
 from aris_scene_planner import generate_scenes

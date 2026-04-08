@@ -1,8 +1,8 @@
 import datetime
 
-from aris_research_agent import research_agent
+from aris_engines.aris_research_agent import research_agent
 from aris_planner_agent import planner_agent
-from aris_creation_agent import creation_agent
+from aris_engines.aris_creation_agent import creation_agent
 from aris_analyzer_agent import analyzer_agent
 from aris_brain import ask_ai
 

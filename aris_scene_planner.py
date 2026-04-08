@@ -7,7 +7,7 @@ import re
 
 from aris_cinematic_story_engine import generate_story_arc
 from aris_semantic_scene_engine import generate_semantic_scenes
-from aris_image_engine import generate_image
+from aris_tools.aris_image_engine import generate_image
 
 
 def generate_scenes(topic):
