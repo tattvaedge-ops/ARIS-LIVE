@@ -1,19 +1,78 @@
 from aris_core.intent_engine import detect_intent
 
-def run_orchestrator(user_id, msg):
+def orchestrate_request(user_id, message):
 
-    intent = detect_intent(msg)
+    intent = detect_intent(message)
 
     print("🧠 INTENT:", intent)
 
-    if intent == "student":
-        return f"🎓 Student Engine will handle this: {msg}"
+    try:
+        # ===== 🎓 STUDENT ENGINE =====
+        if intent == "student":
+            from aris_engines.student_engine import solve_student_query
+            result = solve_student_query(message)
 
-    elif intent == "creator_image":
-        return f"🎨 Image Engine will handle this: {msg}"
+            return {
+                "status": "handled",
+                "response": result
+            }
 
-    elif intent == "research":
-        return f"🔬 Research Engine will handle this: {msg}"
+        # ===== 🎨 IMAGE ENGINE =====
+        elif intent in ["creator_image", "image"]:
+            from aris_tools.aris_image_engine import generate_image
+            image_url = generate_image(message)
 
-    else:
-        return f"🧠 General response: {msg}"
+            if image_url:
+                response = f"""
+🎨 ARIS IMAGE GENERATED
+
+🧠 Prompt:
+{message}
+
+🖼️ Image:
+<img src="{image_url}" style="max-width:300px; border-radius:10px;"/>
+
+⬇️ Download:
+<a href="{image_url}" download>Download Image</a>
+"""
+            else:
+                response = "❌ Image generation failed"
+
+            return {
+                "status": "handled",
+                "response": response
+            }
+
+        # ===== 🔬 RESEARCH ENGINE =====
+        elif intent == "research":
+            from aris_engines.research_agent import research_query
+            result = research_query(message)
+
+            return {
+                "status": "handled",
+                "response": result
+            }
+
+        # ===== 🎬 VIDEO ENGINE =====
+        elif intent == "video":
+            from aris_tools.video_ai import generate_ai_video
+            result = generate_ai_video(message)
+
+            return {
+                "status": "handled",
+                "response": result
+            }
+
+        # ===== ❌ NOT HANDLED =====
+        else:
+            return {
+                "status": "not_handled"
+            }
+
+    except Exception as e:
+        print("❌ ORCHESTRATOR FAILURE:", str(e))
+
+        return {
+            "status": "error",
+            "response": "⚠️ Engine execution failed"
+        }

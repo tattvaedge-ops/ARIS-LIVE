@@ -1040,56 +1040,22 @@ def process_ai_request(user_id, msg):
             "tokens_left": tokens
         }
 
-    # ===== ROUTING START =====
-    from aris_agents import route_agent
-    from aris_tools.aris_image_engine import generate_image
-
+    # ===== 🚀 ORCHESTRATOR ROUTING (NEW CORE FIX) =====
     try:
-        # 🔥 FORCE IMAGE DETECTION FIRST
-        if any(x in msg_lower for x in [
-            "generate image", "create image", "make image",
-            "draw an image", "draw a picture", "create a picture"
-        ]):
-            route = "creator_image"
+        from aris_core.orchestrator import orchestrate_request
+
+        result = orchestrate_request(user_id=user_id, message=msg)
+
+        if result and isinstance(result, dict) and result.get("status") == "handled":
+            reply = result.get("response")
+
         else:
-            from aris_core.orchestrator import run_orchestrator
-            route = run_orchestrator(user_id, msg)
-
-        # ===== IMAGE ROUTE =====
-        if route in ["image", "creator_image"]:
-            print("🎯 USING OPENAI IMAGE ENGINE")
-
-            image_url = generate_image(msg)
-
-            if image_url:
-                reply = f"""
-🎨 ARIS IMAGE GENERATED
-
-🧠 Prompt:
-{msg}
-
-🖼️ Image:
-<img src="{image_url}" style="max-width:300px; border-radius:10px;"/>
-
-⬇️ Download:
-<a href="{image_url}" download>Download Image</a>
-"""
-            else:
-                reply = "❌ Image generation failed"
-
-        # ===== VIDEO ROUTE =====
-        elif route == "video":
-            from aris_video_ai import generate_ai_video
-            reply = generate_ai_video(msg)
-
-        # ===== RESEARCH / DEFAULT =====
-        else:
-            print("⚡ FORCED OPENAI CALL FROM process_ai_request")
+            print("⚠️ ORCHESTRATOR FALLBACK → OpenAI")
             reply = ask_openai(msg)
 
     except Exception as e:
-        print("ERROR:", str(e))
-        reply = "⚠️ ARIS encountered an error. Check system logs."
+        print("❌ ORCHESTRATOR ERROR:", str(e))
+        reply = ask_openai(msg)
 
     # ===== TOKEN DEDUCTION =====
     deduct_token(user_id, token_cost)
