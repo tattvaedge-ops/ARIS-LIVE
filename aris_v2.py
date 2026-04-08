@@ -1042,7 +1042,7 @@ def process_ai_request(user_id, msg):
 
     # ===== ROUTING START =====
     from aris_agents import route_agent
-    from aris_image_engine import generate_image
+    from aris_tools.aris_image_engine import generate_image
 
     try:
         # 🔥 FORCE IMAGE DETECTION FIRST
