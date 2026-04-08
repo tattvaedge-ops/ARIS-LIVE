@@ -996,6 +996,7 @@ def generate_suggestions(message):
     ]
 
 def process_ai_request(user_id, msg):
+    print("🔥 PROCESS_AI_REQUEST CALLED")
 
     print("MSG:", msg)
 
@@ -1082,7 +1083,8 @@ def process_ai_request(user_id, msg):
 
         # ===== RESEARCH / DEFAULT =====
         else:
-            reply = brain(msg, user_id)
+            print("⚡ FORCED OPENAI CALL FROM process_ai_request")
+            reply = ask_openai(msg)
 
     except Exception as e:
         print("ERROR:", str(e))

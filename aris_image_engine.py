@@ -1,4 +1,4 @@
-# ===== ARIS IMAGE ENGINE (FINAL WORKING VERSION) =====
+# ===== ARIS IMAGE ENGINE (FIXED VERSION) =====
 
 import os
 from dotenv import load_dotenv
@@ -26,12 +26,18 @@ def generate_image(prompt):
             size="1024x1024"
         )
 
+        # ✅ Extract base64 image
         image_base64 = response.data[0].b64_json
 
+        # ✅ Convert to usable URL (base64)
         image_url = f"data:image/png;base64,{image_base64}"
 
-        return image_url
+        # ✅ RETURN DICT (IMPORTANT FIX)
+        return {
+            "url": image_url,
+            "prompt": prompt
+        }
 
     except Exception as e:
         print("IMAGE ERROR:", str(e))
-        return None
+        return f"❌ Image generation error: {str(e)}"
