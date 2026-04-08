@@ -2,13 +2,35 @@ def detect_intent(msg):
 
     m = msg.lower()
 
-    if any(x in m for x in ["image","draw","picture","photo"]):
+    # ===== 🎨 IMAGE =====
+    if any(x in m for x in [
+        "generate image", "create image", "make image",
+        "draw", "picture", "photo", "illustration", "art"
+    ]):
         return "creator_image"
 
-    if any(x in m for x in ["study","exam","physics","math","chemistry"]):
+    # ===== 🎬 VIDEO =====
+    if any(x in m for x in [
+        "video", "reel", "animation", "short video", "clip"
+    ]):
+        return "video"
+
+    # ===== 🎓 STUDENT =====
+    if any(x in m for x in [
+        "solve", "equation", "question", "numerical",
+        "math", "physics", "chemistry", "biology",
+        "derivative", "integration", "integral",
+        "algebra", "calculus", "problem"
+    ]):
         return "student"
 
-    if any(x in m for x in ["research","paper","analysis"]):
+    # ===== 🔬 RESEARCH =====
+    if any(x in m for x in [
+        "research", "analysis", "explain in detail",
+        "deep dive", "study about", "investigate",
+        "report", "thesis", "paper"
+    ]):
         return "research"
 
+    # ===== 🧠 DEFAULT =====
     return "general"
