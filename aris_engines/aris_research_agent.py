@@ -4,8 +4,10 @@ def research_query(query, ask_openai):
 
     results = google_search(query)
 
+    print("🌐 GOOGLE RESULTS:", results)
+
     if not results:
-        return "⚠️ Unable to fetch live data."
+        return "⚠️ No live data found."
 
     context = ""
 
@@ -14,13 +16,12 @@ def research_query(query, ask_openai):
 Title: {r['title']}
 Summary: {r['snippet']}
 Source: {r['link']}
-
 """
 
     prompt = f"""
 You are ARIS Research Intelligence.
 
-Use the LIVE DATA below to answer.
+Use the LIVE INTERNET DATA below to answer the query.
 
 LIVE DATA:
 {context}
@@ -29,9 +30,10 @@ User Query:
 {query}
 
 Instructions:
-- Give updated (2026) insights
-- Do NOT mention sources explicitly
-- Structure answer clearly
+- Give CURRENT real-world updates (2026)
+- Extract key developments, not general theory
+- Be specific (companies, events, numbers if possible)
+- Structure answer cleanly
 """
 
     return ask_openai(prompt)

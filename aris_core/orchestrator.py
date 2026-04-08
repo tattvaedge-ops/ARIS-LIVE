@@ -1,4 +1,5 @@
 from aris_core.intent_engine import detect_intent
+from aris_v2 import ask_openai
 
 def orchestrate_request(user_id, message):
 
@@ -46,7 +47,7 @@ def orchestrate_request(user_id, message):
         # ===== 🔬 RESEARCH ENGINE =====
         elif intent == "research":
             from aris_engines.research_agent import research_query
-            
+
             result = research_query(message, ask_openai)
 
             return {

@@ -32,5 +32,10 @@ def detect_intent(msg):
     ]):
         return "research"
 
+    if any(x in m for x in [
+        "latest","news","update","current","trend","2026"
+    ]):
+         return "research"
+
     # ===== 🧠 DEFAULT =====
     return "general"
