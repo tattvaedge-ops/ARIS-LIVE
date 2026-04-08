@@ -1,17 +1,37 @@
-from aris_brain import ask_ai
+from aris_tools.google_search import google_search
 
+def research_query(query, ask_openai):
 
-def research_agent(user_input):
+    results = google_search(query)
 
-    prompt = f"""
-You are ARIS Research Agent.
+    if not results:
+        return "⚠️ Unable to fetch live data."
 
-Your role is to explain topics clearly and accurately.
+    context = ""
 
-User request:
-{user_input}
+    for r in results:
+        context += f"""
+Title: {r['title']}
+Summary: {r['snippet']}
+Source: {r['link']}
 
-Provide a simple and structured explanation.
 """
 
-    return ask_ai(prompt)
+    prompt = f"""
+You are ARIS Research Intelligence.
+
+Use the LIVE DATA below to answer.
+
+LIVE DATA:
+{context}
+
+User Query:
+{query}
+
+Instructions:
+- Give updated (2026) insights
+- Do NOT mention sources explicitly
+- Structure answer clearly
+"""
+
+    return ask_openai(prompt)

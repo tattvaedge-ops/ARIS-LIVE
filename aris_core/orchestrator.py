@@ -46,7 +46,8 @@ def orchestrate_request(user_id, message):
         # ===== 🔬 RESEARCH ENGINE =====
         elif intent == "research":
             from aris_engines.research_agent import research_query
-            result = research_query(message)
+            
+            result = research_query(message, ask_openai)
 
             return {
                 "status": "handled",

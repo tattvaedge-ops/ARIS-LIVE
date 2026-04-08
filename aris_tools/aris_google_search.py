@@ -1,46 +1,36 @@
 import requests
+import os
 
-SERPER_API_KEY = "6dd70edfa46f93ae2e0d5cd3c27c2c14c2648d4b"
-
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
 
 def google_search(query):
 
     try:
+        url = "https://www.googleapis.com/customsearch/v1"
 
-        query = query.replace("search", "").strip()
-
-        url = "https://google.serper.dev/search"
-
-        payload = {
-            "q": query
+        params = {
+            "key": GOOGLE_API_KEY,
+            "cx": SEARCH_ENGINE_ID,
+            "q": query,
+            "num": 5
         }
 
-        headers = {
-            "X-API-KEY": SERPER_API_KEY,
-            "Content-Type": "application/json"
-        }
-
-        response = requests.post(url, json=payload, headers=headers)
+        response = requests.get(url, params=params)
         data = response.json()
 
         results = []
 
-        if "organic" not in data:
-            return "No search results found."
+        if "items" in data:
+            for item in data["items"]:
+                results.append({
+                    "title": item.get("title"),
+                    "snippet": item.get("snippet"),
+                    "link": item.get("link")
+                })
 
-        for item in data["organic"][:5]:
-
-            title = item["title"]
-            snippet = item.get("snippet", "")
-            link = item["link"].split("?")[0]
-
-            results.append(
-                f"<b>🔎 {title}</b><br>"
-                f"{snippet}<br>"
-                f"<a href='{link}' target='_blank'>🌐 Open Source</a><br><br>"
-            )
-
-        return "".join(results)
+        return results
 
     except Exception as e:
-        return f"Search error: {e}"
+        print("GOOGLE SEARCH ERROR:", str(e))
+        return []
