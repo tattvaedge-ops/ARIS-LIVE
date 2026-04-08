@@ -3464,8 +3464,5 @@ def test_openai():
 import os
 
 if __name__ == "__main__":
-    if os.environ.get("RENDER"):
-        port = int(os.environ.get("PORT", 10000))
-        app.run(host="0.0.0.0", port=port, debug=False)
-    else:
-        app.run(host="0.0.0.0", port=5001, debug=False, use_reloader=False)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
