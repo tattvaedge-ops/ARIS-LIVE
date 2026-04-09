@@ -1,5 +1,6 @@
 from aris_core.intent_engine import detect_intent
 from aris_v2 import ask_openai
+from aris_engines.aris_research_agent import research_query
 
 def orchestrate_request(user_id, message):
 
