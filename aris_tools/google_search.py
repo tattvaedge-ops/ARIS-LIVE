@@ -1,8 +1,14 @@
 import requests
 import os
+from dotenv import load_dotenv
+
+load_dotenv()   # 🔥 THIS LINE IS MISSING
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
+GOOGLE_CX = os.getenv("GOOGLE_CX")
+
+print("DEBUG API KEY:", GOOGLE_API_KEY)
+print("DEBUG CX:", GOOGLE_CX)
 
 def google_search(query):
 
