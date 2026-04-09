@@ -7,6 +7,13 @@ SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
 def google_search(query):
 
     try:
+        print("🔍 QUERY:", query)
+
+        # ✅ Check env variables
+        if not GOOGLE_API_KEY or not SEARCH_ENGINE_ID:
+            print("❌ MISSING API KEY OR CX")
+            return []
+
         url = "https://www.googleapis.com/customsearch/v1"
 
         params = {
@@ -17,20 +24,32 @@ def google_search(query):
         }
 
         response = requests.get(url, params=params)
+
+        print("📡 STATUS:", response.status_code)
+
+        # ✅ Handle bad responses
+        if response.status_code != 200:
+            print("❌ API ERROR:", response.text)
+            return []
+
         data = response.json()
 
         results = []
 
-        if "items" in data:
-            for item in data["items"]:
-                results.append({
-                    "title": item.get("title"),
-                    "snippet": item.get("snippet"),
-                    "link": item.get("link")
-                })
+        # ✅ Extract results safely
+        items = data.get("items", [])
+
+        for item in items:
+            results.append({
+                "title": item.get("title", ""),
+                "snippet": item.get("snippet", ""),
+                "link": item.get("link", "")
+            })
+
+        print("🌐 RESULTS COUNT:", len(results))
 
         return results
 
     except Exception as e:
-        print("GOOGLE SEARCH ERROR:", str(e))
+        print("🔥 GOOGLE SEARCH ERROR:", str(e))
         return []
