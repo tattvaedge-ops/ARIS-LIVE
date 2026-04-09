@@ -16,7 +16,7 @@ def google_search(query):
         print("🔍 QUERY:", query)
 
         # ✅ Check env variables
-        if not GOOGLE_API_KEY or not SEARCH_ENGINE_ID:
+        if not GOOGLE_API_KEY or not GOOGLE_CX:
             print("❌ MISSING API KEY OR CX")
             return []
 
@@ -24,9 +24,8 @@ def google_search(query):
 
         params = {
             "key": GOOGLE_API_KEY,
-            "cx": SEARCH_ENGINE_ID,
-            "q": query,
-            "num": 5
+            "cx": GOOGLE_CX,
+            "q": query
         }
 
         response = requests.get(url, params=params)
