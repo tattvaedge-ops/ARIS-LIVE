@@ -3,7 +3,10 @@ from aris_coordinator import ARISCoordinator
 import sqlite3
 import datetime
 import requests
+import sys
 import os
+
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 try:
     import pytesseract
 except:
@@ -16,6 +19,9 @@ load_dotenv()
 import jwt
 import datetime
 from aris_tools.aris_image_engine import generate_image
+from aris_tools.voice_input import speech_to_text
+from aris_tools.aris_voice_engine import generate_voice
+from flask import request, send_file, jsonify
 
 JWT_SECRET = os.getenv("SECRET_KEY")
 JWT_ALGO = "HS256"
@@ -2229,6 +2235,7 @@ Buy Tokens
 onkeypress="if(event.key==='Enter') send()">
 
 <button class="send" onclick="send()">Send</button>
+<button onclick="startRecording()">🎤 Speak</button>
 
 
 </div>
@@ -2745,31 +2752,106 @@ const data = await res.json();
 
 removeThinking();
 
-addMessage(data.reply,"aris");
+    addMessage(data.reply,"aris");
 
-// 🔥 DELAYED TOKEN UPDATE (FINAL FIX)
-setTimeout(() => {
+    // 🔥 DELAYED TOKEN UPDATE (FINAL FIX)
+    setTimeout(() => {
 
-    if(data.tokens_left !== undefined && data.tokens_left !== null){
+        if(data.tokens_left !== undefined && data.tokens_left !== null){
 
-        document.getElementById("tokenBox").innerText =
-            "🧠 Tokens: " + data.tokens_left;
+            document.getElementById("tokenBox").innerText =
+                "🧠 Tokens: " + data.tokens_left;
 
-        document.getElementById("profileTokens").innerText =
-            data.tokens_left;
+            document.getElementById("profileTokens").innerText =
+                data.tokens_left;
 
+        }
+
+    }, 100);
     }
 
-}, 100);
-}
+    </script>
 
+    </script>
+
+<!-- 🎤 VOICE SCRIPT START -->
+<script>
+let mediaRecorder;
+let audioChunks = [];
+let audioUnlocked = false;
+
+// 🔥 Unlock audio on first user interaction
+document.addEventListener('click', () => {
+    if (!audioUnlocked) {
+        const tempAudio = new Audio();
+        tempAudio.play().catch(() => {});
+        audioUnlocked = true;
+        console.log("🔓 Audio unlocked");
+    }
+}, { once: true });
+
+async function startRecording() {
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.start();
+
+        mediaRecorder.ondataavailable = event => {
+            audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+
+            const formData = new FormData();
+            formData.append("audio", audioBlob, "voice.wav");
+
+            const response = await fetch("/voice", {
+                method: "POST",
+                body: formData
+            });
+
+            const audioResponse = await response.blob();
+            const audioURL = URL.createObjectURL(audioResponse);
+
+            const audio = new Audio(audioURL);
+
+            // 🔥 Ensure play works
+            try {
+                await audio.play();
+                console.log("🔊 Playing response");
+            } catch (err) {
+                console.log("🔁 Retrying play...");
+                setTimeout(() => {
+                    audio.play();
+                }, 500);
+            }
+        };
+
+        // ⏳ record for 4 seconds
+        setTimeout(() => {
+            mediaRecorder.stop();
+        }, 4000);
+
+    } catch (error) {
+        alert("Mic Error: " + error);
+        console.error(error);
+    }
+}
+</script>
+<!-- 🎤 VOICE SCRIPT END -->
 </script>
 
 </body>
 </html>
 """
 
-# ================= ROUTES =================
+    # ================= ROUTES =================
 
 @app.route("/forgot-password", methods=["POST"])
 def forgot_password():
@@ -3345,6 +3427,34 @@ def test_openai():
 
     except Exception as e:
         return f"ERROR: {str(e)}"
+
+@app.route("/voice", methods=["POST"])
+def voice_chat():
+    try:
+        # 🎤 Get audio from frontend
+        audio = request.files["audio"]
+        file_path = "temp_audio.wav"
+        audio.save(file_path)
+
+        # 🎤 Speech → Text
+        user_text = speech_to_text(file_path)
+
+        if not user_text:
+            return jsonify({"error": "Speech not recognized"})
+
+        print("🎤 USER SAID:", user_text)
+
+        # 🧠 Process via ARIS
+        reply = process_ai_request("user", user_text)
+
+        # 🔊 Convert to voice
+        audio_file = generate_voice(reply)
+
+        return send_file(audio_file, mimetype="audio/mpeg")
+
+    except Exception as e:
+        print("❌ Voice Route Error:", e)
+        return jsonify({"error": "Voice processing failed"})       
 
 
 import os
