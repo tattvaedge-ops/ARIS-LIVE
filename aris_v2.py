@@ -3448,6 +3448,15 @@ def voice_chat():
         reply = process_ai_request("user", user_text)
 
         # 🔊 Convert to voice
+        # 🔥 Ensure reply is string
+
+        # 🔥 Safety fixes
+        if not reply:
+            reply = "Hello, how can I assist you?"
+
+        if not isinstance(reply, str):
+            reply = str(reply)
+
         audio_file = generate_voice(reply)
 
         return send_file(audio_file, mimetype="audio/mpeg")
