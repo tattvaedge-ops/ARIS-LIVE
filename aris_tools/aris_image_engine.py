@@ -44,7 +44,7 @@ def generate_openai_image(prompt):
         response = client.images.generate(
             model="gpt-image-1",
             prompt=enhanced,
-            size="512x512"   # 🔥 IMPORTANT: reduced size (prevents crash)
+            size=size="1024x1024"   # 🔥 IMPORTANT: reduced size (prevents crash)
         )
 
         image_base64 = response.data[0].b64_json
