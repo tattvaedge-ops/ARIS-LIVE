@@ -2454,58 +2454,25 @@ await send();
 
 }
 
-async function send(){
+afunction addImage(src){
 
-const input = document.getElementById("msg");
-const text = input.value.trim();
+const chat = document.getElementById("chat");
 
-if(!text) return;
+const msg = document.createElement("div");
+msg.classList.add("message","aris");
 
-addMessage(text,"user");
+msg.innerHTML = `
+<img src="${src}" style="
+max-width:500px;
+width:100%;
+border-radius:16px;
+margin-top:8px;
+box-shadow:0 0 22px rgba(249,115,22,.45);
+">
+`;
 
-input.value = "";
-
-showThinking();
-
-const res = await fetch("/chat",{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({
-msg:text,
-mode:ARIS_MODE
-})
-});
-
-const data = await res.json();
-
-removeThinking();
-
-// ✅ SAFE TOKEN UPDATE
-if(data.tokens_left !== undefined){
-
-    const tokenBox = document.getElementById("tokenBox");
-    const profileTokens = document.getElementById("profileTokens");
-
-    if(tokenBox){
-        tokenBox.innerText = "🧠 Tokens: " + data.tokens_left;
-    }
-
-    if(profileTokens){
-        profileTokens.innerText = data.tokens_left;
-    }
-
-}
-
-addMessage(data.reply,"aris");
-
-// Suggestions
-if(data.suggestions){
-    showSuggestions(data.suggestions);
-}
-
-// 🔥 FINAL STABLE SYNC (IMPORTANT)
-await loadTokens();
-
+chat.appendChild(msg);
+chat.scrollTop = chat.scrollHeight;
 }
 
 
