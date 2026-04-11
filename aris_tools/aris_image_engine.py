@@ -1,51 +1,56 @@
-# ===== ARIS IMAGE ENGINE (PRODUCTION SAFE VERSION) =====
+# ===== ARIS IMAGE ENGINE (FINAL PRODUCTION SAFE) =====
 
 import os
-from dotenv import load_dotenv
-from openai import OpenAI
 import requests
 import base64
+from dotenv import load_dotenv
+from openai import OpenAI
 
-# Load env
+# ===============================
+# LOAD ENV
+# ===============================
 load_dotenv()
 
-# OpenAI Setup
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     raise ValueError("❌ OPENAI_API_KEY NOT FOUND")
 
-client = OpenAI(api_key=api_key)
-
-# Stability Setup
 STABILITY_API_KEY = os.getenv("STABILITY_API_KEY")
 
-print("🔥 ARIS Image Engine Initialized (Production Mode)")
+client = OpenAI(api_key=api_key)
+
+print("🔥 ARIS Image Engine Initialized")
 
 
 # ===============================
-# 🔥 PROMPT ENHANCER
+# PROMPT ENHANCER
 # ===============================
 def enhance_prompt(user_prompt):
     return f"""
-Ultra realistic, cinematic, highly detailed, professional lighting,
-volumetric lighting, depth of field, sharp focus,
+Ultra realistic, cinematic, highly detailed,
+professional lighting, volumetric light,
+sharp focus, masterpiece quality,
 {user_prompt}
 """
 
 
 # ===============================
-# 🟢 OPENAI IMAGE (OPTIMIZED)
+# OPENAI IMAGE ENGINE
 # ===============================
 def generate_openai_image(prompt):
 
     enhanced = enhance_prompt(prompt)
 
     try:
+        print("🚀 Sending image request to OpenAI...")
+
         response = client.images.generate(
             model="gpt-image-1",
             prompt=enhanced,
-            size="1024x1024"   # 🔥 IMPORTANT: reduced size (prevents crash)
+            size="1024x1024"
         )
+
+        print("✅ OpenAI image response received")
 
         image_base64 = response.data[0].b64_json
         image_url = f"data:image/png;base64,{image_base64}"
@@ -61,57 +66,57 @@ def generate_openai_image(prompt):
 
         return {
             "type": "error",
-            "message": "OpenAI image failed (timeout or billing issue)"
+            "message": "OpenAI image failed"
         }
 
 
 # ===============================
-# 🔥 STABILITY IMAGE (FAST + SAFE)
+# STABILITY FALLBACK ENGINE
 # ===============================
 def generate_stability_image(prompt):
 
     if not STABILITY_API_KEY:
         return {
             "type": "error",
-            "message": "STABILITY_API_KEY NOT FOUND"
+            "message": "STABILITY_API_KEY missing"
         }
 
     enhanced = enhance_prompt(prompt)
 
-    url = "https://api.stability.ai/v2beta/stable-image/generate/core"
-
-    headers = {
-        "Authorization": f"Bearer {STABILITY_API_KEY}",
-        "Accept": "application/json"
-    }
-
-    data = {
-        "prompt": enhanced,
-        "output_format": "png"
-    }
-
     try:
-        response = requests.post(url, headers=headers, json=data, timeout=15)
+        print("🚀 Sending image request to Stability...")
+
+        response = requests.post(
+            "https://api.stability.ai/v2beta/stable-image/generate/core",
+            headers={
+                "Authorization": f"Bearer {STABILITY_API_KEY}",
+                "Accept": "application/json"
+            },
+            json={
+                "prompt": enhanced,
+                "output_format": "png"
+            },
+            timeout=20
+        )
 
         if response.status_code != 200:
+            print("❌ Stability API Error:", response.text)
+
             return {
                 "type": "error",
-                "message": f"Stability Error: {response.text}"
+                "message": "Stability failed"
             }
 
         result = response.json()
+
         image_base64 = result["image"]
+        image_url = f"data:image/png;base64,{image_base64}"
 
-        image_bytes = base64.b64decode(image_base64)
-
-        file_path = "stability_output.png"
-
-        with open(file_path, "wb") as f:
-            f.write(image_bytes)
+        print("✅ Stability image response received")
 
         return {
             "type": "stability",
-            "file": file_path,
+            "url": image_url,
             "prompt": enhanced
         }
 
@@ -120,31 +125,31 @@ def generate_stability_image(prompt):
 
         return {
             "type": "error",
-            "message": "Stability image failed"
+            "message": "Stability failed"
         }
 
 
 # ===============================
-# 🎯 MAIN FUNCTION (SMART ROUTING)
+# MAIN ROUTER
 # ===============================
 def generate_image(prompt, mode="normal"):
 
     try:
-        # 🔥 Prefer Stability in production (faster + safer)
+        print("🖼️ IMAGE GENERATION STARTED")
+
         if mode == "cinematic":
             return generate_stability_image(prompt)
 
-        # 🔁 fallback system
         result = generate_openai_image(prompt)
 
-        if result.get("type") == "error":
-            print("⚠️ Falling back to Stability AI...")
+        if result["type"] == "error":
+            print("⚠️ Falling back to Stability...")
             return generate_stability_image(prompt)
 
         return result
 
     except Exception as e:
-        print("❌ IMAGE ENGINE ERROR:", str(e))
+        print("❌ IMAGE ENGINE FATAL:", str(e))
 
         return {
             "type": "error",
