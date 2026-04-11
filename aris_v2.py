@@ -22,6 +22,7 @@ from aris_tools.aris_image_engine import generate_image
 from aris_tools.voice_input import speech_to_text
 from aris_tools.aris_voice_engine import generate_voice
 from flask import request, send_file, jsonify
+from aris_tools.aris_image_engine import generate_image
 
 JWT_SECRET = os.getenv("SECRET_KEY")
 JWT_ALGO = "HS256"
@@ -925,6 +926,20 @@ def process_ai_request(user_id, msg):
     print("🔥 PROCESS_AI_REQUEST CALLED")
 
     print("MSG:", msg)
+
+     # ===== IMAGE GENERATION TRIGGER =====
+    if "image" in msg.lower() or "generate image" in msg.lower():
+
+        print("🖼️ IMAGE GENERATION TRIGGERED")
+
+        # Cinematic mode detection
+        if "cinematic" in msg.lower() or "realistic" in msg.lower():
+            result = generate_image(msg, mode="cinematic")
+        else:
+            result = generate_image(msg)
+
+        return result
+
 
     if not ARIS_ACTIVE:
         return {
