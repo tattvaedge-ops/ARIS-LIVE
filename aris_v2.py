@@ -2497,7 +2497,26 @@ if(data.tokens_left !== undefined){
 }
 
 if(data.url){
-    addMessage('<img src="' + data.url + '" style="max-width:450px;border-radius:14px;margin-bottom:8px;">',"aris");
+    addMessage(`
+<div style="display:flex;flex-direction:column;gap:10px;">
+<img src="${data.url}" style="max-width:450px;border-radius:14px;">
+
+<a href="${data.url}" download="aris-image.png"
+style="
+background:#f97316;
+color:white;
+padding:10px 14px;
+border-radius:10px;
+text-decoration:none;
+font-weight:600;
+width:fit-content;
+box-shadow:0 0 12px rgba(249,115,22,.45);
+">
+⬇ Download Image
+</a>
+
+</div>
+`,"aris");
 }
 
 addMessage(data.reply,"aris");
