@@ -135,6 +135,10 @@ def generate_stability_image(prompt):
 def generate_image(prompt, mode="normal"):
 
     try:
+        from aris_engines.aris_prompt_engine import smart_prompt
+
+        prompt = smart_prompt(prompt, mode, "image")
+        print("🔥 SMART PROMPT:", prompt)
         print("🖼️ IMAGE GENERATION STARTED")
 
         if mode == "cinematic":
