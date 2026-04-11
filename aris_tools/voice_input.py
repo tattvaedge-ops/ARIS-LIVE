@@ -7,7 +7,7 @@ def speech_to_text(audio_file_path):
 
         with open(audio_file_path, "rb") as audio_file:
             transcript = client.audio.transcriptions.create(
-                model="whisper-1",
+                model="gpt-4o-mini-transcribe",
                 file=audio_file
             )
 

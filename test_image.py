@@ -1,4 +1,4 @@
-from aris_image_engine import generate_image
+from aris_tools.aris_image_engine import generate_image
 
 img = generate_image("futuristic cricket stadium with neon lights")
 
