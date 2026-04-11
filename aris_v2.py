@@ -2496,6 +2496,10 @@ if(data.tokens_left !== undefined){
 
 }
 
+if(data.url){
+    addMessage('<img src="' + data.url + '" style="max-width:450px;border-radius:14px;margin-bottom:8px;">',"aris");
+}
+
 addMessage(data.reply,"aris");
 
 // Suggestions
@@ -2524,7 +2528,7 @@ chat.appendChild(msg);
 if(type === "aris"){
 
     // If response contains HTML (links etc)
-    if(text.includes("<a") || text.includes("<b") || text.includes("<br>")){
+    if(text.includes("<a") || text.includes("<b") || text.includes("<br>") || text.includes("<img")){
         msg.innerHTML = text;
     }
     else{
