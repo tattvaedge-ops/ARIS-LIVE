@@ -2767,7 +2767,15 @@ const data = await res.json();
 
 removeThinking();
 
+
+if(data.url){
+
+    addImage(data.url);
+}
+
+if(data.reply){
     addMessage(data.reply,"aris");
+}
 
     // 🔥 DELAYED TOKEN UPDATE (FINAL FIX)
     setTimeout(() => {
@@ -3024,15 +3032,23 @@ def chat():
     tokens_left = result.get("tokens_left", 0)
     suggestions = result.get("suggestions", [])
 
+    # 🔥 IMAGE SUPPORT
+    image_url = result.get("url", "")
+    image_type = result.get("type", "")
+
     # ===== SAVE MEMORY =====
     save_message(user_id, "user", user_input)
-    save_message(user_id, "aris", reply)
+
+    if reply:
+        save_message(user_id, "aris", reply)
 
     # ===== FINAL RESPONSE =====
     return jsonify({
         "reply": reply,
         "tokens_left": tokens_left,
-        "suggestions": suggestions
+        "suggestions": suggestions,
+        "url": image_url,
+        "type": image_type
     })
 
 @app.route("/live_users")
