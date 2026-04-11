@@ -5,7 +5,8 @@ import requests
 import base64
 from dotenv import load_dotenv
 from openai import OpenAI
-from aris_prompt_engine import smart_prompt
+import aris_engines.aris_prompt_engine as prompt_engine
+smart_prompt = prompt_engine.smart_prompt
 
 # ===============================
 # LOAD ENV
