@@ -6,7 +6,9 @@ import base64
 from dotenv import load_dotenv
 from openai import OpenAI
 import aris_engines.aris_prompt_engine as prompt_engine
+
 smart_prompt = prompt_engine.smart_prompt
+
 
 # ===============================
 # LOAD ENV
@@ -37,19 +39,43 @@ sharp focus, masterpiece quality,
 
 
 # ===============================
+# SMART IMAGE SIZE ENGINE
+# ===============================
+def choose_image_size(prompt):
+
+    p = prompt.lower()
+
+    if any(word in p for word in [
+        "solar system", "timeline", "classroom",
+        "landscape", "office", "city", "group"
+    ]):
+        return "1536x1024"
+
+    if any(word in p for word in [
+        "portrait", "leader", "person", "king",
+        "ambedkar", "face", "hero"
+    ]):
+        return "1024x1536"
+
+    return "1024x1024"
+
+
+# ===============================
 # OPENAI IMAGE ENGINE
 # ===============================
 def generate_openai_image(prompt):
 
     enhanced = enhance_prompt(prompt)
+    size = choose_image_size(prompt)
 
     try:
         print("🚀 Sending image request to OpenAI...")
+        print("🖼️ SIZE:", size)
 
         response = client.images.generate(
             model="gpt-image-1",
             prompt=enhanced,
-            size="1024x1024"
+            size=size
         )
 
         print("✅ OpenAI image response received")
@@ -94,9 +120,9 @@ def generate_stability_image(prompt):
                 "Authorization": f"Bearer {STABILITY_API_KEY}",
                 "Accept": "application/json"
             },
-            json={
-                "prompt": enhanced,
-                "output_format": "png"
+            files={
+                "prompt": (None, enhanced),
+                "output_format": (None, "png")
             },
             timeout=20
         )
@@ -137,9 +163,8 @@ def generate_stability_image(prompt):
 def generate_image(prompt, mode="normal"):
 
     try:
-        from aris_engines.aris_prompt_engine import smart_prompt
-
         prompt = smart_prompt(prompt, mode, "image")
+
         print("🔥 SMART PROMPT:", prompt)
         print("🖼️ IMAGE GENERATION STARTED")
 
