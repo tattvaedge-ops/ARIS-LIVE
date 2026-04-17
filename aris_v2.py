@@ -784,37 +784,129 @@ def extract_text_from_image(image_path):
         return "⚠️ OCR not available in cloud mode"
 
     try:
+        # ==================================
+        # LOAD IMAGE
+        # ==================================
         img = Image.open(image_path)
 
-        text = pytesseract.image_to_string(img)
+        # Convert to grayscale
+        img = img.convert("L")
 
-        return text.strip()
+        # ==================================
+        # RESIZE FOR BETTER OCR
+        # ==================================
+        w, h = img.size
+        img = img.resize((w * 2, h * 2))
+
+        # ==================================
+        # OCR CONFIG
+        # psm 6 = uniform text block
+        # ==================================
+        config = r'--oem 3 --psm 6'
+
+        text = pytesseract.image_to_string(
+            img,
+            config=config
+        )
+
+        text = str(text).strip()
+
+        # ==================================
+        # SECOND ATTEMPT IF WEAK RESULT
+        # ==================================
+        if len(text) < 5:
+
+            config2 = r'--oem 3 --psm 11'
+
+            text = pytesseract.image_to_string(
+                img,
+                config=config2
+            ).strip()
+
+        return text
 
     except Exception as e:
-        return f"OCR Error: {str(e)}"
+        print("❌ OCR ERROR:", str(e))
+        return ""
 
 
 from aris_engines.aris_student_engine import solve_academic_question
 
 def solve_question_from_image(image_path, user_id=None):
 
-    question_text = extract_text_from_image(image_path)
+    try:
+        # ==================================
+        # OCR READ
+        # ==================================
+        question_text = extract_text_from_image(image_path)
 
-    if not question_text or len(question_text) < 5:
-        return "⚠️ ARIS could not detect a valid question from the image."
+        if question_text:
+            question_text = str(question_text).strip()
 
-    # 🚀 NEW STRUCTURED STUDENT AI
-    answer = solve_academic_question(
-        question_text,
-        ask_openai
-    )
+        # ==================================
+        # HANDLE OCR SYSTEM ERRORS
+        # ==================================
+        if not question_text:
+            return """⚠️ ARIS could not read the image.
 
-    return f"""📸 Question Detected:
+Tips:
+• Upload brighter image
+• Keep camera straight
+• Crop only question area
+• Avoid blur/shadow
+"""
+
+        q_lower = question_text.lower()
+
+        if "ocr not available" in q_lower:
+            return "⚠️ Image OCR is not installed on cloud server yet."
+
+        if "ocr error" in q_lower:
+            return "⚠️ OCR failed while reading the image."
+
+        # ==================================
+        # TOO SHORT / UNCLEAR TEXT
+        # ==================================
+        if len(question_text) < 5:
+            return """⚠️ ARIS could not clearly detect the question.
+
+Tips:
+• Crop only question text
+• Use clear lighting
+• Keep image straight
+• Avoid handwriting shadows
+"""
+
+        # ==================================
+        # CLEAN OCR NOISE
+        # ==================================
+        question_text = question_text.replace("|", "I")
+        question_text = question_text.replace("§", "5")
+        question_text = question_text.replace("€", "C")
+
+        # ==================================
+        # SOLVE WITH STUDENT ENGINE
+        # ==================================
+        answer = solve_academic_question(
+            question_text,
+            ask_openai
+        )
+
+        if not answer:
+            answer = "⚠️ ARIS read the question but could not generate answer."
+
+        return f"""📸 Question Detected:
 
 {question_text}
 
+🎓 ARIS Solution:
+
 {answer}
 """
+
+    except Exception as e:
+        print("❌ IMAGE SOLVER ERROR:", str(e))
+        return "⚠️ ARIS image doubt solver temporarily unavailable."
 
 # ================= INTENT DETECTION =================
 def detect_intent(msg):
