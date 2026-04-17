@@ -1320,9 +1320,20 @@ def process_ai_request(user_id, msg):
     token_cost = 1
 
     is_image = any(x in msg_lower for x in [
-        "generate image", "create image", "make image",
-        "draw image", "draw picture"
-    ])
+    "generate image",
+    "create image",
+    "make image",
+    "draw image",
+    "draw picture",
+    "image of",
+    "photo of",
+    "picture of",
+    "diagram of",
+    "labelled image",
+    "labeled image",
+    "proper image",
+    "with labels"
+])
 
     is_video = any(x in msg_lower for x in [
         "video", "reel", "animation", "generate video"
