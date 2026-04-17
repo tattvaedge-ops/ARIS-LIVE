@@ -157,34 +157,70 @@ init_db()
 
 def create_user(email, password):
 
-    conn = sqlite3.connect("aris_memory.db")
-    c = conn.cursor()
+    conn = None
 
     try:
+        email = str(email).strip().lower()
+        password = str(password).strip()
+
+        # ==================================
+        # BASIC VALIDATION
+        # ==================================
+        if not email or not password:
+            return None
+
+        if len(password) < 6:
+            return None
+
+        conn = sqlite3.connect("aris_memory.db")
+        c = conn.cursor()
+
+        # ==================================
+        # HASH PASSWORD
+        # ==================================
         hashed_password = generate_password_hash(password)
 
+        # ==================================
+        # CREATE USER
+        # ==================================
         c.execute(
-            "INSERT INTO users (email, password, created_at) VALUES (?, ?, ?)",
-            (email, hashed_password, str(datetime.datetime.now()))
+            """
+            INSERT INTO users (email, password, created_at)
+            VALUES (?, ?, ?)
+            """,
+            (
+                email,
+                hashed_password,
+                str(datetime.datetime.now())
+            )
         )
 
         conn.commit()
 
         user_id = c.lastrowid
 
+        # ==================================
+        # FREE STARTER TOKENS
+        # ==================================
         c.execute(
-            "INSERT INTO token_wallet VALUES (?, ?)",
+            """
+            INSERT INTO token_wallet (user_id, balance)
+            VALUES (?, ?)
+            """,
             (user_id, 20)
         )
 
         conn.commit()
-        conn.close()
 
         return user_id
 
-    except:
-        conn.close()
+    except Exception as e:
+        print("❌ CREATE USER ERROR:", str(e))
         return None
+
+    finally:
+        if conn:
+            conn.close()
 
 
 def save_user_task(user_id, task):
@@ -224,61 +260,176 @@ def get_last_task(user_id):
 
 def authenticate_user(email, password):
 
-    conn = sqlite3.connect("aris_memory.db", check_same_thread=False)
-    c = conn.cursor()
+    conn = None
 
-    c.execute("SELECT id, password FROM users WHERE email=?", (email,))
-    row = c.fetchone()
+    try:
+        email = str(email).strip().lower()
+        password = str(password).strip()
 
-    conn.close()
+        if not email or not password:
+            return None
 
-    if row:
+        conn = sqlite3.connect("aris_memory.db")
+        c = conn.cursor()
+
+        c.execute(
+            """
+            SELECT id, password
+            FROM users
+            WHERE email = ?
+            LIMIT 1
+            """,
+            (email,)
+        )
+
+        row = c.fetchone()
+
+        if not row:
+            return None
+
         user_id, hashed_password = row
 
         if check_password_hash(hashed_password, password):
             return user_id
 
-    return None
+        return None
+
+    except Exception as e:
+        print("❌ AUTH ERROR:", str(e))
+        return None
+
+    finally:
+        if conn:
+            conn.close()
 
 # ================= TOKEN SYSTEM =================
 
 def get_tokens(user_id):
-    conn = sqlite3.connect("aris_memory.db")
-    c = conn.cursor()
-    c.execute("SELECT balance FROM token_wallet WHERE user_id=?", (user_id,))
-    row = c.fetchone()
-    conn.close()
-    return row[0] if row else 0
+
+    conn = None
+
+    try:
+        if not user_id:
+            return 0
+
+        conn = sqlite3.connect("aris_memory.db")
+        c = conn.cursor()
+
+        c.execute(
+            """
+            SELECT balance
+            FROM token_wallet
+            WHERE user_id = ?
+            LIMIT 1
+            """,
+            (user_id,)
+        )
+
+        row = c.fetchone()
+
+        if not row:
+            return 0
+
+        balance = row[0]
+
+        if balance is None:
+            return 0
+
+        return max(0, int(balance))
+
+    except Exception as e:
+        print("❌ GET TOKENS ERROR:", str(e))
+        return 0
+
+    finally:
+        if conn:
+            conn.close()
 
 
 def deduct_token(user_id, amount):
 
-    conn = sqlite3.connect("aris_memory.db")
-    c = conn.cursor()
+    conn = None
 
-    c.execute("""
-        UPDATE token_wallet
-        SET balance = balance - ?
-        WHERE user_id=? AND balance >= ?
-    """, (amount, user_id, amount))
+    try:
+        if not user_id:
+            return False
 
-    success = c.rowcount
+        amount = int(amount)
 
-    conn.commit()
-    conn.close()
+        if amount <= 0:
+            return False
 
-    return success > 0
+        conn = sqlite3.connect("aris_memory.db")
+        c = conn.cursor()
+
+        c.execute(
+            """
+            UPDATE token_wallet
+            SET balance = balance - ?
+            WHERE user_id = ?
+            AND balance >= ?
+            """,
+            (amount, user_id, amount)
+        )
+
+        conn.commit()
+
+        success = c.rowcount > 0
+
+        return success
+
+    except Exception as e:
+        print("❌ DEDUCT TOKEN ERROR:", str(e))
+        return False
+
+    finally:
+        if conn:
+            conn.close()
 
 
 def log_usage(user_id, tokens):
-    conn = sqlite3.connect("aris_memory.db")
-    c = conn.cursor()
-    c.execute(
-        "INSERT INTO usage_logs VALUES (?,?,?)",
-        (user_id, tokens, str(datetime.datetime.now())),
-    )
-    conn.commit()
-    conn.close()
+
+    conn = None
+
+    try:
+        if not user_id:
+            return False
+
+        tokens = int(tokens)
+
+        if tokens <= 0:
+            return False
+
+        conn = sqlite3.connect("aris_memory.db")
+        c = conn.cursor()
+
+        c.execute(
+            """
+            INSERT INTO usage_logs (
+                user_id,
+                tokens_used,
+                timestamp
+            )
+            VALUES (?, ?, ?)
+            """,
+            (
+                user_id,
+                tokens,
+                str(datetime.datetime.now())
+            )
+        )
+
+        conn.commit()
+
+        return True
+
+    except Exception as e:
+        print("❌ LOG USAGE ERROR:", str(e))
+        return False
+
+    finally:
+        if conn:
+            conn.close()
 
 
 # ================= LIVE USER TRACKING =================
@@ -297,47 +448,116 @@ def update_last_seen(user_id):
 # ================= MEMORY ENGINE =================
 
 def save_message(user_id, role, message):
-    conn = sqlite3.connect("aris_memory.db")
-    c = conn.cursor()
 
-    c.execute("""
-        INSERT INTO conversation_memory
-        (user_id, role, message, timestamp)
-        VALUES (?, ?, ?, ?)
-    """, (
-        user_id,
-        role,
-        message,
-        str(datetime.datetime.now())
-    ))
+    conn = None
 
-    conn.commit()
-    conn.close()
+    try:
+        if not user_id:
+            return False
 
+        role = str(role).strip().lower()
+        message = str(message).strip()
+
+        if not role or not message:
+            return False
+
+        # ==================================
+        # LIMIT MESSAGE SIZE
+        # ==================================
+        if len(message) > 12000:
+            message = message[:12000]
+
+        conn = sqlite3.connect("aris_memory.db")
+        c = conn.cursor()
+
+        c.execute(
+            """
+            INSERT INTO conversation_memory
+            (user_id, role, message, timestamp)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                role,
+                message,
+                str(datetime.datetime.now())
+            )
+        )
+
+        conn.commit()
+
+        return True
+
+    except Exception as e:
+        print("❌ SAVE MESSAGE ERROR:", str(e))
+        return False
+
+    finally:
+        if conn:
+            conn.close()
 
 def get_recent_memory(user_id, limit=6):
-    conn = sqlite3.connect("aris_memory.db")
-    c = conn.cursor()
 
-    c.execute("""
-        SELECT role, message
-        FROM conversation_memory
-        WHERE user_id=?
-        ORDER BY id DESC
-        LIMIT ?
-    """, (user_id, limit))
+    conn = None
 
-    rows = c.fetchall()
-    conn.close()
+    try:
+        if not user_id:
+            return ""
 
-    rows.reverse()
+        limit = int(limit)
 
-    history = ""
-    for r in rows:
-        history += f"{r[0].upper()}: {r[1]}\n"
+        if limit <= 0:
+            limit = 6
 
-    return history
+        if limit > 15:
+            limit = 15
 
+        conn = sqlite3.connect("aris_memory.db")
+        c = conn.cursor()
+
+        c.execute(
+            """
+            SELECT role, message
+            FROM conversation_memory
+            WHERE user_id = ?
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (user_id, limit)
+        )
+
+        rows = c.fetchall()
+
+        if not rows:
+            return ""
+
+        rows.reverse()
+
+        history_lines = []
+
+        for role, message in rows:
+
+            role = str(role).strip().upper()
+            message = str(message).strip()
+
+            if not message:
+                continue
+
+            # Trim huge messages
+            if len(message) > 1200:
+                message = message[:1200]
+
+            history_lines.append(f"{role}: {message}")
+
+        return "\n".join(history_lines)
+
+    except Exception as e:
+        print("❌ MEMORY FETCH ERROR:", str(e))
+        return ""
+
+    finally:
+        if conn:
+            conn.close()
 
 def save_user_goal(user_id, goal):
     conn = sqlite3.connect("aris_memory.db")
@@ -426,49 +646,74 @@ def get_profit_metrics():
 
 
 # ================= OPENAI BRAIN =================
-
 def ask_openai(prompt):
 
     try:
+        prompt = str(prompt).strip()
 
-        if len(prompt) < 800:
+        if not prompt:
+            return "__OPENAI_ERROR__"
+
+        # ==================================
+        # SMART TOKEN LIMIT
+        # ==================================
+        length = len(prompt)
+
+        if length < 800:
             max_tokens = 700
-        elif len(prompt) < 2000:
+        elif length < 2000:
             max_tokens = 900
         else:
             max_tokens = 1200
 
-        # 🔥 STRONG SYSTEM BRAIN
+        # ==================================
+        # ARIS SYSTEM PROMPT
+        # ==================================
         system_prompt = """
 You are ARIS (Advanced Real-Time Integrated System) — a high-level AI intelligence engine.
 
 Rules you MUST follow:
 
 1. Always respond as if it is the year 2026 (latest real-world context)
-2. NEVER say "my knowledge cutoff is 2023" or similar
-3. Give clear, structured, and practical answers
-4. Use headings, bullet points, and clean formatting
-5. Focus on real-world insights, not textbook theory
-6. Speak with confidence like an expert system
+2. Never mention knowledge cutoffs
+3. Give clear, structured, practical answers
+4. Use headings, bullets, and clean formatting
+5. Focus on real-world usefulness
+6. Speak confidently like an expert system
 7. Avoid generic chatbot tone
-8. If topic is business, tech, education → give strategic insights
+8. For business / tech / education topics give strategic insight
 9. Keep answers crisp but powerful
 
 Your goal:
-Act like a real-world decision-making intelligence system, not a chatbot.
+Act like a real-world decision intelligence system.
 """
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system",
+                    "content": system_prompt
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
             ],
             temperature=0.5,
             max_tokens=max_tokens
         )
 
-        if not response or not response.choices:
+        # ==================================
+        # SAFE RESPONSE CHECK
+        # ==================================
+        if not response:
+            return "__OPENAI_ERROR__"
+
+        if not hasattr(response, "choices"):
+            return "__OPENAI_ERROR__"
+
+        if not response.choices:
             return "__OPENAI_ERROR__"
 
         content = response.choices[0].message.content
@@ -476,11 +721,19 @@ Act like a real-world decision-making intelligence system, not a chatbot.
         if not content:
             return "__OPENAI_ERROR__"
 
-        return content.strip()
+        return str(content).strip()
 
     except Exception as e:
+        error_text = str(e).lower()
         print("🔥 OPENAI ERROR:", str(e))
-        return f"❌ OPENAI ERROR: {str(e)}"
+
+        if "rate limit" in error_text:
+            return "__OPENAI_RATE_LIMIT__"
+
+        if "quota" in error_text or "insufficient_quota" in error_text:
+            return "__OPENAI_QUOTA_ERROR__"
+
+        return "__OPENAI_ERROR__"
         
 # ================= AVATAR GENERATION =================
 def generate_avatar(image_path, style_prompt):
@@ -566,209 +819,236 @@ def solve_question_from_image(image_path, user_id=None):
 # ================= INTENT DETECTION =================
 def detect_intent(msg):
 
-    m = msg.lower()
+    try:
+        m = str(msg).lower().strip()
 
-    # 🎨 IMAGE GENERATION (KEEP THIS FIRST — HIGH PRIORITY)
-    if any(x in m for x in [
-        "generate image", "create image", "image", "img",
-        "picture", "photo", "draw", "diagram"
-    ]):
-        return "creator_image"
+        if not m:
+            return "general"
 
-    # 🎓 STUDENT
-    if any(x in m for x in [
-        "study", "exam", "test", "concept", "physics", "math",
-        "chemistry", "biology", "jee", "neet", "olympiad",
-        "ntse", "nstse", "mhtcet", "sat", "semester", "assignment",
-        "project", "plagiarism", "notes", "revision", "doubt"
-    ]):
-        return "student"
+        # ==================================
+        # 🎨 IMAGE GENERATION (TOP PRIORITY)
+        # ==================================
+        if any(x in m for x in [
+            "generate image",
+            "create image",
+            "make image",
+            "ai image",
+            "draw image",
+            "draw picture",
+            "image prompt"
+        ]):
+            return "creator_image"
 
-    # 💼 PROFESSIONAL
-    if any(x in m for x in [
-        "email", "presentation", "report", "business", "proposal",
-        "startup", "marketing", "revenue", "swot", "pitch deck"
-    ]):
-        return "professional"
+        # ==================================
+        # 🎓 STUDENT
+        # ==================================
+        if any(x in m for x in [
+            "study", "exam", "test", "concept",
+            "physics", "math", "maths",
+            "chemistry", "biology",
+            "jee", "neet", "olympiad",
+            "ntse", "nstse", "mhtcet", "sat",
+            "semester", "assignment",
+            "notes", "revision",
+            "question", "solve", "formula",
+            "numerical", "mcq", "syllabus"
+        ]):
+            return "student"
 
-    # 🎨 CREATOR (NON-IMAGE)
-    if any(x in m for x in [
-        "logo", "design", "video", "thumbnail",
-        "creative", "art", "poster", "caption", "script"
-    ]):
-        return "creator"
+        # ==================================
+        # 💼 PROFESSIONAL
+        # ==================================
+        if any(x in m for x in [
+            "email", "presentation", "report",
+            "business", "proposal",
+            "startup", "marketing",
+            "revenue", "swot",
+            "pitch deck", "resume",
+            "cv", "invoice", "sales"
+        ]):
+            return "professional"
 
-    # 🔬 RESEARCH
-    if any(x in m for x in [
-        "research", "paper", "citation", "analysis", "journal",
-        "literature review", "methodology", "abstract", "thesis",
-        "dissertation", "ugc", "pg", "phd"
-    ]):
-        return "research"
+        # ==================================
+        # 🔬 RESEARCH
+        # ==================================
+        if any(x in m for x in [
+            "research", "paper", "citation",
+            "analysis", "journal",
+            "literature review",
+            "methodology", "abstract",
+            "thesis", "dissertation",
+            "ugc", "phd", "dataset"
+        ]):
+            return "research"
 
-    # 🧭 LIFE
-    if any(x in m for x in [
-        "life", "goal", "career", "habit", "plan",
-        "productivity", "decision", "schedule"
-    ]):
-        return "life"
+        # ==================================
+        # 🎨 CREATOR (NON-IMAGE)
+        # ==================================
+        if any(x in m for x in [
+            "logo", "design", "video",
+            "thumbnail", "creative",
+            "poster", "caption",
+            "script", "brand name",
+            "tagline", "reel"
+        ]):
+            return "creator"
 
-    return "general"
+        # ==================================
+        # 🧭 LIFE
+        # ==================================
+        if any(x in m for x in [
+            "life", "goal", "career",
+            "habit", "plan",
+            "productivity", "decision",
+            "schedule", "routine",
+            "motivation", "discipline"
+        ]):
+            return "life"
 
+        return "general"
+
+    except Exception as e:
+        print("❌ INTENT ERROR:", str(e))
+        return "general"
 
 # ================= PROMPT BUILDER =================
 def build_prompt(intent, msg, memory_context="", goal_context=""):
 
+    msg = str(msg).strip()
+    memory_context = str(memory_context).strip()
+    goal_context = str(goal_context).strip()
+
+    # ==================================
+    # IMAGE CREATION
+    # ==================================
     if intent == "creator_image":
         from aris_creation_agent import creation_agent
         return creation_agent(msg)
 
+    # ==================================
+    # COMMON CONTEXT BLOCK
+    # ==================================
+    context_block = f"""
+
+Recent Context:
+{memory_context}
+
+User Goal:
+{goal_context}
+
+User Request:
+{msg}
+"""
+
+    # ==================================
+    # STUDENT
+    # ==================================
     if intent == "student":
         return f"""
 You are ARIS Student Intelligence.
 
-You help school students (Class 8-12), UG students, PG students, and competitive exam aspirants.
-
-Supported exam types include JEE, NEET, Olympiads, NTSE, NSTSE, CLAT, AILET, TOEFL, IELTS, UPSC, MPSC, MHTCET, SAT, XAT, MAT, ATMA, law exams, management exams, and semester exams.
-
-Adapt response based on user input:
-
-- If the user asks a simple question -> give a short, clear answer.
-- If the user asks for detailed explanation -> give structured detailed output.
-- Do not over-explain unnecessarily.
+Help students from school to competitive exams.
 
 Rules:
-- Keep explanation practical and easy to understand.
-- If the user asks for test, generate a useful test.
-- If the user asks for notes, generate concise notes.
-- If the user asks for assignment/project help, provide original academic-style content.
-- Do not claim plagiarism checking unless explicitly available.
-- Match difficulty to the user's likely level based on the prompt.
+- Explain clearly and simply.
+- Match difficulty to user level.
+- If asked for notes, make concise notes.
+- If asked for test, create quality questions.
+- If numerical/problem, solve step-by-step.
 
-Structure:
+Format:
 Title
 Explanation
 Key Points
 Example
 Summary
-
-Conversation:
-{memory_context}
-
-User Goal:
-{goal_context}
-
-User Request:
-{msg}
+{context_block}
 """
 
+    # ==================================
+    # PROFESSIONAL
+    # ==================================
     if intent == "professional":
         return f"""
 You are ARIS Professional Intelligence.
 
-Provide practical professional output.
+Give practical business and career outputs.
 
-Structure:
+Format:
 Title
 Explanation
 Action Steps
 Summary
-
-Conversation:
-{memory_context}
-
-User Goal:
-{goal_context}
-
-User Request:
-{msg}
+{context_block}
 """
 
+    # ==================================
+    # CREATOR
+    # ==================================
     if intent == "creator":
         return f"""
 You are ARIS Creator Intelligence.
 
-Generate creative and useful output.
+Generate creative, modern, high-value output.
 
-Structure:
+Format:
 Idea
 Description
 Execution Steps
 Tips
-
-Conversation:
-{memory_context}
-
-User Goal:
-{goal_context}
-
-User Request:
-{msg}
+{context_block}
 """
 
+    # ==================================
+    # RESEARCH
+    # ==================================
     if intent == "research":
         return f"""
 You are ARIS Research Intelligence.
 
-Write in academic and analytical style.
+Write analytical and academic quality responses.
 
-Structure:
+Format:
 Title
 Abstract
 Explanation
 Key Insights
 Conclusion
-
-Conversation:
-{memory_context}
-
-User Goal:
-{goal_context}
-
-User Request:
-{msg}
+{context_block}
 """
 
+    # ==================================
+    # LIFE
+    # ==================================
     if intent == "life":
         return f"""
 You are ARIS Life Intelligence.
 
-Give practical and actionable advice.
+Give practical life guidance.
 
-Structure:
+Format:
 Situation
 Analysis
 Recommended Actions
 Summary
-
-Conversation:
-{memory_context}
-
-User Goal:
-{goal_context}
-
-User Request:
-{msg}
+{context_block}
 """
 
+    # ==================================
+    # GENERAL
+    # ==================================
     return f"""
 You are ARIS, an intelligent AI assistant.
 
-Adapt to user intent:
-- Short question -> short answer
-- Complex request -> structured response
-- Avoid unnecessary long outputs
+Rules:
+- Short query = short answer
+- Complex query = structured answer
+- Be clear, practical, useful
+- Avoid unnecessary long output
 
-Answer clearly and directly.
+Answer directly.
 
-Conversation:
-{memory_context}
-
-User Goal:
-{goal_context}
-
-User Question:
-{msg}
+{context_block}
 
 Answer:
 """
@@ -776,41 +1056,79 @@ Answer:
 # ================= ARIS BRAIN =================
 def brain(msg, user_id=None):
 
-    memory_context = ""
-    goal_context = ""
+    try:
+        msg = str(msg).strip()
 
-    if user_id:
-        memory_context = get_recent_memory(user_id)
-        goal_context = get_user_goal(user_id)
+        if not msg:
+            return "⚠️ Please enter a valid message."
 
-    intent = detect_intent(msg)
+        # ==================================
+        # MEMORY CONTEXT
+        # ==================================
+        memory_context = ""
+        goal_context = ""
 
-    prompt = build_prompt(
-        intent=intent,
-        msg=msg,
-        memory_context=memory_context,
-        goal_context=goal_context
-    )
+        if user_id:
+            try:
+                memory_context = get_recent_memory(user_id) or ""
+                goal_context = get_user_goal(user_id) or ""
+            except Exception as mem_error:
+                print("⚠️ MEMORY LOAD ERROR:", str(mem_error))
 
-    # 🔥 THIS BLOCK (4 spaces)
-    response = ask_openai(prompt)
+        # ==================================
+        # DETECT INTENT
+        # ==================================
+        try:
+            intent = detect_intent(msg)
+        except:
+            intent = "general"
 
-    if response in ["__OPENAI_QUOTA_ERROR__", "__OPENAI_RATE_LIMIT__", "__OPENAI_ERROR__"]:
-        response = "⚠️ ARIS AI service temporarily unavailable. Please try again shortly."
+        # ==================================
+        # BUILD PROMPT
+        # ==================================
+        prompt = build_prompt(
+            intent=intent,
+            msg=msg,
+            memory_context=memory_context,
+            goal_context=goal_context
+        )
 
-    # 🧹 CLEAN OUTPUT
-    bad_phrases = [
-        "Conversation so far:",
-        "User goal:",
-        "You are ARIS",
-        "Conversation:",
-        "User Goal:"
-    ]
+        # ==================================
+        # ASK OPENAI
+        # ==================================
+        response = ask_openai(prompt)
 
-    for b in bad_phrases:
-        response = response.replace(b, "")
+        if response in [
+            "__OPENAI_QUOTA_ERROR__",
+            "__OPENAI_RATE_LIMIT__",
+            "__OPENAI_ERROR__"
+        ]:
+            return "⚠️ ARIS AI service temporarily unavailable. Please try again shortly."
 
-    return response.strip()
+        response = str(response).strip()
+
+        if not response:
+            return "⚠️ No response generated. Please try again."
+
+        # ==================================
+        # CLEAN OUTPUT
+        # ==================================
+        bad_phrases = [
+            "Conversation so far:",
+            "User goal:",
+            "User Goal:",
+            "Conversation:",
+            "You are ARIS"
+        ]
+
+        for phrase in bad_phrases:
+            response = response.replace(phrase, "")
+
+        return response.strip()
+
+    except Exception as e:
+        print("❌ BRAIN ERROR:", str(e))
+        return "⚠️ ARIS encountered an internal issue. Please try again."
 
     # ================= LOW TOKEN WARNING =================
 def low_token_warning(tokens_left):
@@ -853,94 +1171,134 @@ High-quality cinematic rendering will be enabled in full version.
 """
 
 def generate_suggestions(message):
-    
 
+    try:
+        msg = str(message).lower().strip()
 
-    msg = message.lower()
+        if not msg:
+            return [
+                "Explain clearly",
+                "Create structured plan",
+                "Give best advice"
+            ]
 
-    # ---------- 🎓 STUDENT AI (UPGRADED FLOW) ----------
-    if any(x in msg for x in [
-        "study","concept","physics","math","chemistry","biology",
-        "jee","neet","exam","assignment","notes","revision","question"
-    ]):
+        # ==================================
+        # 🎓 STUDENT AI
+        # ==================================
+        if any(x in msg for x in [
+            "study", "concept", "physics", "math", "maths",
+            "chemistry", "biology", "jee", "neet",
+            "exam", "assignment", "notes",
+            "revision", "question", "solve"
+        ]):
+            return [
+                "📘 Explain the concept behind this",
+                "🎯 Generate similar practice questions",
+                "🧪 Create a mini test from this topic",
+                "📝 Make short revision notes",
+                "⚡ Give shortcut tricks"
+            ]
+
+        # ==================================
+        # 💼 PROFESSIONAL
+        # ==================================
+        if any(x in msg for x in [
+            "business", "startup", "strategy",
+            "revenue", "marketing", "plan",
+            "resume", "email", "report"
+        ]):
+            return [
+                "Create business plan",
+                "Build revenue model",
+                "Run SWOT analysis",
+                "Generate pitch deck outline",
+                "Write executive summary"
+            ]
+
+        # ==================================
+        # 🎨 CREATOR
+        # ==================================
+        if any(x in msg for x in [
+            "logo", "design", "image",
+            "video", "thumbnail",
+            "creative", "poster"
+        ]):
+            return [
+                "Generate image prompt ideas",
+                "Create video/reel concept",
+                "Write creative caption",
+                "Suggest color palette",
+                "Build premium brand style"
+            ]
+
+        # ==================================
+        # 🔬 RESEARCH
+        # ==================================
+        if any(x in msg for x in [
+            "research", "analysis", "paper",
+            "journal", "study data",
+            "thesis", "citation"
+        ]):
+            return [
+                "Generate research outline",
+                "Create literature review",
+                "Summarize key insights",
+                "Build comparison table",
+                "Suggest methodology"
+            ]
+
+        # ==================================
+        # 🧭 LIFE
+        # ==================================
+        if any(x in msg for x in [
+            "goal", "career", "life",
+            "decision", "habit",
+            "routine", "discipline"
+        ]):
+            return [
+                "Create 30-day action plan",
+                "Build decision matrix",
+                "Define next priorities",
+                "Generate daily routine",
+                "Boost productivity system"
+            ]
+
+        # ==================================
+        # DEFAULT
+        # ==================================
         return [
-            "📘 Explain the concept behind this",
-            "🎯 Generate similar practice questions",
-            "🧪 Create a mini test from this topic",
-            "🎬 Give visual step-by-step explanation",
-            "📝 Make short revision notes"
+            "Break this into steps",
+            "Explain in simple terms",
+            "Create structured plan",
+            "Give expert advice",
+            "Best next actions"
         ]
 
-    # ---------- 💼 PROFESSIONAL ----------
-    if any(x in msg for x in [
-        "business","startup","strategy","revenue","marketing","plan"
-    ]):
-        return [
-            "Create business plan",
-            "Build revenue model",
-            "Run SWOT analysis",
-            "Generate pitch deck outline"
-        ]
+    except Exception as e:
+        print("❌ SUGGESTION ERROR:", str(e))
 
-    # ---------- 🎨 CREATOR ----------
-    if any(x in msg for x in [
-        "logo","design","image","video","thumbnail","creative"
-    ]):
         return [
-            "Generate image prompt ideas",
-            "Create video/reel concept",
-            "Write creative caption",
-            "Suggest color palette"
+            "Explain clearly",
+            "Create plan",
+            "Next steps"
         ]
-
-    # ---------- 🔬 RESEARCH ----------
-    if any(x in msg for x in [
-        "research","analysis","paper","journal","study data"
-    ]):
-        return [
-            "Generate research outline",
-            "Create literature review",
-            "Summarize key insights",
-            "Build comparison table"
-        ]
-
-    # ---------- 🧭 LIFE ----------
-    if any(x in msg for x in [
-        "goal","career","life","decision","habit"
-    ]):
-        return [
-            "Create 30-day action plan",
-            "Build decision matrix",
-            "Define next priorities",
-            "Generate daily routine"
-        ]
-
-    # ---------- DEFAULT ----------
-    return [
-        "Break this into steps",
-        "Explain in simple terms",
-        "Create structured plan"
-    ]
 
 def process_ai_request(user_id, msg):
     print("🔥 PROCESS_AI_REQUEST CALLED")
-
     print("MSG:", msg)
 
-     # ===== IMAGE GENERATION TRIGGER =====
-    if "image" in msg.lower() or "generate image" in msg.lower():
+    msg = str(msg).strip()
 
-        print("🖼️ IMAGE GENERATION TRIGGERED")
+    if not msg:
+        return {
+            "reply": "⚠️ Please enter a valid message.",
+            "suggestions": [],
+            "tokens_left": get_tokens(user_id)
+        }
 
-        # Cinematic mode detection
-        if "cinematic" in msg.lower() or "realistic" in msg.lower():
-            result = generate_image(msg, mode="cinematic")
-        else:
-            result = generate_image(msg)
+    msg_lower = msg.lower()
 
-        return result
-
-
+    # ===== SYSTEM ACTIVE CHECK =====
     if not ARIS_ACTIVE:
         return {
             "reply": "⚠️ ARIS is temporarily paused by the system administrator.",
@@ -948,6 +1306,7 @@ def process_ai_request(user_id, msg):
             "tokens_left": get_tokens(user_id)
         }
 
+    # ===== GET TOKENS =====
     tokens = get_tokens(user_id)
 
     if tokens <= 0:
@@ -959,21 +1318,35 @@ def process_ai_request(user_id, msg):
 
     # ===== TOKEN COST LOGIC =====
     token_cost = 1
-    msg_lower = msg.lower()
 
-    if any(x in msg_lower for x in ["generate image", "create image", "make image", "draw an image", "draw a picture"]):
+    is_image = any(x in msg_lower for x in [
+        "generate image", "create image", "make image",
+        "draw image", "draw picture"
+    ])
+
+    is_video = any(x in msg_lower for x in [
+        "video", "reel", "animation", "generate video"
+    ])
+
+    is_research = any(x in msg_lower for x in [
+        "research paper", "literature review", "journal",
+        "citation", "methodology", "thesis", "dissertation"
+    ])
+
+    is_document = any(x in msg_lower for x in [
+        "pdf", "file", "document"
+    ])
+
+    if is_image:
         token_cost = 7
-
-    elif any(x in msg_lower for x in ["video", "reel", "animation", "generate video"]):
+    elif is_video:
         token_cost = 20
-
-    elif any(x in msg_lower for x in ["research paper", "literature review", "journal", "citation", "methodology", "thesis", "dissertation"]):
+    elif is_research:
         token_cost = 3
-
-    elif any(x in msg_lower for x in ["pdf", "file", "document"]):
+    elif is_document:
         token_cost = 5
 
-    # ===== CHECK TOKENS =====
+    # ===== CHECK TOKEN BALANCE =====
     if tokens < token_cost:
         return {
             "reply": f"⚠️ This action requires {token_cost} tokens. You have {tokens}. Please recharge.",
@@ -981,24 +1354,60 @@ def process_ai_request(user_id, msg):
             "tokens_left": tokens
         }
 
-    # ===== 🚀 ORCHESTRATOR ROUTING (NEW CORE FIX) =====
+    # ==================================================
+    # IMAGE GENERATION
+    # ==================================================
+    if is_image:
+        try:
+            print("🖼️ IMAGE GENERATION TRIGGERED")
+
+            if "cinematic" in msg_lower or "realistic" in msg_lower:
+                result = generate_image(msg, mode="cinematic")
+            else:
+                result = generate_image(msg)
+
+            # deduct only after success
+            deduct_token(user_id, token_cost)
+            log_usage(user_id, token_cost)
+
+            return {
+                "reply": "🖼️ Image generated successfully.",
+                "suggestions": generate_suggestions(msg),
+                "tokens_left": get_tokens(user_id),
+                "url": result.get("url", "") if isinstance(result, dict) else "",
+                "type": "image"
+            }
+
+        except Exception as e:
+            print("❌ IMAGE ERROR:", str(e))
+            return {
+                "reply": "⚠️ Image generation failed. Please try again.",
+                "suggestions": [],
+                "tokens_left": tokens
+            }
+
+    # ==================================================
+    # ORCHESTRATOR / AI RESPONSE
+    # ==================================================
     try:
         from aris_core.orchestrator import orchestrate_request
 
-        result = orchestrate_request(user_id=user_id, message=msg)
+        result = orchestrate_request(
+            user_id=user_id,
+            message=msg
+        )
 
-        if result and isinstance(result, dict) and result.get("status") == "handled":
-            reply = result.get("response")
-
+        if isinstance(result, dict) and result.get("status") == "handled":
+            reply = result.get("response", "Done.")
         else:
-            print("⚠️ ORCHESTRATOR FALLBACK → OpenAI")
+            print("⚠️ ORCHESTRATOR FALLBACK → BRAIN")
             reply = brain(msg, user_id)
 
     except Exception as e:
         print("❌ ORCHESTRATOR ERROR:", str(e))
         reply = brain(msg, user_id)
 
-    # ===== TOKEN DEDUCTION =====
+    # ===== DEDUCT ONLY AFTER SUCCESS =====
     deduct_token(user_id, token_cost)
     log_usage(user_id, token_cost)
 
@@ -1013,7 +1422,6 @@ def process_ai_request(user_id, msg):
         "suggestions": suggestions,
         "tokens_left": tokens_left
     }
-
 
 # ================= LOGIN PAGE =================
 LOGIN_HTML = """
@@ -2926,39 +3334,82 @@ def forgot_password():
 @app.route("/", methods=["GET", "POST"])
 def login():
 
-    if request.method == "POST":
+    error = ""
 
-        action = request.form.get("action")
-        email = request.form["email"]
-        password = request.form["password"]
+    try:
+        if request.method == "POST":
 
-        if action == "signup":
-            user_id = create_user(email, password)
+            action = request.form.get("action", "").strip().lower()
+            email = request.form.get("email", "").strip().lower()
+            password = request.form.get("password", "").strip()
 
-            if user_id:
-                session["user_id"] = user_id
-                return redirect("/aris")
+            # ===============================
+            # BASIC VALIDATION
+            # ===============================
+            if not email or not password:
+                error = "Please enter email and password."
+                return LOGIN_HTML.replace("{{error}}", error)
+
+            # ===============================
+            # SIGNUP
+            # ===============================
+            if action == "signup":
+
+                user_id = create_user(email, password)
+
+                if user_id:
+                    session["user_id"] = user_id
+
+                    token = generate_token(user_id)
+
+                    resp = redirect("/aris")
+                    resp.set_cookie(
+                        "aris_token",
+                        token,
+                        httponly=True,
+                        secure=False,
+                        samesite="Lax"
+                    )
+
+                    return resp
+
+                else:
+                    error = "User already exists."
+
+            # ===============================
+            # LOGIN
+            # ===============================
+            elif action == "login":
+
+                user_id = authenticate_user(email, password)
+
+                if user_id:
+                    session["user_id"] = user_id
+
+                    token = generate_token(user_id)
+
+                    resp = redirect("/aris")
+                    resp.set_cookie(
+                        "aris_token",
+                        token,
+                        httponly=True,
+                        secure=False,
+                        samesite="Lax"
+                    )
+
+                    return resp
+
+                else:
+                    error = "Invalid credentials."
+
             else:
-                return LOGIN_HTML.replace("{{error}}", "User already exists")
+                error = "Invalid action."
 
-        if action == "login":
-            user_id = authenticate_user(email, password)
+    except Exception as e:
+        print("❌ LOGIN ERROR:", str(e))
+        error = "Login system error. Please try again."
 
-            if user_id:
-                session["user_id"] = user_id  # keep for UI
-
-                token = generate_token(user_id)
-
-                resp = redirect("/aris")
-                resp.set_cookie("aris_token", token, httponly=True, secure=True)
-
-                return resp
-            else:
-                return LOGIN_HTML.replace("{{error}}", "Invalid credentials")
-
-    return LOGIN_HTML.replace("{{error}}", "")
-
-    
+    return LOGIN_HTML.replace("{{error}}", error)
 
 @app.route("/aris")
 def aris():
@@ -2995,84 +3446,139 @@ def logo():
     return send_from_directory(".", "tattva_logo.png")
 
 
-# ===== TOKENS ROUTE (FIXED) =====
+# ===== TOKENS ROUTE =====
 @app.route("/tokens")
 def tokens():
 
-    token = request.cookies.get("aris_token")
+    try:
+        # ==================================
+        # AUTH : JWT → SESSION FALLBACK
+        # ==================================
+        user_id = None
 
-    user_id = None
+        token = request.cookies.get("aris_token")
 
-    if token:
-        user_id = verify_token(token)
+        if token:
+            user_id = verify_token(token)
 
-    # fallback to session (temporary support)
-    if not user_id:
-        user_id = session.get("user_id")
+        if not user_id:
+            user_id = session.get("user_id")
 
-    if not user_id:
-        return jsonify({"tokens": 0})
+        if not user_id:
+            return jsonify({
+                "tokens": 0,
+                "status": "logged_out"
+            })
 
-    balance = get_tokens(user_id)
+        # ==================================
+        # GET BALANCE
+        # ==================================
+        balance = get_tokens(user_id)
 
-    return jsonify({"tokens": int(balance)})
+        if balance is None:
+            balance = 0
 
+        return jsonify({
+            "tokens": int(balance),
+            "status": "active"
+        })
+
+    except Exception as e:
+        print("❌ TOKENS ROUTE ERROR:", str(e))
+
+        return jsonify({
+            "tokens": 0,
+            "status": "error"
+        })
 
 # ===== CHAT ROUTE (JWT + SESSION HYBRID) =====
 @app.route("/chat", methods=["POST"])
 def chat():
 
-    data = request.get_json()
+    try:
+        data = request.get_json(silent=True) or {}
 
-    user_input = (
-        data.get("message")
-        or data.get("msg")
-        or data.get("text")
-        or ""
-    )
+        user_input = str(
+            data.get("message")
+            or data.get("msg")
+            or data.get("text")
+            or ""
+        ).strip()
 
-    if not user_input.strip():
-        return jsonify({"reply": "Please enter a message."})
+        if not user_input:
+            return jsonify({
+                "reply": "⚠️ Please enter a message."
+            })
 
-    # ===== AUTH (JWT FIRST, THEN SESSION) =====
-    token = request.cookies.get("aris_token")
+        # ==========================================
+        # AUTH : JWT FIRST → SESSION FALLBACK
+        # ==========================================
+        user_id = None
 
-    user_id = None
+        token = request.cookies.get("aris_token")
 
-    if token:
-        user_id = verify_token(token)
+        if token:
+            user_id = verify_token(token)
 
-    if not user_id:
-        user_id = session.get("user_id")
+        if not user_id:
+            user_id = session.get("user_id")
 
-    if not user_id:
-        return jsonify({"reply": "Session expired. Please login again."})
+        if not user_id:
+            return jsonify({
+                "reply": "⚠️ Session expired. Please login again.",
+                "tokens_left": 0,
+                "suggestions": []
+            })
 
-    # ===== PROCESS REQUEST =====
-    result = process_ai_request(user_id, user_input)
+        # ==========================================
+        # PROCESS REQUEST
+        # ==========================================
+        result = process_ai_request(user_id, user_input)
 
-    reply = result.get("reply", "")
-    tokens_left = result.get("tokens_left", 0)
-    suggestions = result.get("suggestions", [])
+        if not isinstance(result, dict):
+            result = {
+                "reply": str(result),
+                "tokens_left": get_tokens(user_id),
+                "suggestions": []
+            }
 
-    # 🔥 IMAGE SUPPORT
-    image_url = result.get("url", "")
-    image_type = result.get("type", "")
+        reply = result.get("reply", "")
+        tokens_left = result.get("tokens_left", get_tokens(user_id))
+        suggestions = result.get("suggestions", [])
+        image_url = result.get("url", "")
+        image_type = result.get("type", "")
 
-    # ===== SAVE MEMORY =====
-    save_message(user_id, "user", user_input)
+        # ==========================================
+        # SAVE MEMORY
+        # ==========================================
+        try:
+            save_message(user_id, "user", user_input)
 
-    if reply:
-        save_message(user_id, "aris", reply)
+            if reply:
+                save_message(user_id, "aris", reply)
 
-    # ===== FINAL RESPONSE =====
-    return jsonify({
-        "reply": reply,
-        "tokens_left": tokens_left,
-        "suggestions": suggestions,
-        "url": image_url,
-        "type": image_type
-    })
+        except Exception as mem_error:
+            print("⚠️ MEMORY SAVE ERROR:", str(mem_error))
+
+        # ==========================================
+        # FINAL RESPONSE
+        # ==========================================
+        return jsonify({
+            "reply": reply,
+            "tokens_left": tokens_left,
+            "suggestions": suggestions,
+            "url": image_url,
+            "type": image_type
+        })
+
+    except Exception as e:
+        print("❌ CHAT ROUTE ERROR:", str(e))
+
+        return jsonify({
+            "reply": "⚠️ ARIS server error. Please try again.",
+            "tokens_left": 0,
+            "suggestions": []
+        })
 
 @app.route("/live_users")
 def live_users():
@@ -3087,62 +3593,147 @@ if not os.path.exists(UPLOAD_FOLDER):
 @app.route("/upload", methods=["POST"])
 def upload():
 
-    if "file" not in request.files:
-        return jsonify({"error": "No file"})
+    try:
+        from werkzeug.utils import secure_filename
+        import uuid
 
-    file = request.files["file"]
+        if "file" not in request.files:
+            return jsonify({"error": "No file uploaded."})
 
-    filename = file.filename
-    path = os.path.join(UPLOAD_FOLDER, filename)
+        file = request.files["file"]
 
-    file.save(path)
+        if not file or file.filename.strip() == "":
+            return jsonify({"error": "Invalid file."})
 
-    ext = filename.split(".")[-1].lower()
+        # ==================================
+        # SAFE FILE NAME
+        # ==================================
+        original_name = secure_filename(file.filename)
 
-    file_type = "file"
-    solution = None
+        if "." not in original_name:
+            return jsonify({"error": "Unsupported file type."})
 
-    if ext in ["pdf"]:
-        file_type = "pdf"
+        ext = original_name.rsplit(".", 1)[1].lower()
 
-    elif ext in ["doc","docx","txt"]:
-        file_type = "document"
+        allowed_ext = [
+            "pdf", "doc", "docx", "txt",
+            "png", "jpg", "jpeg", "webp",
+            "xls", "xlsx",
+            "mp4", "mov", "avi"
+        ]
 
-    elif ext in ["png","jpg","jpeg","webp"]:
-        file_type = "image"
+        if ext not in allowed_ext:
+            return jsonify({"error": "File type not allowed."})
 
-        # ===== STUDENT DOUBT SOLVER =====
-        solution = solve_question_from_image(path)
+        # ==================================
+        # UNIQUE FILE NAME
+        # ==================================
+        filename = f"{uuid.uuid4().hex}.{ext}"
+        path = os.path.join(UPLOAD_FOLDER, filename)
 
-    elif ext in ["xls","xlsx"]:
-        file_type = "excel"
+        file.save(path)
 
-    elif ext in ["mp4","mov","avi"]:
-        file_type = "video"
+        # ==================================
+        # DETECT FILE TYPE
+        # ==================================
+        file_type = "file"
+        solution = None
 
-    return jsonify({
-        "filename": filename,
-        "type": file_type,
-        "solution": solution
-    })
+        if ext == "pdf":
+            file_type = "pdf"
 
+        elif ext in ["doc", "docx", "txt"]:
+            file_type = "document"
+
+        elif ext in ["png", "jpg", "jpeg", "webp"]:
+            file_type = "image"
+
+            # Student doubt solver
+            try:
+                solution = solve_question_from_image(path)
+            except Exception as e:
+                print("⚠️ OCR ERROR:", str(e))
+                solution = None
+
+        elif ext in ["xls", "xlsx"]:
+            file_type = "excel"
+
+        elif ext in ["mp4", "mov", "avi"]:
+            file_type = "video"
+
+        return jsonify({
+            "filename": filename,
+            "type": file_type,
+            "solution": solution
+        })
+
+    except Exception as e:
+        print("❌ UPLOAD ERROR:", str(e))
+
+        return jsonify({
+            "error": "Upload failed. Please try again."
+        })
 # ================= BUY TOKENS =================
 @app.route("/buy_tokens")
 def buy_tokens():
 
-    conn = sqlite3.connect("aris_memory.db")
-    c = conn.cursor()
+    try:
+        # ==================================
+        # AUTH CHECK (JWT → SESSION)
+        # ==================================
+        user_id = None
 
-    c.execute("""
-        UPDATE token_wallet
-        SET balance = balance + 20
-        WHERE user_id = ?
-    """, (session["user_id"],))
+        token = request.cookies.get("aris_token")
 
-    conn.commit()
-    conn.close()
+        if token:
+            user_id = verify_token(token)
 
-    return jsonify({"message": "20 tokens added"})
+        if not user_id:
+            user_id = session.get("user_id")
+
+        if not user_id:
+            return jsonify({
+                "message": "⚠️ Session expired. Please login again."
+            })
+
+        # ==================================
+        # TOKEN CREDIT
+        # ==================================
+        conn = sqlite3.connect("aris_memory.db")
+        c = conn.cursor()
+
+        c.execute("""
+            UPDATE token_wallet
+            SET balance = balance + 20
+            WHERE user_id = ?
+        """, (user_id,))
+
+        conn.commit()
+
+        # get updated balance
+        c.execute("""
+            SELECT balance FROM token_wallet
+            WHERE user_id = ?
+        """, (user_id,))
+
+        row = c.fetchone()
+        balance = row[0] if row else 0
+
+        conn.close()
+
+        print(f"💰 TOKENS ADDED | USER {user_id} | BALANCE {balance}")
+
+        return jsonify({
+            "message": "✅ 20 tokens added successfully.",
+            "tokens": balance
+        })
+
+    except Exception as e:
+        print("❌ BUY TOKENS ERROR:", str(e))
+
+        return jsonify({
+            "message": "⚠️ Token purchase failed. Please try again."
+        })
 
 @app.route("/solve_image_question", methods=["POST"])
 def solve_image_question():
