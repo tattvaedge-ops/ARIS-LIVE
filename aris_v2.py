@@ -780,48 +780,70 @@ def generate_avatar(image_path, style_prompt):
 
 def extract_text_from_image(image_path):
 
-    if pytesseract is None:
-        return "⚠️ OCR not available in cloud mode"
-
     try:
         # ==================================
-        # LOAD IMAGE
+        # FIRST TRY: OPENAI VISION OCR
         # ==================================
-        img = Image.open(image_path)
+        try:
+            import base64
 
-        # Convert to grayscale
+            with open(image_path, "rb") as f:
+                image_data = base64.b64encode(f.read()).decode("utf-8")
+
+            client = OpenAI(api_key=OPENAI_API_KEY)
+
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Extract only the text exactly from this academic question image. Do not solve it. Return only readable text."
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Read all visible question text from image."
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{image_data}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=500
+            )
+
+            text = response.choices[0].message.content.strip()
+
+            if text and len(text) > 5:
+                return text
+
+        except Exception as vision_error:
+            print("⚠️ Vision OCR fallback to Tesseract:", str(vision_error))
+
+        # ==================================
+        # SECOND TRY: TESSERACT
+        # ==================================
+        if pytesseract is None:
+            return "⚠️ OCR unavailable"
+
+        img = Image.open(image_path)
         img = img.convert("L")
 
-        # ==================================
-        # RESIZE FOR BETTER OCR
-        # ==================================
         w, h = img.size
         img = img.resize((w * 2, h * 2))
 
-        # ==================================
-        # OCR CONFIG
-        # psm 6 = uniform text block
-        # ==================================
         config = r'--oem 3 --psm 6'
 
         text = pytesseract.image_to_string(
             img,
             config=config
-        )
-
-        text = str(text).strip()
-
-        # ==================================
-        # SECOND ATTEMPT IF WEAK RESULT
-        # ==================================
-        if len(text) < 5:
-
-            config2 = r'--oem 3 --psm 11'
-
-            text = pytesseract.image_to_string(
-                img,
-                config=config2
-            ).strip()
+        ).strip()
 
         return text
 
