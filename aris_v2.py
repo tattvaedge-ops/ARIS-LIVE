@@ -790,7 +790,7 @@ def extract_text_from_image(image_path):
             with open(image_path, "rb") as f:
                 image_data = base64.b64encode(f.read()).decode("utf-8")
 
-            client = OpenAI(api_key=OPENAI_API_KEY)
+            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
