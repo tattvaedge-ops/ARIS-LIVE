@@ -4,16 +4,29 @@ def detect_subject(question):
 
     q = question.lower()
 
-    if any(x in q for x in ["integral", "derivative", "equation", "algebra", "trigonometry", "matrix"]):
+    if any(x in q for x in [
+        "integral", "derivative", "equation", "algebra",
+        "trigonometry", "matrix", "probability", "calculus"
+    ]):
         return "Mathematics"
 
-    if any(x in q for x in ["force", "velocity", "acceleration", "newton", "energy", "current", "motion"]):
+    if any(x in q for x in [
+        "force", "velocity", "acceleration", "newton",
+        "energy", "current", "motion", "electrostatic",
+        "work", "power", "gravity"
+    ]):
         return "Physics"
 
-    if any(x in q for x in ["reaction", "molecule", "acid", "base", "compound", "chemical"]):
+    if any(x in q for x in [
+        "reaction", "molecule", "acid", "base",
+        "compound", "chemical", "organic", "salt"
+    ]):
         return "Chemistry"
 
-    if any(x in q for x in ["cell", "organism", "photosynthesis", "respiration", "biology"]):
+    if any(x in q for x in [
+        "cell", "organism", "photosynthesis",
+        "respiration", "biology", "dna", "genetics"
+    ]):
         return "Biology"
 
     return "General"
@@ -22,26 +35,37 @@ def detect_subject(question):
 def build_student_prompt(question, subject):
 
     return f"""
-Answer the following academic question clearly and in a structured way.
+You are ARIS Student AI Premium.
+
+Solve the academic question accurately.
 
 Subject: {subject}
 
 Question:
 {question}
 
-Provide the answer in this format:
+Rules:
+- Keep answer clean and premium.
+- If MCQ, identify correct option first.
+- Avoid unnecessary long paragraphs.
+- Use simple student-friendly language.
+- Be accurate.
 
-📚 Concept:
-Explain the concept simply.
+Output Format:
 
-🧠 Step-by-Step Solution:
-Give clear steps.
+✅ Final Answer:
+(Direct answer first)
 
-📌 Final Answer:
-State the final answer clearly.
+📘 Concept:
+(Short concept explanation)
+
+📝 Step-by-Step Solution:
+1.
+2.
+3.
 
 🎯 Exam Tip:
-Give one useful tip.
+(One smart exam tip)
 """
 
 
@@ -58,5 +82,5 @@ def solve_academic_question(question, ask_openai_func):
 
 📖 Subject: {subject}
 
-{answer}
+{answer.strip()}
 """
