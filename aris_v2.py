@@ -4214,41 +4214,73 @@ def test_openai():
 
 @app.route("/voice", methods=["POST"])
 def voice_chat():
+
     try:
-        # 🎤 Get audio from frontend
+        # ==================================
+        # GET AUDIO
+        # ==================================
+        if "audio" not in request.files:
+            return jsonify({"error": "No audio uploaded"})
+
         audio = request.files["audio"]
+
         file_path = "temp_audio.wav"
         audio.save(file_path)
 
-        # 🎤 Speech → Text
+        # ==================================
+        # SPEECH TO TEXT
+        # ==================================
         user_text = speech_to_text(file_path)
 
         if not user_text:
             return jsonify({"error": "Speech not recognized"})
 
+        user_text = str(user_text).strip()
+
         print("🎤 USER SAID:", user_text)
 
-        # 🧠 Process via ARIS
-        reply = process_ai_request("user", user_text)
+        # ==================================
+        # AUTH USER
+        # ==================================
+        token = request.cookies.get("aris_token")
 
-        # 🔊 Convert to voice
-        # 🔥 Ensure reply is string
+        user_id = None
 
-        # 🔥 Safety fixes
+        if token:
+            user_id = verify_token(token)
+
+        if not user_id:
+            user_id = session.get("user_id")
+
+        if not user_id:
+            user_id = "guest"
+
+        # ==================================
+        # PROCESS ARIS
+        # ==================================
+        result = process_ai_request(user_id, user_text)
+
+        reply = result.get("reply", "")
+
         if not reply:
             reply = "Hello, how can I assist you?"
 
-        if not isinstance(reply, str):
-            reply = str(reply)
+        reply = str(reply).strip()
 
+        # ==================================
+        # TEXT TO SPEECH
+        # ==================================
         audio_file = generate_voice(reply)
 
-        return send_file(audio_file, mimetype="audio/mpeg")
+        return send_file(
+            audio_file,
+            mimetype="audio/mpeg",
+            as_attachment=False
+        )
 
     except Exception as e:
-        print("❌ Voice Route Error:", e)
-        return jsonify({"error": "Voice processing failed"})       
-
+        print("❌ Voice Route Error:", str(e))
+        return jsonify({"error": "Voice processing failed"})
 
 import os
 
