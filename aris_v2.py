@@ -667,27 +667,47 @@ def ask_openai(prompt):
             max_tokens = 1200
 
         # ==================================
-        # ARIS SYSTEM PROMPT
+        # MODE DETECTION
         # ==================================
-        system_prompt = """
-You are ARIS (Advanced Real-Time Integrated System) — a high-level AI intelligence engine.
+        is_student = (
+            "aris student ai" in prompt.lower()
+            or "student ai premium" in prompt.lower()
+        )
 
-Rules you MUST follow:
+        # ==================================
+        # SYSTEM PROMPT
+        # ==================================
+        if is_student:
+            system_prompt = """
+You are ARIS Student AI Premium.
 
-1. Always respond as if it is the year 2026 (latest real-world context)
-2. Never mention knowledge cutoffs
-3. Give clear, structured, practical answers
-4. Use headings, bullets, and clean formatting
-5. Focus on real-world usefulness
-6. Speak confidently like an expert system
-7. Avoid generic chatbot tone
-8. For business / tech / education topics give strategic insight
-9. Keep answers crisp but powerful
-
-Your goal:
-Act like a real-world decision intelligence system.
+Rules:
+- Follow user requested format exactly.
+- Plain text only.
+- No markdown headings.
+- No LaTeX.
+- Keep answers concise, clean, premium.
+- Final answer first.
+- Student friendly.
 """
+            temperature = 0.2
 
+        else:
+            system_prompt = """
+You are ARIS (Advanced Real-Time Integrated System).
+
+Rules:
+1. Respond with clear structured outputs
+2. Be practical and intelligent
+3. Avoid generic chatbot tone
+4. Use clean formatting
+5. Give real-world useful answers
+"""
+            temperature = 0.5
+
+        # ==================================
+        # API CALL
+        # ==================================
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -700,20 +720,14 @@ Act like a real-world decision intelligence system.
                     "content": prompt
                 }
             ],
-            temperature=0.5,
+            temperature=temperature,
             max_tokens=max_tokens
         )
 
         # ==================================
-        # SAFE RESPONSE CHECK
+        # SAFE RESPONSE
         # ==================================
-        if not response:
-            return "__OPENAI_ERROR__"
-
-        if not hasattr(response, "choices"):
-            return "__OPENAI_ERROR__"
-
-        if not response.choices:
+        if not response or not response.choices:
             return "__OPENAI_ERROR__"
 
         content = response.choices[0].message.content
