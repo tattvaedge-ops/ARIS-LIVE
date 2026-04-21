@@ -4282,6 +4282,32 @@ def voice_chat():
         print("❌ Voice Route Error:", str(e))
         return jsonify({"error": "Voice processing failed"})
 
+def speech_to_text(file_path):
+
+    try:
+        from openai import OpenAI
+        import os
+
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+        with open(file_path, "rb") as audio_file:
+
+            transcript = client.audio.transcriptions.create(
+                model="gpt-4o-mini-transcribe",
+                file=audio_file
+            )
+
+        text = transcript.text.strip()
+
+        if not text:
+            return ""
+
+        return text
+
+    except Exception as e:
+        print("❌ Speech-to-Text Error:", str(e))
+        return ""
+        
 import os
 
 if __name__ == "__main__":
