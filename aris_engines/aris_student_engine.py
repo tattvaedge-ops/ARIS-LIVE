@@ -13,7 +13,7 @@ def detect_subject(question):
     if any(x in q for x in [
         "force", "velocity", "acceleration", "newton",
         "energy", "current", "motion", "electrostatic",
-        "work", "power", "gravity"
+        "work", "power", "gravity", "height"
     ]):
         return "Physics"
 
@@ -37,27 +37,30 @@ def build_student_prompt(question, subject):
     return f"""
 You are ARIS Student AI Premium.
 
-Solve the academic question accurately.
+Solve the question accurately.
 
 Subject: {subject}
 
 Question:
 {question}
 
-Rules:
-- Keep answer clean and premium.
-- If MCQ, identify correct option first.
-- Avoid unnecessary long paragraphs.
-- Use simple student-friendly language.
-- Be accurate.
+STRICT RULES:
+- Return plain text only.
+- No markdown headings.
+- No latex formatting.
+- No long theory unless asked.
+- Keep response premium, clean, concise.
+- If MCQ, give correct option first.
+- Final answer must come first.
+- Use exact emojis below.
 
-Output Format:
+OUTPUT FORMAT:
 
 ✅ Final Answer:
-(Direct answer first)
+(one-line direct answer)
 
 📘 Concept:
-(Short concept explanation)
+(short explanation)
 
 📝 Step-by-Step Solution:
 1.
@@ -65,7 +68,7 @@ Output Format:
 3.
 
 🎯 Exam Tip:
-(One smart exam tip)
+(one smart shortcut/tip)
 """
 
 
@@ -75,12 +78,11 @@ def solve_academic_question(question, ask_openai_func):
 
     prompt = build_student_prompt(question, subject)
 
-    answer = ask_openai_func(prompt)
+    answer = ask_openai_func(prompt).strip()
 
-    return f"""
-🎓 ARIS STUDENT AI
+    return f"""🎓 ARIS STUDENT AI
 
 📖 Subject: {subject}
 
-{answer.strip()}
+{answer}
 """
