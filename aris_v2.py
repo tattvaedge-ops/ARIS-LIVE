@@ -1426,7 +1426,24 @@ def process_ai_request(user_id, msg):
 
     msg_lower = msg.lower()
 
-    # ===== SYSTEM ACTIVE CHECK =====
+    # ==================================
+    # SMART GREETING ENGINE
+    # ==================================
+    if msg_lower in ["hi", "hello", "hey", "hii", "helo", "yo"]:
+        return {
+            "reply": "👋 Hello! This is ARIS. What would you like to do today?",
+            "suggestions": [
+                "Solve question",
+                "Create image",
+                "Voice mode"
+            ],
+            "tokens_left": get_tokens(user_id),
+            "type": "text"
+        }
+
+    # ==================================
+    # SYSTEM ACTIVE CHECK
+    # ==================================
     if not ARIS_ACTIVE:
         return {
             "reply": "⚠️ ARIS is temporarily paused by the system administrator.",
@@ -1434,7 +1451,9 @@ def process_ai_request(user_id, msg):
             "tokens_left": get_tokens(user_id)
         }
 
-    # ===== GET TOKENS =====
+    # ==================================
+    # GET TOKENS
+    # ==================================
     tokens = get_tokens(user_id)
 
     if tokens <= 0:
@@ -1444,36 +1463,48 @@ def process_ai_request(user_id, msg):
             "tokens_left": 0
         }
 
-    # ===== TOKEN COST LOGIC =====
+    # ==================================
+    # TOKEN COST LOGIC
+    # ==================================
     token_cost = 1
 
     is_image = any(x in msg_lower for x in [
-    "generate image",
-    "create image",
-    "make image",
-    "draw image",
-    "draw picture",
-    "image of",
-    "photo of",
-    "picture of",
-    "diagram of",
-    "labelled image",
-    "labeled image",
-    "proper image",
-    "with labels"
-])
+        "generate image",
+        "create image",
+        "make image",
+        "draw image",
+        "draw picture",
+        "image of",
+        "photo of",
+        "picture of",
+        "diagram of",
+        "labelled image",
+        "labeled image",
+        "proper image",
+        "with labels"
+    ])
 
     is_video = any(x in msg_lower for x in [
-        "video", "reel", "animation", "generate video"
+        "video",
+        "reel",
+        "animation",
+        "generate video"
     ])
 
     is_research = any(x in msg_lower for x in [
-        "research paper", "literature review", "journal",
-        "citation", "methodology", "thesis", "dissertation"
+        "research paper",
+        "literature review",
+        "journal",
+        "citation",
+        "methodology",
+        "thesis",
+        "dissertation"
     ])
 
     is_document = any(x in msg_lower for x in [
-        "pdf", "file", "document"
+        "pdf",
+        "file",
+        "document"
     ])
 
     if is_image:
@@ -1485,7 +1516,9 @@ def process_ai_request(user_id, msg):
     elif is_document:
         token_cost = 5
 
-    # ===== CHECK TOKEN BALANCE =====
+    # ==================================
+    # CHECK TOKEN BALANCE
+    # ==================================
     if tokens < token_cost:
         return {
             "reply": f"⚠️ This action requires {token_cost} tokens. You have {tokens}. Please recharge.",
@@ -1493,9 +1526,9 @@ def process_ai_request(user_id, msg):
             "tokens_left": tokens
         }
 
-    # ==================================================
+    # ==================================
     # IMAGE GENERATION
-    # ==================================================
+    # ==================================
     if is_image:
         try:
             print("🖼️ IMAGE GENERATION TRIGGERED")
@@ -1505,9 +1538,6 @@ def process_ai_request(user_id, msg):
             else:
                 result = generate_image(msg)
 
-            # ==================================
-            # CHECK SUCCESS
-            # ==================================
             if not result.get("success"):
                 return {
                     "reply": "⚠️ Image generation failed. Please try again.",
@@ -1516,19 +1546,14 @@ def process_ai_request(user_id, msg):
                     "type": "text"
                 }
 
-            # ==================================
-            # TOKEN DEDUCT AFTER SUCCESS
-            # ==================================
             deduct_token(user_id, token_cost)
             log_usage(user_id, token_cost)
-
-            image_url = result.get("url", "")
 
             return {
                 "reply": "🖼️ Image generated successfully.",
                 "suggestions": generate_suggestions(msg),
                 "tokens_left": get_tokens(user_id),
-                "url": image_url,
+                "url": result.get("url", ""),
                 "engine": result.get("engine", "aris"),
                 "type": "image"
             }
