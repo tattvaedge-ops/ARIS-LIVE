@@ -1494,91 +1494,54 @@ def process_ai_request(user_id, msg):
         }
 
     # ==================================================
-# IMAGE GENERATION
-# ==================================================
-if is_image:
-    try:
-        print("🖼️ IMAGE GENERATION TRIGGERED")
+    # IMAGE GENERATION
+    # ==================================================
+    if is_image:
+        try:
+            print("🖼️ IMAGE GENERATION TRIGGERED")
 
-        if "cinematic" in msg_lower or "realistic" in msg_lower:
-            result = generate_image(msg, mode="cinematic")
-        else:
-            result = generate_image(msg)
+            if "cinematic" in msg_lower or "realistic" in msg_lower:
+                result = generate_image(msg, mode="cinematic")
+            else:
+                result = generate_image(msg)
 
-        # ==================================
-        # CHECK SUCCESS
-        # ==================================
-        if not result.get("success"):
+            # ==================================
+            # CHECK SUCCESS
+            # ==================================
+            if not result.get("success"):
+                return {
+                    "reply": "⚠️ Image generation failed. Please try again.",
+                    "suggestions": [],
+                    "tokens_left": tokens,
+                    "type": "text"
+                }
+
+            # ==================================
+            # TOKEN DEDUCT AFTER SUCCESS
+            # ==================================
+            deduct_token(user_id, token_cost)
+            log_usage(user_id, token_cost)
+
+            image_url = result.get("url", "")
+
+            return {
+                "reply": "🖼️ Image generated successfully.",
+                "suggestions": generate_suggestions(msg),
+                "tokens_left": get_tokens(user_id),
+                "url": image_url,
+                "engine": result.get("engine", "aris"),
+                "type": "image"
+            }
+
+        except Exception as e:
+            print("❌ IMAGE ERROR:", str(e))
+
             return {
                 "reply": "⚠️ Image generation failed. Please try again.",
                 "suggestions": [],
                 "tokens_left": tokens,
                 "type": "text"
             }
-
-        # ==================================
-        # TOKEN DEDUCT AFTER SUCCESS
-        # ==================================
-        deduct_token(user_id, token_cost)
-        log_usage(user_id, token_cost)
-
-        image_url = result.get("url", "")
-
-        return {
-            "reply": "🖼️ Image generated successfully.",
-            "suggestions": generate_suggestions(msg),
-            "tokens_left": get_tokens(user_id),
-            "url": image_url,
-            "engine": result.get("engine", "aris"),
-            "type": "image"
-        }
-
-    except Exception as e:
-        print("❌ IMAGE ERROR:", str(e))
-
-        return {
-            "reply": "⚠️ Image generation failed. Please try again.",
-            "suggestions": [],
-            "tokens_left": tokens,
-            "type": "text"
-        }
-
-    # ==================================================
-    # ORCHESTRATOR / AI RESPONSE
-    # ==================================================
-    try:
-        from aris_core.orchestrator import orchestrate_request
-
-        result = orchestrate_request(
-            user_id=user_id,
-            message=msg
-        )
-
-        if isinstance(result, dict) and result.get("status") == "handled":
-            reply = result.get("response", "Done.")
-        else:
-            print("⚠️ ORCHESTRATOR FALLBACK → BRAIN")
-            reply = brain(msg, user_id)
-
-    except Exception as e:
-        print("❌ ORCHESTRATOR ERROR:", str(e))
-        reply = brain(msg, user_id)
-
-    # ===== DEDUCT ONLY AFTER SUCCESS =====
-    deduct_token(user_id, token_cost)
-    log_usage(user_id, token_cost)
-
-    tokens_left = get_tokens(user_id)
-
-    suggestions = generate_suggestions(msg)
-
-    print("FINAL REPLY:", reply)
-
-    return {
-        "reply": reply,
-        "suggestions": suggestions,
-        "tokens_left": tokens_left
-    }
 
 # ================= LOGIN PAGE =================
 LOGIN_HTML = """
