@@ -1412,75 +1412,101 @@ def generate_suggestions(message):
         ]
 
 def process_ai_request(user_id, msg):
-    print("🔥 PROCESS_AI_REQUEST CALLED")
-    print("MSG:", msg)
+    try:
+        print("🔥 PROCESS_AI_REQUEST CALLED")
+        print("MSG:", msg)
 
-    msg = str(msg).strip()
+        msg = str(msg).strip()
 
-    if not msg:
-        return {
-            "reply": "⚠️ Please enter a valid message.",
-            "suggestions": [],
-            "tokens_left": get_tokens(user_id),
-            "type": "text"
-        }
+        if not msg:
+            return {
+                "reply": "⚠️ Please enter a valid message.",
+                "suggestions": [],
+                "tokens_left": get_tokens(user_id),
+                "type": "text"
+            }
 
-    msg_lower = msg.lower()
+        msg_lower = msg.lower()
 
-    # ==================================
-    # GREETING
-    # ==================================
-    if msg_lower in ["hi", "hello", "hey", "hii", "helo", "yo"]:
-        return {
-            "reply": "👋 Hello! This is ARIS Intelligence. What would you like to do today?",
-            "suggestions": [
-                "Solve physics question",
-                "Create image",
-                "Write business email",
-                "Research topic"
-            ],
-            "tokens_left": get_tokens(user_id),
-            "type": "text"
-        }
+        # ==================================
+        # GREETING
+        # ==================================
+        if msg_lower in ["hi", "hello", "hey", "hii", "helo", "yo"]:
+            return {
+                "reply": "👋 Hello! This is ARIS Intelligence. What would you like to do today?",
+                "suggestions": [
+                    "Solve physics question",
+                    "Create image",
+                    "Write business email",
+                    "Research topic"
+                ],
+                "tokens_left": get_tokens(user_id),
+                "type": "text"
+            }
 
-    # ==================================
-    # ACTIVE CHECK
-    # ==================================
-    if not ARIS_ACTIVE:
-        return {
-            "reply": "⚠️ ARIS temporarily paused.",
-            "suggestions": [],
-            "tokens_left": get_tokens(user_id),
-            "type": "text"
-        }
+        # ==================================
+        # ACTIVE CHECK
+        # ==================================
+        if not ARIS_ACTIVE:
+            return {
+                "reply": "⚠️ ARIS temporarily paused.",
+                "suggestions": [],
+                "tokens_left": get_tokens(user_id),
+                "type": "text"
+            }
 
-    tokens = get_tokens(user_id)
+        # ==================================
+        # TOKEN CHECK
+        # ==================================
+        tokens = get_tokens(user_id)
 
-    if tokens <= 0:
-        return {
-            "reply": "⚠️ Tokens exhausted.",
-            "suggestions": [],
-            "tokens_left": 0,
-            "type": "text"
-        }
+        if tokens <= 0:
+            return {
+                "reply": "⚠️ Tokens exhausted.",
+                "suggestions": [],
+                "tokens_left": 0,
+                "type": "text"
+            }
 
-    # ==================================
-    # IMAGE CHECK
-    # ==================================
-    is_image = any(x in msg_lower for x in [
-        "generate image",
-        "create image",
-        "image of",
-        "draw",
-        "picture of",
-        "diagram of"
-    ])
+        # ==================================
+        # IMAGE CHECK
+        # ==================================
+        is_image = any(x in msg_lower for x in [
+            "generate image",
+            "create image",
+            "image of",
+            "draw",
+            "picture of",
+            "diagram of"
+        ])
 
-    if is_image:
-        try:
-            result = generate_image(msg)
+        if is_image:
+            try:
+                print("🖼️ IMAGE MODE")
 
-            if not result.get("success"):
+                result = generate_image(msg)
+
+                if not result.get("success"):
+                    return {
+                        "reply": "⚠️ Image generation failed.",
+                        "suggestions": [],
+                        "tokens_left": tokens,
+                        "type": "text"
+                    }
+
+                deduct_token(user_id, 7)
+                log_usage(user_id, 7)
+
+                return {
+                    "reply": "🖼️ Image generated successfully.",
+                    "url": result.get("url", ""),
+                    "tokens_left": get_tokens(user_id),
+                    "type": "image"
+                }
+
+            except Exception as e:
+                print("❌ IMAGE ERROR:", str(e))
+
                 return {
                     "reply": "⚠️ Image generation failed.",
                     "suggestions": [],
@@ -1488,46 +1514,63 @@ def process_ai_request(user_id, msg):
                     "type": "text"
                 }
 
-            deduct_token(user_id, 7)
-            log_usage(user_id, 7)
-
-            return {
-                "reply": "🖼️ Image generated successfully.",
-                "url": result.get("url", ""),
-                "tokens_left": get_tokens(user_id),
-                "type": "image"
-            }
-
-        except Exception as e:
-            print("❌ IMAGE ERROR:", e)
-
-    # ==================================
-    # STUDENT AI DIRECT
-    # ==================================
-    student_words = [
-        "solve", "question", "physics", "math",
-        "chemistry", "biology", "concept",
-        "exam", "jee", "neet"
-    ]
-
-    if any(x in msg_lower for x in student_words):
-        reply = solve_academic_question(msg, ask_openai)
-
-    else:
         # ==================================
-        # ALL OTHER MODES USE BRAIN ENGINE
+        # STUDENT AI MODE
         # ==================================
-        reply = brain(msg, user_id)
+        student_words = [
+            "solve", "question", "physics", "math",
+            "chemistry", "biology", "concept",
+            "exam", "jee", "neet", "theory",
+            "law", "formula", "derive"
+        ]
 
-    deduct_token(user_id, 1)
-    log_usage(user_id, 1)
+        if any(x in msg_lower for x in student_words):
+            print("🎓 STUDENT MODE")
+            reply = solve_academic_question(msg, ask_openai)
 
-    return {
-        "reply": reply,
-        "suggestions": generate_suggestions(msg),
-        "tokens_left": get_tokens(user_id),
-        "type": "text"
-    }
+        else:
+            # ==================================
+            # GENERAL / PROFESSIONAL / CREATOR /
+            # RESEARCH / LIFE MODE
+            # ==================================
+            print("🧠 GENERAL MODE")
+            reply = brain(msg, user_id)
+
+        # ==================================
+        # SAFE REPLY CHECK
+        # ==================================
+        if not reply:
+            reply = "⚠️ ARIS could not generate a response."
+
+        reply = str(reply).strip()
+
+        if reply.lower() == "none":
+            reply = "⚠️ ARIS could not generate a response."
+
+        print("✅ FINAL REPLY:", reply[:200])
+
+        # ==================================
+        # TOKEN DEDUCT
+        # ==================================
+        deduct_token(user_id, 1)
+        log_usage(user_id, 1)
+
+        return {
+            "reply": reply,
+            "suggestions": generate_suggestions(msg),
+            "tokens_left": get_tokens(user_id),
+            "type": "text"
+        }
+
+    except Exception as e:
+        print("❌ PROCESS ERROR:", str(e))
+
+        return {
+            "reply": "⚠️ ARIS internal issue. Please retry.",
+            "suggestions": [],
+            "tokens_left": get_tokens(user_id),
+            "type": "text"
+        }
 
 # ================= LOGIN PAGE =================
 LOGIN_HTML = """
