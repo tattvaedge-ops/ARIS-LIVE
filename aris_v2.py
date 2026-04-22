@@ -1421,152 +1421,113 @@ def process_ai_request(user_id, msg):
         return {
             "reply": "⚠️ Please enter a valid message.",
             "suggestions": [],
-            "tokens_left": get_tokens(user_id)
+            "tokens_left": get_tokens(user_id),
+            "type": "text"
         }
 
     msg_lower = msg.lower()
 
     # ==================================
-    # SMART GREETING ENGINE
+    # GREETING
     # ==================================
     if msg_lower in ["hi", "hello", "hey", "hii", "helo", "yo"]:
         return {
-            "reply": "👋 Hello! This is ARIS. What would you like to do today?",
+            "reply": "👋 Hello! This is ARIS Intelligence. What would you like to do today?",
             "suggestions": [
-                "Solve question",
+                "Solve physics question",
                 "Create image",
-                "Voice mode"
+                "Write business email",
+                "Research topic"
             ],
             "tokens_left": get_tokens(user_id),
             "type": "text"
         }
 
     # ==================================
-    # SYSTEM ACTIVE CHECK
+    # ACTIVE CHECK
     # ==================================
     if not ARIS_ACTIVE:
         return {
-            "reply": "⚠️ ARIS is temporarily paused by the system administrator.",
+            "reply": "⚠️ ARIS temporarily paused.",
             "suggestions": [],
-            "tokens_left": get_tokens(user_id)
+            "tokens_left": get_tokens(user_id),
+            "type": "text"
         }
 
-    # ==================================
-    # GET TOKENS
-    # ==================================
     tokens = get_tokens(user_id)
 
     if tokens <= 0:
         return {
-            "reply": "⚠️ Intelligence credits exhausted.",
+            "reply": "⚠️ Tokens exhausted.",
             "suggestions": [],
-            "tokens_left": 0
+            "tokens_left": 0,
+            "type": "text"
         }
 
     # ==================================
-    # TOKEN COST LOGIC
+    # IMAGE CHECK
     # ==================================
-    token_cost = 1
-
     is_image = any(x in msg_lower for x in [
         "generate image",
         "create image",
-        "make image",
-        "draw image",
-        "draw picture",
         "image of",
-        "photo of",
+        "draw",
         "picture of",
-        "diagram of",
-        "labelled image",
-        "labeled image",
-        "proper image",
-        "with labels"
+        "diagram of"
     ])
 
-    is_video = any(x in msg_lower for x in [
-        "video",
-        "reel",
-        "animation",
-        "generate video"
-    ])
-
-    is_research = any(x in msg_lower for x in [
-        "research paper",
-        "literature review",
-        "journal",
-        "citation",
-        "methodology",
-        "thesis",
-        "dissertation"
-    ])
-
-    is_document = any(x in msg_lower for x in [
-        "pdf",
-        "file",
-        "document"
-    ])
-
-    if is_image:
-        token_cost = 7
-    elif is_video:
-        token_cost = 20
-    elif is_research:
-        token_cost = 3
-    elif is_document:
-        token_cost = 5
-
-    # ==================================
-    # CHECK TOKEN BALANCE
-    # ==================================
-    if tokens < token_cost:
-        return {
-            "reply": f"⚠️ This action requires {token_cost} tokens. You have {tokens}. Please recharge.",
-            "suggestions": [],
-            "tokens_left": tokens
-        }
-
-    # ==================================
-    # IMAGE GENERATION
-    # ==================================
     if is_image:
         try:
-            print("🖼️ IMAGE GENERATION TRIGGERED")
-
-            if "cinematic" in msg_lower or "realistic" in msg_lower:
-                result = generate_image(msg, mode="cinematic")
-            else:
-                result = generate_image(msg)
+            result = generate_image(msg)
 
             if not result.get("success"):
                 return {
-                    "reply": "⚠️ Image generation failed. Please try again.",
+                    "reply": "⚠️ Image generation failed.",
                     "suggestions": [],
                     "tokens_left": tokens,
                     "type": "text"
                 }
 
-            deduct_token(user_id, token_cost)
-            log_usage(user_id, token_cost)
+            deduct_token(user_id, 7)
+            log_usage(user_id, 7)
 
             return {
                 "reply": "🖼️ Image generated successfully.",
-                "suggestions": generate_suggestions(msg),
-                "tokens_left": get_tokens(user_id),
                 "url": result.get("url", ""),
-                "engine": result.get("engine", "aris"),
+                "tokens_left": get_tokens(user_id),
                 "type": "image"
             }
 
         except Exception as e:
-            print("❌ IMAGE ERROR:", str(e))
+            print("❌ IMAGE ERROR:", e)
 
-            return {
-                "reply": "⚠️ Image generation failed. Please try again.",
-                "suggestions": [],
-                "tokens_left": tokens,
-                "type": "text"
-            }
+    # ==================================
+    # STUDENT AI DIRECT
+    # ==================================
+    student_words = [
+        "solve", "question", "physics", "math",
+        "chemistry", "biology", "concept",
+        "exam", "jee", "neet"
+    ]
+
+    if any(x in msg_lower for x in student_words):
+        reply = solve_academic_question(msg, ask_openai)
+
+    else:
+        # ==================================
+        # ALL OTHER MODES USE BRAIN ENGINE
+        # ==================================
+        reply = brain(msg, user_id)
+
+    deduct_token(user_id, 1)
+    log_usage(user_id, 1)
+
+    return {
+        "reply": reply,
+        "suggestions": generate_suggestions(msg),
+        "tokens_left": get_tokens(user_id),
+        "type": "text"
+    }
 
 # ================= LOGIN PAGE =================
 LOGIN_HTML = """
