@@ -2,7 +2,6 @@
 
 import os
 import requests
-import base64
 from dotenv import load_dotenv
 from openai import OpenAI
 import aris_engines.aris_prompt_engine as prompt_engine
@@ -30,6 +29,7 @@ print("🔥 ARIS Image Engine Initialized")
 # PROMPT ENHANCER
 # ===============================
 def enhance_prompt(user_prompt):
+
     return f"""
 Ultra realistic, cinematic, highly detailed,
 professional lighting, volumetric light,
@@ -52,7 +52,7 @@ def choose_image_size(prompt):
         return "1536x1024"
 
     if any(word in p for word in [
-        "portrait", "leader", "person", "king",
+        "portrait", "leader", "person",
         "ambedkar", "face", "hero"
     ]):
         return "1024x1536"
@@ -78,13 +78,14 @@ def generate_openai_image(prompt):
             size=size
         )
 
-        print("✅ OpenAI image response received")
-
         image_base64 = response.data[0].b64_json
         image_url = f"data:image/png;base64,{image_base64}"
 
+        print("✅ OpenAI image created")
+
         return {
-            "type": "openai",
+            "success": True,
+            "engine": "openai",
             "url": image_url,
             "prompt": enhanced
         }
@@ -93,19 +94,19 @@ def generate_openai_image(prompt):
         print("❌ OpenAI Image Error:", str(e))
 
         return {
-            "type": "error",
+            "success": False,
             "message": "OpenAI image failed"
         }
 
 
 # ===============================
-# STABILITY FALLBACK ENGINE
+# STABILITY FALLBACK
 # ===============================
 def generate_stability_image(prompt):
 
     if not STABILITY_API_KEY:
         return {
-            "type": "error",
+            "success": False,
             "message": "STABILITY_API_KEY missing"
         }
 
@@ -124,14 +125,14 @@ def generate_stability_image(prompt):
                 "prompt": (None, enhanced),
                 "output_format": (None, "png")
             },
-            timeout=20
+            timeout=25
         )
 
         if response.status_code != 200:
             print("❌ Stability API Error:", response.text)
 
             return {
-                "type": "error",
+                "success": False,
                 "message": "Stability failed"
             }
 
@@ -140,10 +141,11 @@ def generate_stability_image(prompt):
         image_base64 = result["image"]
         image_url = f"data:image/png;base64,{image_base64}"
 
-        print("✅ Stability image response received")
+        print("✅ Stability image created")
 
         return {
-            "type": "stability",
+            "success": True,
+            "engine": "stability",
             "url": image_url,
             "prompt": enhanced
         }
@@ -152,7 +154,7 @@ def generate_stability_image(prompt):
         print("❌ Stability Error:", str(e))
 
         return {
-            "type": "error",
+            "success": False,
             "message": "Stability failed"
         }
 
@@ -168,14 +170,11 @@ def generate_image(prompt, mode="normal"):
         print("🔥 SMART PROMPT:", prompt)
         print("🖼️ IMAGE GENERATION STARTED")
 
-        if mode == "cinematic":
-            return generate_stability_image(prompt)
-
         result = generate_openai_image(prompt)
 
-        if result["type"] == "error":
+        if not result.get("success"):
             print("⚠️ Falling back to Stability...")
-            return generate_stability_image(prompt)
+            result = generate_stability_image(prompt)
 
         return result
 
@@ -183,6 +182,6 @@ def generate_image(prompt, mode="normal"):
         print("❌ IMAGE ENGINE FATAL:", str(e))
 
         return {
-            "type": "error",
+            "success": False,
             "message": "Image generation failed completely"
         }

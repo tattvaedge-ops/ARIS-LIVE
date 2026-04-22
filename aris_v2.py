@@ -1494,36 +1494,54 @@ def process_ai_request(user_id, msg):
         }
 
     # ==================================================
-    # IMAGE GENERATION
-    # ==================================================
-    if is_image:
-        try:
-            print("🖼️ IMAGE GENERATION TRIGGERED")
+# IMAGE GENERATION
+# ==================================================
+if is_image:
+    try:
+        print("🖼️ IMAGE GENERATION TRIGGERED")
 
-            if "cinematic" in msg_lower or "realistic" in msg_lower:
-                result = generate_image(msg, mode="cinematic")
-            else:
-                result = generate_image(msg)
+        if "cinematic" in msg_lower or "realistic" in msg_lower:
+            result = generate_image(msg, mode="cinematic")
+        else:
+            result = generate_image(msg)
 
-            # deduct only after success
-            deduct_token(user_id, token_cost)
-            log_usage(user_id, token_cost)
-
-            return {
-                "reply": "🖼️ Image generated successfully.",
-                "suggestions": generate_suggestions(msg),
-                "tokens_left": get_tokens(user_id),
-                "url": result.get("url", "") if isinstance(result, dict) else "",
-                "type": "image"
-            }
-
-        except Exception as e:
-            print("❌ IMAGE ERROR:", str(e))
+        # ==================================
+        # CHECK SUCCESS
+        # ==================================
+        if not result.get("success"):
             return {
                 "reply": "⚠️ Image generation failed. Please try again.",
                 "suggestions": [],
-                "tokens_left": tokens
+                "tokens_left": tokens,
+                "type": "text"
             }
+
+        # ==================================
+        # TOKEN DEDUCT AFTER SUCCESS
+        # ==================================
+        deduct_token(user_id, token_cost)
+        log_usage(user_id, token_cost)
+
+        image_url = result.get("url", "")
+
+        return {
+            "reply": "🖼️ Image generated successfully.",
+            "suggestions": generate_suggestions(msg),
+            "tokens_left": get_tokens(user_id),
+            "url": image_url,
+            "engine": result.get("engine", "aris"),
+            "type": "image"
+        }
+
+    except Exception as e:
+        print("❌ IMAGE ERROR:", str(e))
+
+        return {
+            "reply": "⚠️ Image generation failed. Please try again.",
+            "suggestions": [],
+            "tokens_left": tokens,
+            "type": "text"
+        }
 
     # ==================================================
     # ORCHESTRATOR / AI RESPONSE
