@@ -3047,7 +3047,14 @@ box-shadow:0 0 12px rgba(249,115,22,.45);
 `,"aris");
 }
 
-addMessage(data.reply,"aris");
+if(
+    data.reply &&
+    data.reply !== "None" &&
+    data.reply !== "null" &&
+    data.reply.trim() !== ""
+){
+    addMessage(data.reply,"aris");
+}
 
 // Suggestions
 if(data.suggestions){
@@ -3324,8 +3331,13 @@ if(data.url){
     addImage(data.url);
 }
 
-if(data.reply){
-    addMessage(data.reply,"aris");
+if (
+    data.reply &&
+    data.reply !== "None" &&
+    data.reply !== "null" &&
+    data.reply.trim() !== ""
+){
+    addMessage(data.reply, "aris");
 }
 
     // 🔥 DELAYED TOKEN UPDATE (FINAL FIX)
