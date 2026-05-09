@@ -3611,6 +3611,61 @@ def login():
 
     return LOGIN_HTML.replace("{{error}}", error)
 
+# ==========================================
+# MOBILE API LOGIN ENDPOINT
+# ==========================================
+@app.route("/api/login", methods=["POST"])
+def api_login():
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                "success": False,
+                "message": "No data received."
+            }), 400
+
+        email = str(data.get("email", "")).strip().lower()
+        password = str(data.get("password", "")).strip()
+
+        if not email or not password:
+            return jsonify({
+                "success": False,
+                "message": "Email and password are required."
+            }), 400
+
+        user_id = authenticate_user(email, password)
+
+        if not user_id:
+            return jsonify({
+                "success": False,
+                "message": "Invalid credentials."
+            }), 401
+
+        token = generate_token(user_id)
+        token_balance = get_tokens(user_id)
+
+        # Example: shree@gmail.com -> Shree
+        name = email.split("@")[0].replace(".", " ").title()
+
+        return jsonify({
+            "success": True,
+            "token": token,
+            "user": {
+                "id": user_id,
+                "name": name,
+                "email": email,
+                "tokens": token_balance
+            }
+        })
+
+    except Exception as e:
+        print("❌ API LOGIN ERROR:", str(e))
+        return jsonify({
+            "success": False,
+            "message": "Login system error."
+        }), 500
+
 @app.route("/aris")
 def aris():
 
