@@ -3666,6 +3666,66 @@ def api_login():
             "message": "Login system error."
         }), 500
 
+# ==========================================
+# MOBILE API SIGNUP ENDPOINT
+# ==========================================
+@app.route("/api/signup", methods=["POST"])
+def api_signup():
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                "success": False,
+                "message": "No data received."
+            }), 400
+
+        email = str(data.get("email", "")).strip().lower()
+        password = str(data.get("password", "")).strip()
+
+        if not email or not password:
+            return jsonify({
+                "success": False,
+                "message": "Email and password are required."
+            }), 400
+
+        # Create new user
+        user_id = create_user(email, password)
+
+        if not user_id:
+            return jsonify({
+                "success": False,
+                "message": "User already exists."
+            }), 400
+
+        # Generate token
+        token = generate_token(user_id)
+
+        # Get starting token balance
+        token_balance = get_tokens(user_id)
+
+        # Convert email into display name
+        # example: test.user@gmail.com -> Test User
+        name = email.split("@")[0].replace(".", " ").title()
+
+        return jsonify({
+            "success": True,
+            "token": token,
+            "user": {
+                "id": user_id,
+                "name": name,
+                "email": email,
+                "tokens": token_balance
+            }
+        })
+
+    except Exception as e:
+        print("❌ API SIGNUP ERROR:", str(e))
+        return jsonify({
+            "success": False,
+            "message": "Signup system error."
+        }), 500
+        
 @app.route("/aris")
 def aris():
 
