@@ -1477,29 +1477,69 @@ def process_ai_request(user_id, msg):
             "image of",
             "draw",
             "picture of",
-            "diagram of"
+            "diagram of",
+            "labelled image",
+            "labeled image",
+            "with labels"
         ])
 
+        # ==================================
+        # IMAGE MODE
+        # ==================================
         if is_image:
             try:
                 print("🖼️ IMAGE MODE")
 
                 result = generate_image(msg)
 
-                if not result.get("success"):
+                if not result:
                     return {
-                        "reply": "⚠️ Image generation failed.",
+                        "reply": "⚠️ ARIS could not generate the image.",
+                        "suggestions": [
+                            "Create labelled solar system diagram",
+                            "Create realistic Earth image",
+                            "Create human heart diagram"
+                        ],
+                        "tokens_left": tokens,
+                        "type": "text"
+                    }
+
+                if not result.get("success", False):
+                    error_message = result.get(
+                        "message",
+                        "⚠️ ARIS could not generate the requested image."
+                    )
+
+                    return {
+                        "reply": error_message,
+                        "suggestions": [
+                            "Create labelled solar system diagram",
+                            "Create realistic Earth image",
+                            "Create human heart diagram"
+                        ],
+                        "tokens_left": tokens,
+                        "type": "text"
+                    }
+
+                image_url = str(result.get("url", "")).strip()
+
+                if not image_url:
+                    return {
+                        "reply": "⚠️ Image was generated but no URL was returned.",
                         "suggestions": [],
                         "tokens_left": tokens,
                         "type": "text"
                     }
 
+                # Deduct tokens only after success
                 deduct_token(user_id, 7)
                 log_usage(user_id, 7)
 
                 return {
                     "reply": "🖼️ Image generated successfully.",
-                    "url": result.get("url", ""),
+                    "url": image_url,
+                    "engine": result.get("engine", "ARIS"),
+                    "suggestions": generate_suggestions(msg),
                     "tokens_left": get_tokens(user_id),
                     "type": "image"
                 }
@@ -1508,8 +1548,12 @@ def process_ai_request(user_id, msg):
                 print("❌ IMAGE ERROR:", str(e))
 
                 return {
-                    "reply": "⚠️ Image generation failed.",
-                    "suggestions": [],
+                    "reply": "⚠️ ARIS could not generate the image. Please try again.",
+                    "suggestions": [
+                        "Create labelled solar system diagram",
+                        "Create realistic Earth image",
+                        "Create human heart diagram"
+                    ],
                     "tokens_left": tokens,
                     "type": "text"
                 }
@@ -1527,12 +1571,7 @@ def process_ai_request(user_id, msg):
         if any(x in msg_lower for x in student_words):
             print("🎓 STUDENT MODE")
             reply = solve_academic_question(msg, ask_openai)
-
         else:
-            # ==================================
-            # GENERAL / PROFESSIONAL / CREATOR /
-            # RESEARCH / LIFE MODE
-            # ==================================
             print("🧠 GENERAL MODE")
             reply = brain(msg, user_id)
 
