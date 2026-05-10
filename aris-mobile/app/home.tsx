@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -36,6 +37,7 @@ type ChatMessage = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  imageUrl?: string;
 };
 
 export default function HomeScreen() {
@@ -51,9 +53,11 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 100);
+
+    return () => clearTimeout(timer);
   }, [messages, sending]);
 
   const loadUserData = async () => {
@@ -85,7 +89,8 @@ export default function HomeScreen() {
 
   const addMessage = (
     role: 'user' | 'assistant',
-    content: string
+    content: string,
+    imageUrl?: string
   ) => {
     setMessages((prev) => [
       ...prev,
@@ -93,6 +98,7 @@ export default function HomeScreen() {
         id: Date.now().toString() + Math.random(),
         role,
         content,
+        imageUrl,
       },
     ]);
   };
@@ -100,9 +106,7 @@ export default function HomeScreen() {
   const handleSendMessage = async () => {
     const trimmed = message.trim();
 
-    if (!trimmed || sending) {
-      return;
-    }
+    if (!trimmed || sending) return;
 
     try {
       setSending(true);
@@ -121,7 +125,8 @@ export default function HomeScreen() {
 
       addMessage(
         'assistant',
-        result.reply || 'No response received.'
+        result.reply || 'No response received.',
+        result.type === 'image' ? result.url : undefined
       );
 
       if (typeof result.tokens_left === 'number') {
@@ -174,9 +179,7 @@ export default function HomeScreen() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={
-          Platform.OS === 'ios' ? 'padding' : undefined
-        }
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -223,7 +226,6 @@ export default function HomeScreen() {
                 This is ARIS Intelligence. What would you like to do today?
               </Text>
 
-              {/* AI Modes */}
               <Text style={styles.sectionTitle}>
                 AI Modes
               </Text>
@@ -246,7 +248,6 @@ export default function HomeScreen() {
                 ))}
               </View>
 
-              {/* Quick Prompts */}
               <Text style={styles.sectionTitle}>
                 Quick Prompts
               </Text>
@@ -256,9 +257,7 @@ export default function HomeScreen() {
                   <TouchableOpacity
                     key={index}
                     style={styles.promptChip}
-                    onPress={() =>
-                      handleQuickPrompt(prompt)
-                    }
+                    onPress={() => handleQuickPrompt(prompt)}
                   >
                     <Text style={styles.promptText}>
                       {prompt}
@@ -288,16 +287,39 @@ export default function HomeScreen() {
                     : styles.assistantBubble,
                 ]}
               >
-                <Text
-                  style={[
-                    styles.messageText,
-                    msg.role === 'user'
-                      ? styles.userMessageText
-                      : styles.assistantMessageText,
-                  ]}
-                >
-                  {msg.content}
-                </Text>
+                <>
+                  {msg.content ? (
+                    <Text
+                      style={[
+                        styles.messageText,
+                        msg.role === 'user'
+                          ? styles.userMessageText
+                          : styles.assistantMessageText,
+                      ]}
+                    >
+                      {msg.content}
+                    </Text>
+                  ) : null}
+
+                  {msg.imageUrl ? (
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      onPress={() =>
+                        Linking.openURL(msg.imageUrl!)
+                      }
+                      style={styles.chatImageWrapper}
+                    >
+                      <Image
+                        source={{ uri: msg.imageUrl }}
+                        style={styles.chatImage}
+                        resizeMode="cover"
+                      />
+                      <Text style={styles.openImageText}>
+                        Tap to open full image
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </>
               </View>
             </View>
           ))}
@@ -331,9 +353,7 @@ export default function HomeScreen() {
           style={styles.bottomSafeArea}
         >
           <View style={styles.inputContainer}>
-            <TouchableOpacity
-              style={styles.attachButton}
-            >
+            <TouchableOpacity style={styles.attachButton}>
               <Text style={styles.attachText}>📎</Text>
             </TouchableOpacity>
 
@@ -422,6 +442,23 @@ const styles = StyleSheet.create({
   chatContent: {
     paddingHorizontal: 20,
     paddingBottom: 20,
+  },
+
+  chatImageWrapper: {
+    marginTop: 10,
+  },
+
+  chatImage: {
+    width: 240,
+    height: 240,
+    borderRadius: 12,
+    backgroundColor: '#1f2937',
+  },
+
+  openImageText: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#9CA3AF',
   },
 
   greeting: {
