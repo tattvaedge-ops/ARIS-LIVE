@@ -18,7 +18,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import {
+  router,
+  useLocalSearchParams,
+} from 'expo-router';
 import { sendMessage } from '../services/api';
 
 const COLORS = {
@@ -48,13 +51,31 @@ export default function HomeScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const scrollViewRef = useRef<ScrollView>(null);
 
+  // Receive prompt from workspace screens
+  const { prompt } =
+    useLocalSearchParams<{
+      prompt?: string;
+    }>();
+
   useEffect(() => {
     loadUserData();
   }, []);
 
+  // Auto-fill input when prompt is passed
+  useEffect(() => {
+    if (
+      prompt &&
+      typeof prompt === 'string'
+    ) {
+      setMessage(prompt);
+    }
+  }, [prompt]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
+      scrollViewRef.current?.scrollToEnd({
+        animated: true,
+      });
     }, 100);
 
     return () => clearTimeout(timer);
@@ -62,13 +83,28 @@ export default function HomeScreen() {
 
   const loadUserData = async () => {
     try {
-      const storedName = await AsyncStorage.getItem('user_name');
-      const storedTokens = await AsyncStorage.getItem('user_tokens');
+      const storedName =
+        await AsyncStorage.getItem(
+          'user_name'
+        );
+      const storedTokens =
+        await AsyncStorage.getItem(
+          'user_tokens'
+        );
 
-      if (storedName) setUserName(storedName);
-      if (storedTokens) setTokens(parseInt(storedTokens, 10));
+      if (storedName)
+        setUserName(storedName);
+
+      if (storedTokens) {
+        setTokens(
+          parseInt(storedTokens, 10)
+        );
+      }
     } catch (error) {
-      console.log('Error loading user data:', error);
+      console.log(
+        'Error loading user data:',
+        error
+      );
     }
   };
 
@@ -83,7 +119,29 @@ export default function HomeScreen() {
 
       router.replace('/login');
     } catch (error) {
-      console.log('Logout error:', error);
+      console.log(
+        'Logout error:',
+        error
+      );
+    }
+  };
+
+  const handleBackToHome = () => {
+    setMessages([]);
+    setMessage('');
+    router.replace('/home');
+  };
+
+  const handleBuyTokens = async () => {
+    try {
+      await Linking.openURL(
+        'https://aris-live-production.up.railway.app/buy_tokens'
+      );
+    } catch (error) {
+      addMessage(
+        'assistant',
+        'Unable to open token purchase page.'
+      );
     }
   };
 
@@ -95,7 +153,9 @@ export default function HomeScreen() {
     setMessages((prev) => [
       ...prev,
       {
-        id: Date.now().toString() + Math.random(),
+        id:
+          Date.now().toString() +
+          Math.random().toString(),
         role,
         content,
         imageUrl,
@@ -103,48 +163,73 @@ export default function HomeScreen() {
     ]);
   };
 
-  const handleSendMessage = async () => {
-    const trimmed = message.trim();
+  const handleSendMessage =
+    async () => {
+      const trimmed =
+        message.trim();
 
-    if (!trimmed || sending) return;
-
-    try {
-      setSending(true);
-
-      const authToken = await AsyncStorage.getItem('auth_token');
-
-      if (!authToken) {
-        router.replace('/login');
+      if (!trimmed || sending)
         return;
-      }
 
-      addMessage('user', trimmed);
-      setMessage('');
+      try {
+        setSending(true);
 
-      const result = await sendMessage(trimmed, authToken);
+        const authToken =
+          await AsyncStorage.getItem(
+            'auth_token'
+          );
 
-      addMessage(
-        'assistant',
-        result.reply || 'No response received.',
-        result.type === 'image' ? result.url : undefined
-      );
+        if (!authToken) {
+          router.replace('/login');
+          return;
+        }
 
-      if (typeof result.tokens_left === 'number') {
-        setTokens(result.tokens_left);
-        await AsyncStorage.setItem(
-          'user_tokens',
-          String(result.tokens_left)
+        addMessage(
+          'user',
+          trimmed
         );
+        setMessage('');
+
+        const result =
+          await sendMessage(
+            trimmed,
+            authToken
+          );
+
+        addMessage(
+          'assistant',
+          result.reply ||
+            'No response received.',
+          result.type === 'image'
+            ? result.url
+            : undefined
+        );
+
+        if (
+          typeof result.tokens_left ===
+          'number'
+        ) {
+          setTokens(
+            result.tokens_left
+          );
+
+          await AsyncStorage.setItem(
+            'user_tokens',
+            String(
+              result.tokens_left
+            )
+          );
+        }
+      } catch (error: any) {
+        addMessage(
+          'assistant',
+          error.message ||
+            'ARIS server error.'
+        );
+      } finally {
+        setSending(false);
       }
-    } catch (error: any) {
-      addMessage(
-        'assistant',
-        error.message || 'ARIS server error.'
-      );
-    } finally {
-      setSending(false);
-    }
-  };
+    };
 
   const quickPrompts = [
     'Explain Quantum Physics',
@@ -153,52 +238,130 @@ export default function HomeScreen() {
     'Analyze My Business',
   ];
 
-  const handleQuickPrompt = (prompt: string) => {
-    setMessage(prompt);
+  const handleQuickPrompt = (
+    promptText: string
+  ) => {
+    setMessage(promptText);
   };
 
   const modes = [
-    { title: 'Student AI', icon: 'school-outline' },
-    { title: 'Professional AI', icon: 'briefcase-outline' },
-    { title: 'Research AI', icon: 'flask-outline' },
-    { title: 'Creator AI', icon: 'color-palette-outline' },
-    { title: 'Life AI', icon: 'heart-outline' },
+    {
+      title: 'Student AI',
+      icon: 'school-outline',
+      route: '/student',
+    },
+    {
+      title: 'Professional AI',
+      icon:
+        'briefcase-outline',
+      route:
+        '/professional',
+    },
+    {
+      title: 'Research AI',
+      icon: 'flask-outline',
+      route: '/research',
+    },
+    {
+      title: 'Creator AI',
+      icon:
+        'color-palette-outline',
+      route: '/creator',
+    },
+    {
+      title: 'Life AI',
+      icon: 'heart-outline',
+      route: '/life',
+    },
+    {
+      title: 'Profile',
+      icon: 'person-outline',
+      route: '/profile',
+    },
   ];
 
-  const showWelcome = messages.length === 0;
+  const showWelcome =
+    messages.length === 0;
 
   return (
     <SafeAreaView
       style={styles.container}
-      edges={['top', 'left', 'right']}
+      edges={[
+        'top',
+        'left',
+        'right',
+      ]}
     >
       <StatusBar
         barStyle="light-content"
-        backgroundColor={COLORS.background}
+        backgroundColor={
+          COLORS.background
+        }
       />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={
+          Platform.OS === 'ios'
+            ? 'padding'
+            : undefined
+        }
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View
+          style={styles.header}
+        >
           <Image
             source={require('../assets/images/aris-logo.png')}
             style={styles.logo}
             resizeMode="contain"
           />
 
-          <View style={styles.headerRight}>
-            <View style={styles.tokenBadge}>
-              <Text style={styles.tokenText}>
-                🧠 {tokens.toLocaleString()}
-              </Text>
-            </View>
+          <View
+            style={
+              styles.headerRight
+            }
+          >
+            <TouchableOpacity
+              style={
+                styles.iconButton
+              }
+              onPress={
+                handleBackToHome
+              }
+            >
+              <Ionicons
+                name="home-outline"
+                size={22}
+                color="#ffffff"
+              />
+            </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={handleLogout}
+              style={
+                styles.tokenBadge
+              }
+              onPress={
+                handleBuyTokens
+              }
+            >
+              <Text
+                style={
+                  styles.tokenText
+                }
+              >
+                🧠{' '}
+                {tokens.toLocaleString()}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={
+                styles.iconButton
+              }
+              onPress={
+                handleLogout
+              }
             >
               <Ionicons
                 name="log-out-outline"
@@ -213,116 +376,215 @@ export default function HomeScreen() {
         <ScrollView
           ref={scrollViewRef}
           style={styles.chatArea}
-          contentContainerStyle={styles.chatContent}
-          showsVerticalScrollIndicator={false}
+          contentContainerStyle={
+            styles.chatContent
+          }
+          showsVerticalScrollIndicator={
+            false
+          }
         >
           {showWelcome && (
             <>
-              <Text style={styles.greeting}>
+              <Text
+                style={
+                  styles.greeting
+                }
+              >
                 Hello, {userName}
               </Text>
 
-              <Text style={styles.subtitle}>
-                This is ARIS Intelligence. What would you like to do today?
+              <Text
+                style={
+                  styles.subtitle
+                }
+              >
+                This is ARIS
+                Intelligence.
+                What would you
+                like to do
+                today?
               </Text>
 
-              <Text style={styles.sectionTitle}>
+              <Text
+                style={
+                  styles.sectionTitle
+                }
+              >
                 AI Modes
               </Text>
 
-              <View style={styles.grid}>
-                {modes.map((mode, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={styles.card}
-                  >
-                    <Ionicons
-                      name={mode.icon as any}
-                      size={28}
-                      color={COLORS.primary}
-                    />
-                    <Text style={styles.cardText}>
-                      {mode.title}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View
+                style={
+                  styles.grid
+                }
+              >
+                {modes.map(
+                  (
+                    mode,
+                    index
+                  ) => (
+                    <TouchableOpacity
+                      key={
+                        index
+                      }
+                      style={
+                        styles.card
+                      }
+                      onPress={() =>
+                        router.push(
+                          mode.route as any
+                        )
+                      }
+                    >
+                      <Ionicons
+                        name={
+                          mode.icon as any
+                        }
+                        size={
+                          28
+                        }
+                        color={
+                          COLORS.primary
+                        }
+                      />
+                      <Text
+                        style={
+                          styles.cardText
+                        }
+                      >
+                        {
+                          mode.title
+                        }
+                      </Text>
+                    </TouchableOpacity>
+                  )
+                )}
               </View>
 
-              <Text style={styles.sectionTitle}>
+              <Text
+                style={
+                  styles.sectionTitle
+                }
+              >
                 Quick Prompts
               </Text>
 
-              <View style={styles.promptContainer}>
-                {quickPrompts.map((prompt, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={styles.promptChip}
-                    onPress={() => handleQuickPrompt(prompt)}
-                  >
-                    <Text style={styles.promptText}>
-                      {prompt}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View
+                style={
+                  styles.promptContainer
+                }
+              >
+                {quickPrompts.map(
+                  (
+                    promptText,
+                    index
+                  ) => (
+                    <TouchableOpacity
+                      key={
+                        index
+                      }
+                      style={
+                        styles.promptChip
+                      }
+                      onPress={() =>
+                        handleQuickPrompt(
+                          promptText
+                        )
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.promptText
+                        }
+                      >
+                        {
+                          promptText
+                        }
+                      </Text>
+                    </TouchableOpacity>
+                  )
+                )}
               </View>
             </>
           )}
 
           {/* Messages */}
-          {messages.map((msg) => (
-            <View
-              key={msg.id}
-              style={[
-                styles.messageRow,
-                msg.role === 'user'
-                  ? styles.userRow
-                  : styles.assistantRow,
-              ]}
-            >
+          {messages.map(
+            (msg) => (
               <View
+                key={
+                  msg.id
+                }
                 style={[
-                  styles.messageBubble,
-                  msg.role === 'user'
-                    ? styles.userBubble
-                    : styles.assistantBubble,
+                  styles.messageRow,
+                  msg.role ===
+                  'user'
+                    ? styles.userRow
+                    : styles.assistantRow,
                 ]}
               >
-                <>
+                <View
+                  style={[
+                    styles.messageBubble,
+                    msg.role ===
+                    'user'
+                      ? styles.userBubble
+                      : styles.assistantBubble,
+                  ]}
+                >
                   {msg.content ? (
                     <Text
                       style={[
                         styles.messageText,
-                        msg.role === 'user'
+                        msg.role ===
+                        'user'
                           ? styles.userMessageText
                           : styles.assistantMessageText,
                       ]}
                     >
-                      {msg.content}
+                      {
+                        msg.content
+                      }
                     </Text>
                   ) : null}
 
                   {msg.imageUrl ? (
                     <TouchableOpacity
-                      activeOpacity={0.9}
-                      onPress={() =>
-                        Linking.openURL(msg.imageUrl!)
+                      activeOpacity={
+                        0.9
                       }
-                      style={styles.chatImageWrapper}
+                      onPress={() =>
+                        Linking.openURL(
+                          msg.imageUrl!
+                        )
+                      }
+                      style={
+                        styles.chatImageWrapper
+                      }
                     >
                       <Image
-                        source={{ uri: msg.imageUrl }}
-                        style={styles.chatImage}
+                        source={{
+                          uri: msg.imageUrl,
+                        }}
+                        style={
+                          styles.chatImage
+                        }
                         resizeMode="cover"
                       />
-                      <Text style={styles.openImageText}>
-                        Tap to open full image
+                      <Text
+                        style={
+                          styles.openImageText
+                        }
+                      >
+                        Tap to open
+                        full image
                       </Text>
                     </TouchableOpacity>
                   ) : null}
-                </>
+                </View>
               </View>
-            </View>
-          ))}
+            )
+          )}
 
           {/* Typing Indicator */}
           {sending && (
@@ -340,7 +602,9 @@ export default function HomeScreen() {
               >
                 <ActivityIndicator
                   size="small"
-                  color={COLORS.primary}
+                  color={
+                    COLORS.primary
+                  }
                 />
               </View>
             </View>
@@ -350,32 +614,60 @@ export default function HomeScreen() {
         {/* Bottom Input */}
         <SafeAreaView
           edges={['bottom']}
-          style={styles.bottomSafeArea}
+          style={
+            styles.bottomSafeArea
+          }
         >
-          <View style={styles.inputContainer}>
-            <TouchableOpacity style={styles.attachButton}>
-              <Text style={styles.attachText}>📎</Text>
+          <View
+            style={
+              styles.inputContainer
+            }
+          >
+            <TouchableOpacity
+              style={
+                styles.attachButton
+              }
+            >
+              <Text
+                style={
+                  styles.attachText
+                }
+              >
+                📎
+              </Text>
             </TouchableOpacity>
 
             <TextInput
               placeholder="Talk to ARIS..."
               placeholderTextColor="#9CA3AF"
-              style={styles.input}
+              style={
+                styles.input
+              }
               value={message}
-              onChangeText={setMessage}
+              onChangeText={
+                setMessage
+              }
               multiline
               editable={!sending}
             />
 
             <TouchableOpacity
-              style={styles.sendButton}
-              onPress={handleSendMessage}
-              disabled={sending}
+              style={
+                styles.sendButton
+              }
+              onPress={
+                handleSendMessage
+              }
+              disabled={
+                sending
+              }
             >
               <Ionicons
                 name="send"
                 size={20}
-                color={COLORS.primaryText}
+                color={
+                  COLORS.primaryText
+                }
               />
             </TouchableOpacity>
           </View>
@@ -385,6 +677,8 @@ export default function HomeScreen() {
   );
 }
 
+// Keep your existing StyleSheet.create(...) exactly as it is below.
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -393,7 +687,8 @@ const styles = StyleSheet.create({
 
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent:
+      'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 10,
@@ -411,8 +706,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 
+  iconButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor:
+      'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+
   tokenBadge: {
-    backgroundColor: COLORS.primary,
+    backgroundColor:
+      COLORS.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 12,
@@ -422,17 +730,6 @@ const styles = StyleSheet.create({
     color: COLORS.primaryText,
     fontWeight: '700',
     fontSize: 14,
-  },
-
-  logoutButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
 
   chatArea: {
@@ -470,7 +767,8 @@ const styles = StyleSheet.create({
 
   subtitle: {
     marginTop: 8,
-    color: COLORS.textSecondary,
+    color:
+      COLORS.textSecondary,
     fontSize: 16,
     lineHeight: 24,
   },
@@ -486,19 +784,22 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent:
+      'space-between',
   },
 
   card: {
     width: '48%',
-    backgroundColor: COLORS.card,
+    backgroundColor:
+      COLORS.card,
     borderRadius: 22,
     padding: 20,
     marginBottom: 16,
     minHeight: 125,
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor:
+      COLORS.border,
   },
 
   cardText: {
@@ -516,12 +817,14 @@ const styles = StyleSheet.create({
   },
 
   promptChip: {
-    backgroundColor: COLORS.card,
+    backgroundColor:
+      COLORS.card,
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor:
+      COLORS.border,
   },
 
   promptText: {
@@ -549,15 +852,18 @@ const styles = StyleSheet.create({
   },
 
   userBubble: {
-    backgroundColor: COLORS.userBubble,
+    backgroundColor:
+      COLORS.userBubble,
     borderBottomRightRadius: 6,
   },
 
   assistantBubble: {
-    backgroundColor: COLORS.assistantBubble,
+    backgroundColor:
+      COLORS.assistantBubble,
     borderBottomLeftRadius: 6,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor:
+      COLORS.border,
   },
 
   messageText: {
@@ -566,7 +872,8 @@ const styles = StyleSheet.create({
   },
 
   userMessageText: {
-    color: COLORS.primaryText,
+    color:
+      COLORS.primaryText,
     fontWeight: '500',
   },
 
@@ -575,7 +882,8 @@ const styles = StyleSheet.create({
   },
 
   bottomSafeArea: {
-    backgroundColor: COLORS.background,
+    backgroundColor:
+      COLORS.background,
   },
 
   inputContainer: {
@@ -585,8 +893,10 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 12,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    backgroundColor: COLORS.background,
+    borderTopColor:
+      COLORS.border,
+    backgroundColor:
+      COLORS.background,
     gap: 8,
   },
 
@@ -594,7 +904,8 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 12,
-    backgroundColor: COLORS.primary,
+    backgroundColor:
+      COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -618,7 +929,8 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 12,
-    backgroundColor: COLORS.primary,
+    backgroundColor:
+      COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
