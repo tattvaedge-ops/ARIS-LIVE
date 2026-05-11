@@ -4516,11 +4516,28 @@ def api_upload_image():
         image.save(filepath)
 
         # ==========================================
-        # TEMPORARY RESPONSE (SAFE VERSION)
+        # OCR + AI SOLUTION
         # ==========================================
-        reply = (
-            "📷 Image received successfully.\n\n"
-            "OCR integration will analyze this question in the next step."
+        print("📷 Starting OCR extraction...")
+
+        extracted_text = extract_text_from_image(filepath)
+
+        print("📄 OCR Extracted Text:")
+        print(extracted_text)
+
+        if not extracted_text or not str(extracted_text).strip():
+            return jsonify({
+                "success": False,
+                "message": "Unable to extract text from image."
+            }), 400
+
+        print("🧠 Sending extracted text to ARIS...")
+
+        result = process_ai_request(user_id, extracted_text)
+
+        reply = result.get(
+            "reply",
+            "⚠️ Unable to solve the question."
         )
 
         # ==========================================
