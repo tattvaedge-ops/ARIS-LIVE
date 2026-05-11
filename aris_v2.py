@@ -1612,72 +1612,6 @@ def process_ai_request(user_id, msg):
         }
 
 
-        # =========================================================
-# MOBILE IMAGE UPLOAD API
-# =========================================================
-
-@app.route("/api/upload-image", methods=["POST"])
-def api_upload_image():
-    try:
-        token = request.cookies.get("aris_token")
-
-        if not token:
-            return jsonify({
-                "success": False,
-                "message": "Authentication required."
-            }), 401
-
-        user_id = verify_token(token)
-
-        if not user_id:
-            return jsonify({
-                "success": False,
-                "message": "Invalid token."
-            }), 401
-
-        if "image" not in request.files:
-            return jsonify({
-                "success": False,
-                "message": "No image uploaded."
-            }), 400
-
-        file = request.files["image"]
-
-        if file.filename == "":
-            return jsonify({
-                "success": False,
-                "message": "No file selected."
-            }), 400
-
-        if not os.path.exists(UPLOAD_FOLDER):
-            os.makedirs(UPLOAD_FOLDER)
-
-        import uuid
-
-        filename = f"{uuid.uuid4().hex}.jpg"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-
-        file.save(filepath)
-
-        answer = solve_question_from_image(filepath, user_id)
-
-        return jsonify({
-            "success": True,
-            "reply": answer,
-            "tokens_left": get_tokens(user_id),
-            "type": "text"
-        })
-
-    except Exception as e:
-        print("❌ API UPLOAD IMAGE ERROR:", str(e))
-
-        return jsonify({
-            "success": False,
-            "message": f"Image processing failed: {str(e)}"
-        }), 500
-
-        
-
 # ================= LOGIN PAGE =================
 LOGIN_HTML = """
 <!DOCTYPE html>
@@ -4457,7 +4391,6 @@ def test_openai():
 
 @app.route("/voice", methods=["POST"])
 def voice_chat():
-
     try:
         # ==================================
         # GET AUDIO
@@ -4525,7 +4458,8 @@ def voice_chat():
         print("❌ Voice Route Error:", str(e))
         return jsonify({"error": "Voice processing failed"})
 
-        @app.route('/api/upload-image', methods=['POST'])
+
+@app.route('/api/upload-image', methods=['POST'])
 def api_upload_image():
     try:
         # ==========================================
@@ -4576,14 +4510,17 @@ def api_upload_image():
         filename = f"{uuid.uuid4().hex}{extension}"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
 
+        if not os.path.exists(UPLOAD_FOLDER):
+            os.makedirs(UPLOAD_FOLDER)
+
         image.save(filepath)
 
         # ==========================================
-        # SOLVE QUESTION FROM IMAGE
+        # TEMPORARY RESPONSE (SAFE VERSION)
         # ==========================================
-        reply = solve_question_from_image(
-            filepath,
-            user_id
+        reply = (
+            "📷 Image received successfully.\n\n"
+            "OCR integration will analyze this question in the next step."
         )
 
         # ==========================================
@@ -4600,7 +4537,8 @@ def api_upload_image():
         return jsonify({
             "success": True,
             "reply": reply,
-            "tokens_left": tokens_left
+            "tokens_left": tokens_left,
+            "type": "text"
         })
 
     except Exception as e:
