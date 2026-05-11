@@ -36,7 +36,7 @@ export default function StudentScreen() {
           title: 'Ask Doubt',
           icon: 'help-circle-outline',
           starterQuestion:
-            '❓ Type your doubt or upload a question image.',
+            '📸 Upload or click a photo of your question, crop only the required portion, and ARIS will solve it step by step.',
         },
       ]}
     />

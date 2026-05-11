@@ -1,5 +1,10 @@
 import Markdown from 'react-native-markdown-display';
-import React, { useEffect, useRef, useState } from 'react';
+import React, {
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+import * as Speech from 'expo-speech';
 import {
   View,
   Text,
@@ -18,11 +23,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
+import ImagePicker from 'react-native-image-crop-picker';
+
 import {
   sendMessage,
   uploadImage,
 } from '../services/api';
+
 
 const COLORS = {
   background: '#0a192f',
@@ -102,24 +109,36 @@ export default function WorkspaceScreen({
   };
 
   const addMessage = (
-    role: 'user' | 'assistant',
-    content: string,
-    imageUrl?: string,
-    actions?: ChatAction[]
-  ) => {
-    setMessages((prev) => [
-      ...prev,
-      {
-        id:
-          Date.now().toString() +
-          Math.random().toString(),
-        role,
-        content,
-        imageUrl,
-        actions,
-      },
-    ]);
+  role: 'user' | 'assistant',
+  content: string,
+  imageUrl?: string,
+  actions?: ChatAction[]
+) => {
+  const newMessage = {
+    id:
+      Date.now().toString() +
+      Math.random().toString(),
+    role,
+    content,
+    imageUrl,
+    actions,
   };
+
+  setMessages((prev) => [
+    ...prev,
+    newMessage,
+  ]);
+
+  // Automatically speak assistant messages
+  // Do not speak messages that contain action buttons
+  if (
+    role === 'assistant' &&
+    content &&
+    !actions
+  ) {
+    speakText(content);
+  }
+};
 
   const handleToolPress = async (
     tool: WorkspaceTool
@@ -213,109 +232,83 @@ export default function WorkspaceScreen({
     }
   };
 
-  const handleTakePhoto = async () => {
-    try {
-      const permission =
-        await ImagePicker.requestCameraPermissionsAsync();
+ const handleTakePhoto = async () => {
+  try {
+    const image = await ImagePicker.openCamera({
+      cropping: true,
+      freeStyleCropEnabled: true,
+      hideBottomControls: true,
+      cropperToolbarTitle: 'Crop Question',
+      cropperChooseText: 'Done',
+      cropperCancelText: 'Cancel',
+      enableRotationGesture: true,
+      compressImageQuality: 1,
+      mediaType: 'photo',
+    });
 
-      if (!permission.granted) {
-        addMessage(
-          'assistant',
-          '⚠️ Please grant camera access.'
-        );
-        return;
-      }
+    const imageUri = image.path;
 
-      const result =
-        await ImagePicker.launchCameraAsync({
-          mediaTypes: ['images'],
-          allowsEditing: true,
-          aspect: [4, 3],
-          quality: 1,
-        });
+    addMessage(
+      'assistant',
+      '📷 Uploading and analyzing your question...',
+      imageUri
+    );
 
-      if (
-        result.canceled ||
-        !result.assets ||
-        result.assets.length === 0
-      ) {
-        return;
-      }
+    await analyzeImage(imageUri);
+  } catch (error) {
+    // User cancelled camera or crop
+  }
+};
 
-      const imageUri =
-        result.assets[0].uri;
+const handlePickImage = async () => {
+  try {
+    const image = await ImagePicker.openPicker({
+      cropping: true,
+      freeStyleCropEnabled: true,
+      hideBottomControls: true,
+      cropperToolbarTitle: 'Crop Question',
+      cropperChooseText: 'Done',
+      cropperCancelText: 'Cancel',
+      enableRotationGesture: true,
+      compressImageQuality: 1,
+      mediaType: 'photo',
+    });
 
-      addMessage(
-        'assistant',
-        '📷 Uploading and analyzing your question...',
-        imageUri
-      );
+    const imageUri = image.path;
 
-      await analyzeImage(imageUri);
-    } catch (error) {
-      addMessage(
-        'assistant',
-        '⚠️ Unable to open camera.'
-      );
-    }
-  };
+    addMessage(
+      'assistant',
+      '📎 Uploading and analyzing your question...',
+      imageUri
+    );
 
-  const handlePickImage = async () => {
-    try {
-      const permission =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+    await analyzeImage(imageUri);
+  } catch (error) {
+    // User cancelled gallery or crop
+  }
+};
 
-      if (!permission.granted) {
-        addMessage(
-          'assistant',
-          '⚠️ Please grant photo library access.'
-        );
-        return;
-      }
+const handleActionPress = async (
+  action: 'camera' | 'gallery'
+) => {
+  if (action === 'camera') {
+    await handleTakePhoto();
+  } else {
+    await handlePickImage();
+  }
+};
 
-      const result =
-        await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ['images'],
-          allowsEditing: true,
-          aspect: [4, 3],
-          quality: 1,
-        });
+const speakText = (text: string) => {
+  if (!text) return;
 
-      if (
-        result.canceled ||
-        !result.assets ||
-        result.assets.length === 0
-      ) {
-        return;
-      }
+  Speech.stop();
 
-      const imageUri =
-        result.assets[0].uri;
-
-      addMessage(
-        'assistant',
-        '📎 Uploading and analyzing your question...',
-        imageUri
-      );
-
-      await analyzeImage(imageUri);
-    } catch (error) {
-      addMessage(
-        'assistant',
-        '⚠️ Unable to select image.'
-      );
-    }
-  };
-
-  const handleActionPress = async (
-    action: 'camera' | 'gallery'
-  ) => {
-    if (action === 'camera') {
-      await handleTakePhoto();
-    } else {
-      await handlePickImage();
-    }
-  };
+  Speech.speak(text, {
+    language: 'en-IN',
+    pitch: 1.0,
+    rate: 0.95,
+  });
+};
 
   const handleSendMessage = async () => {
     const trimmed = message.trim();

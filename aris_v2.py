@@ -1611,6 +1611,73 @@ def process_ai_request(user_id, msg):
             "type": "text"
         }
 
+
+        # =========================================================
+# MOBILE IMAGE UPLOAD API
+# =========================================================
+
+@app.route("/api/upload-image", methods=["POST"])
+def api_upload_image():
+    try:
+        token = request.cookies.get("aris_token")
+
+        if not token:
+            return jsonify({
+                "success": False,
+                "message": "Authentication required."
+            }), 401
+
+        user_id = verify_token(token)
+
+        if not user_id:
+            return jsonify({
+                "success": False,
+                "message": "Invalid token."
+            }), 401
+
+        if "image" not in request.files:
+            return jsonify({
+                "success": False,
+                "message": "No image uploaded."
+            }), 400
+
+        file = request.files["image"]
+
+        if file.filename == "":
+            return jsonify({
+                "success": False,
+                "message": "No file selected."
+            }), 400
+
+        if not os.path.exists(UPLOAD_FOLDER):
+            os.makedirs(UPLOAD_FOLDER)
+
+        import uuid
+
+        filename = f"{uuid.uuid4().hex}.jpg"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+
+        file.save(filepath)
+
+        answer = solve_question_from_image(filepath, user_id)
+
+        return jsonify({
+            "success": True,
+            "reply": answer,
+            "tokens_left": get_tokens(user_id),
+            "type": "text"
+        })
+
+    except Exception as e:
+        print("❌ API UPLOAD IMAGE ERROR:", str(e))
+
+        return jsonify({
+            "success": False,
+            "message": f"Image processing failed: {str(e)}"
+        }), 500
+
+        
+
 # ================= LOGIN PAGE =================
 LOGIN_HTML = """
 <!DOCTYPE html>
@@ -3725,7 +3792,7 @@ def api_signup():
             "success": False,
             "message": "Signup system error."
         }), 500
-        
+
 @app.route("/aris")
 def aris():
 
@@ -4457,6 +4524,92 @@ def voice_chat():
     except Exception as e:
         print("❌ Voice Route Error:", str(e))
         return jsonify({"error": "Voice processing failed"})
+
+        @app.route('/api/upload-image', methods=['POST'])
+def api_upload_image():
+    try:
+        # ==========================================
+        # AUTHENTICATION
+        # ==========================================
+        token = request.cookies.get("aris_token")
+
+        if not token:
+            return jsonify({
+                "success": False,
+                "message": "Authentication required."
+            }), 401
+
+        user_id = verify_token(token)
+
+        if not user_id:
+            return jsonify({
+                "success": False,
+                "message": "Invalid or expired token."
+            }), 401
+
+        # ==========================================
+        # FILE VALIDATION
+        # ==========================================
+        if 'image' not in request.files:
+            return jsonify({
+                "success": False,
+                "message": "No image uploaded."
+            }), 400
+
+        image = request.files['image']
+
+        if image.filename == '':
+            return jsonify({
+                "success": False,
+                "message": "Empty image file."
+            }), 400
+
+        # ==========================================
+        # SAVE IMAGE
+        # ==========================================
+        import uuid
+
+        extension = os.path.splitext(image.filename)[1]
+        if not extension:
+            extension = ".jpg"
+
+        filename = f"{uuid.uuid4().hex}{extension}"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+
+        image.save(filepath)
+
+        # ==========================================
+        # SOLVE QUESTION FROM IMAGE
+        # ==========================================
+        reply = solve_question_from_image(
+            filepath,
+            user_id
+        )
+
+        # ==========================================
+        # TOKEN DEDUCTION
+        # ==========================================
+        deduct_token(user_id, 1)
+        log_usage(user_id, 1)
+
+        tokens_left = get_tokens(user_id)
+
+        # ==========================================
+        # RETURN JSON RESPONSE
+        # ==========================================
+        return jsonify({
+            "success": True,
+            "reply": reply,
+            "tokens_left": tokens_left
+        })
+
+    except Exception as e:
+        print("❌ API UPLOAD IMAGE ERROR:", str(e))
+
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
 
 
 import os

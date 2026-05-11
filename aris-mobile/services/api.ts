@@ -6,6 +6,21 @@ const API_BASE_URL =
 async function handleResponse(
   response: Response
 ) {
+  const contentType =
+    response.headers.get('content-type') || '';
+
+  // If backend returns HTML (404/500 page), capture full text
+  if (!contentType.includes('application/json')) {
+    const text = await response.text();
+
+    throw new Error(
+      `Server returned non-JSON response:\n${text.substring(
+        0,
+        300
+      )}`
+    );
+  }
+
   const data = await response.json();
 
   if (
@@ -139,6 +154,7 @@ export async function uploadImage(
     {
       method: 'POST',
       headers: {
+        Accept: 'application/json',
         Cookie: `aris_token=${authToken}`,
       },
       body: formData,
