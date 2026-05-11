@@ -4393,15 +4393,21 @@ def test_openai():
 def voice_chat():
     try:
         # ==================================
-        # GET AUDIO
+        # GET AUDIO FILE
         # ==================================
         if "audio" not in request.files:
-            return jsonify({"error": "No audio uploaded"})
+            return jsonify({
+                "success": False,
+                "message": "No audio uploaded."
+            }), 400
 
         audio = request.files["audio"]
 
+        # Save uploaded file
         file_path = "temp_audio.wav"
         audio.save(file_path)
+
+        print("🎤 Voice file received.")
 
         # ==================================
         # SPEECH TO TEXT
@@ -4409,14 +4415,17 @@ def voice_chat():
         user_text = speech_to_text(file_path)
 
         if not user_text:
-            return jsonify({"error": "Speech not recognized"})
+            return jsonify({
+                "success": False,
+                "message": "Speech not recognized."
+            }), 400
 
         user_text = str(user_text).strip()
 
-        print("🎤 USER SAID:", user_text)
+        print("📝 TRANSCRIPT:", user_text)
 
         # ==================================
-        # AUTH USER
+        # AUTHENTICATE USER
         # ==================================
         token = request.cookies.get("aris_token")
 
@@ -4432,9 +4441,12 @@ def voice_chat():
             user_id = "guest"
 
         # ==================================
-        # PROCESS ARIS
+        # PROCESS THROUGH MAIN ARIS ENGINE
         # ==================================
-        result = process_ai_request(user_id, user_text)
+        result = process_ai_request(
+            user_id,
+            user_text
+        )
 
         reply = result.get("reply", "")
 
@@ -4443,21 +4455,54 @@ def voice_chat():
 
         reply = str(reply).strip()
 
+        print("🤖 REPLY:", reply[:200])
+
         # ==================================
-        # TEXT TO SPEECH
+        # TOKEN COUNT
+        # ==================================
+        tokens_left = get_tokens(user_id)
+
+        # ==================================
+        # GENERATE VOICE RESPONSE
         # ==================================
         audio_file = generate_voice(reply)
 
-        return send_file(
+        # ==================================
+        # RETURN AUDIO WITH METADATA HEADERS
+        # ==================================
+        response = send_file(
             audio_file,
             mimetype="audio/mpeg",
             as_attachment=False
         )
 
+        # Transcript of what user said
+        response.headers["X-ARIS-Transcript"] = user_text
+
+        # Text reply from ARIS
+        response.headers["X-ARIS-Reply"] = reply[:1000]
+
+        # Remaining tokens
+        response.headers["X-ARIS-Tokens"] = str(tokens_left)
+
+        # Allow mobile/web clients to read custom headers
+        response.headers[
+            "Access-Control-Expose-Headers"
+        ] = (
+            "X-ARIS-Transcript, "
+            "X-ARIS-Reply, "
+            "X-ARIS-Tokens"
+        )
+
+        return response
+
     except Exception as e:
         print("❌ Voice Route Error:", str(e))
-        return jsonify({"error": "Voice processing failed"})
 
+        return jsonify({
+            "success": False,
+            "message": f"Voice processing failed: {str(e)}"
+        }), 500
 
 @app.route('/api/upload-image', methods=['POST'])
 def api_upload_image():
