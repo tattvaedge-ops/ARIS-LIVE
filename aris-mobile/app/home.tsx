@@ -22,7 +22,9 @@ import {
   router,
   useLocalSearchParams,
 } from 'expo-router';
-import { sendMessage } from '../services/api';
+import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as API from '../services/api';
 
 const COLORS = {
   background: '#0a192f',
@@ -50,6 +52,22 @@ export default function HomeScreen() {
   const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  const [conversationMode, setConversationMode] =
+  useState(false);
+
+const [voiceState, setVoiceState] = useState<
+  'idle' |
+  'listening' |
+  'processing' |
+  'speaking'
+>('idle');
+
+const recordingRef =
+  useRef<Audio.Recording | null>(null);
+
+const soundRef =
+  useRef<Audio.Sound | null>(null);
 
   // Receive prompt from workspace screens
   const { prompt } =
@@ -191,7 +209,7 @@ export default function HomeScreen() {
         setMessage('');
 
         const result =
-          await sendMessage(
+          await API.sendMessage(
             trimmed,
             authToken
           );
@@ -230,6 +248,346 @@ export default function HomeScreen() {
         setSending(false);
       }
     };
+
+const sendVoiceToBackend = async (
+  audioUri: string,
+  authToken: string
+) => {
+  const formData = new FormData();
+
+  formData.append(
+    'audio',
+    {
+      uri: audioUri,
+      name: 'voice.m4a',
+      type: 'audio/m4a',
+    } as any
+  );
+
+  const response = await fetch(
+    'https://aris-live-production.up.railway.app/voice',
+    {
+      method: 'POST',
+      headers: {
+        Cookie: `aris_token=${authToken}`,
+      },
+      body: formData,
+    }
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(
+      text || 'Voice processing failed.'
+    );
+  }
+
+  const transcript =
+    response.headers.get(
+      'X-ARIS-Transcript'
+    ) || '';
+
+  const reply =
+    response.headers.get(
+      'X-ARIS-Reply'
+    ) || '';
+
+  const tokensLeft =
+    response.headers.get(
+      'X-ARIS-Tokens'
+    ) || '';
+
+  const audioBlob =
+    await response.blob();
+
+  return {
+    audioBlob,
+    transcript,
+    reply,
+    tokensLeft,
+  };
+};
+
+
+const startConversation = async () => {
+  try {
+    setConversationMode(true);
+    setVoiceState('listening');
+
+    setTimeout(() => {
+      runConversationLoop();
+    }, 300);
+  } catch (error) {
+    console.log(
+      'Start conversation error:',
+      error
+    );
+
+    setConversationMode(false);
+    setVoiceState('idle');
+  }
+};
+
+const stopConversation = async () => {
+  setConversationMode(false);
+  setVoiceState('idle');
+
+  try {
+    if (recordingRef.current) {
+      await recordingRef.current.stopAndUnloadAsync();
+      recordingRef.current = null;
+    }
+
+    if (soundRef.current) {
+      await soundRef.current.stopAsync();
+      await soundRef.current.unloadAsync();
+      soundRef.current = null;
+    }
+
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      playThroughEarpieceAndroid: false,
+    });
+  } catch (error) {
+    console.log(
+      'Stop conversation error:',
+      error
+    );
+  }
+};
+
+const recordUserSpeech = async () => {
+  addMessage(
+    'assistant',
+    '🎤 Recording started...'
+  );
+
+  const permission =
+    await Audio.requestPermissionsAsync();
+
+  if (!permission.granted) {
+    throw new Error(
+      'Microphone permission denied.'
+    );
+  }
+
+  await Audio.setAudioModeAsync({
+    allowsRecordingIOS: true,
+    playsInSilentModeIOS: true,
+    playThroughEarpieceAndroid: false,
+  });
+
+  const recording =
+    new Audio.Recording();
+
+  await recording.prepareToRecordAsync(
+    Audio.RecordingOptionsPresets.HIGH_QUALITY
+  );
+
+  recordingRef.current = recording;
+
+  setVoiceState('listening');
+
+  await recording.startAsync();
+
+  // Record for 6 seconds
+  await new Promise((resolve) =>
+    setTimeout(resolve, 6000)
+  );
+
+  addMessage(
+    'assistant',
+    '⏹ Recording stopped.'
+  );
+
+  await recording.stopAndUnloadAsync();
+
+  const uri = recording.getURI();
+
+  recordingRef.current = null;
+
+  addMessage(
+    'assistant',
+    `📁 Audio saved: ${uri}`
+  );
+
+  if (!uri) {
+    throw new Error(
+      'Recording failed.'
+    );
+  }
+
+  return uri;
+};
+
+const playVoiceResponse = async (
+  audioBlob: Blob
+) => {
+  console.log(
+    'VOICE BLOB SIZE:',
+    audioBlob.size
+  );
+
+  console.log(
+    'VOICE BLOB TYPE:',
+    audioBlob.type
+  );
+
+  setVoiceState('speaking');
+
+  const reader = new FileReader();
+
+  const base64 =
+    await new Promise<string>(
+      (resolve, reject) => {
+        reader.onloadend = () => {
+          const result =
+            reader.result as string;
+
+          resolve(
+            result.split(',')[1]
+          );
+        };
+
+        reader.onerror = reject;
+        reader.readAsDataURL(
+          audioBlob
+        );
+      }
+    );
+
+  const fileUri =
+    FileSystem.cacheDirectory +
+    `aris_${Date.now()}.mp3`;
+
+  await FileSystem.writeAsStringAsync(
+    fileUri,
+    base64,
+    {
+      encoding: 'base64' as any,
+    }
+  );
+
+  await Audio.setAudioModeAsync({
+    allowsRecordingIOS: false,
+    playsInSilentModeIOS: true,
+    shouldDuckAndroid: true,
+    playThroughEarpieceAndroid: false,
+  });
+
+  const { sound } =
+    await Audio.Sound.createAsync(
+      { uri: fileUri },
+      { shouldPlay: true }
+    );
+
+  soundRef.current = sound;
+
+  const status =
+    await sound.getStatusAsync();
+
+  console.log(
+    'AUDIO PLAYBACK STATUS:',
+    status
+  );
+
+  await new Promise<void>(
+    (resolve) => {
+      sound.setOnPlaybackStatusUpdate(
+        (status) => {
+          if (
+            status.isLoaded &&
+            status.didJustFinish
+          ) {
+            resolve();
+          }
+        }
+      );
+    }
+  );
+
+  await sound.unloadAsync();
+  soundRef.current = null;
+};
+
+const runConversationLoop =
+  async () => {
+    try {
+      const authToken =
+        await AsyncStorage.getItem(
+          'auth_token'
+        );
+
+      if (!authToken) {
+        router.replace('/login');
+        return;
+      }
+
+      // 1. Record user speech
+      const audioUri =
+        await recordUserSpeech();
+
+      // 2. Show processing state
+      setVoiceState('processing');
+
+      addMessage(
+        'assistant',
+        '🧠 Sending voice to ARIS...'
+      );
+
+      // 3. Send audio to backend
+      const audioBlob =
+        await sendVoiceToBackend(
+          audioUri,
+          authToken
+        );
+
+      if (result.transcript) {
+        addMessage(
+        'user',
+       result.transcript
+      );
+      }
+
+      if (result.reply) {
+        addMessage(
+          'assistant',
+          result.reply
+        );
+      }
+
+
+      // 4. Play returned audio
+      await playVoiceResponse(
+        audioBlob
+      );
+
+      addMessage(
+        'assistant',
+        '✅ Voice conversation completed.'
+      );
+
+      // 5. Stop conversation after one full cycle
+      setConversationMode(false);
+      setVoiceState('idle');
+    } catch (error: any) {
+      console.log(
+        'Voice conversation error:',
+        error
+      );
+
+      addMessage(
+        'assistant',
+        error?.message ||
+          'Voice processing failed.'
+      );
+
+      setConversationMode(false);
+      setVoiceState('idle');
+    }
+  };
+
 
   const quickPrompts = [
     'Explain Quantum Physics',
@@ -610,6 +968,46 @@ export default function HomeScreen() {
             </View>
           )}
         </ScrollView>
+
+        <TouchableOpacity
+  style={{
+    backgroundColor:
+      conversationMode
+        ? '#ef4444'
+        : COLORS.primary,
+    marginHorizontal: 14,
+    marginBottom: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+  }}
+  onPress={
+    conversationMode
+      ? stopConversation
+      : startConversation
+  }
+>
+  <Text
+    style={{
+      color: '#ffffff',
+      fontWeight: '700',
+      fontSize: 16,
+    }}
+  >
+    {conversationMode
+      ? voiceState ===
+        'listening'
+        ? '🎤 Listening... Tap to Stop'
+        : voiceState ===
+          'processing'
+        ? '🧠 ARIS is Thinking... Tap to Stop'
+        : voiceState ===
+          'speaking'
+        ? '🔊 ARIS is Speaking... Tap to Stop'
+        : '⏹ Stop Conversation'
+      : '🎙 Start Conversation'}
+  </Text>
+</TouchableOpacity>
 
         {/* Bottom Input */}
         <SafeAreaView

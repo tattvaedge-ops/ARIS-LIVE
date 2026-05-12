@@ -4473,9 +4473,9 @@ def voice_chat():
         tokens_left = get_tokens(user_id)
 
         # ==================================
-        # GENERATE VOICE RESPONSE
+        # TEMPORARY TEST AUDIO FILE
         # ==================================
-        audio_file = generate_voice(reply)
+        audio_file = "static/test.mp3"
 
         # ==================================
         # RETURN AUDIO WITH METADATA HEADERS

@@ -9,11 +9,13 @@ import {
   StatusBar,
   ScrollView,
   Linking,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { buyTokens } from '../services/api';
 
 const COLORS = {
   background: '#0a192f',
@@ -45,6 +47,7 @@ export default function ProfileScreen() {
 
       if (storedName) setUserName(storedName);
       if (storedEmail) setUserEmail(storedEmail);
+
       if (storedTokens) {
         setTokens(parseInt(storedTokens, 10));
       }
@@ -55,11 +58,49 @@ export default function ProfileScreen() {
 
   const handleBuyTokens = async () => {
     try {
-      await Linking.openURL(
-        'https://aris-live-production.up.railway.app/buy_tokens'
+      const authToken =
+        await AsyncStorage.getItem('auth_token');
+
+      if (!authToken) {
+        Alert.alert(
+          'Login Required',
+          'Please login again.'
+        );
+        return;
+      }
+
+      const result = await buyTokens(authToken);
+
+      console.log(
+        'BUY TOKENS RESPONSE:',
+        result
       );
-    } catch (error) {
-      console.log('Unable to open buy tokens page.');
+
+      const paymentUrl =
+        result.payment_url ||
+        result.url ||
+        result.checkout_url;
+
+      if (!paymentUrl) {
+        Alert.alert(
+          'Error',
+          'Payment link not received from server.'
+        );
+        return;
+      }
+
+      await Linking.openURL(paymentUrl);
+    } catch (error: any) {
+      console.log(
+        'BUY TOKENS ERROR:',
+        error
+      );
+
+      Alert.alert(
+        'Error',
+        error?.message ||
+          'Unable to open payment page.'
+      );
     }
   };
 
@@ -102,18 +143,30 @@ export default function ProfileScreen() {
           Profile
         </Text>
 
-        <View style={styles.iconButtonPlaceholder} />
+        <View
+          style={
+            styles.iconButtonPlaceholder
+          }
+        />
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={
+          styles.content
+        }
+        showsVerticalScrollIndicator={
+          false
+        }
       >
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {userName.charAt(0).toUpperCase()}
+            <Text
+              style={styles.avatarText}
+            >
+              {userName
+                .charAt(0)
+                .toUpperCase()}
             </Text>
           </View>
 
@@ -127,12 +180,14 @@ export default function ProfileScreen() {
 
           <View style={styles.tokenBadge}>
             <Text style={styles.tokenText}>
-              🧠 {tokens.toLocaleString()} Tokens
+              🧠{' '}
+              {tokens.toLocaleString()}{' '}
+              Tokens
             </Text>
           </View>
         </View>
 
-        {/* Actions */}
+        {/* Buy Tokens */}
         <TouchableOpacity
           style={styles.actionCard}
           onPress={handleBuyTokens}
@@ -147,6 +202,7 @@ export default function ProfileScreen() {
           </Text>
         </TouchableOpacity>
 
+        {/* Logout */}
         <TouchableOpacity
           style={styles.actionCard}
           onPress={handleLogout}
@@ -174,7 +230,8 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent:
+      'space-between',
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 10,
@@ -190,7 +247,8 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor:
+      'rgba(255,255,255,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -222,7 +280,8 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: COLORS.primary,
+    backgroundColor:
+      COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -248,7 +307,8 @@ const styles = StyleSheet.create({
   },
 
   tokenBadge: {
-    backgroundColor: COLORS.primary,
+    backgroundColor:
+      COLORS.primary,
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 14,
