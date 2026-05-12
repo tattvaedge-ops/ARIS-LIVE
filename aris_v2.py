@@ -1582,8 +1582,10 @@ def process_ai_request(user_id, msg):
             reply = "⚠️ ARIS could not generate a response."
 
         reply = str(reply).strip()
+
         # Limit spoken reply length to reduce response time
-           reply = reply[:800]
+        if len(reply) > 300:
+            reply = reply[:300] + "..."
 
         if reply.lower() == "none":
             reply = "⚠️ ARIS could not generate a response."
@@ -4445,6 +4447,12 @@ def voice_chat():
         # ==================================
         # PROCESS THROUGH MAIN ARIS ENGINE
         # ==================================
+        voice_prompt = (
+            user_text +
+            "\n\nPlease respond in a concise voice-friendly answer "
+            "of 3 to 5 sentences."
+        )
+
         result = process_ai_request(
             user_id,
             user_text
