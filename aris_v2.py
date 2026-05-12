@@ -1582,6 +1582,8 @@ def process_ai_request(user_id, msg):
             reply = "⚠️ ARIS could not generate a response."
 
         reply = str(reply).strip()
+        # Limit spoken reply length to reduce response time
+           reply = reply[:800]
 
         if reply.lower() == "none":
             reply = "⚠️ ARIS could not generate a response."
@@ -4522,7 +4524,7 @@ def voice_chat():
         }), 500
 
 
-        
+
 @app.route('/api/upload-image', methods=['POST'])
 def api_upload_image():
     try:
