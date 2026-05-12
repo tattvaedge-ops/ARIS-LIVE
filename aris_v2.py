@@ -1583,10 +1583,6 @@ def process_ai_request(user_id, msg):
 
         reply = str(reply).strip()
 
-        # Limit spoken reply length to reduce response time
-        if len(reply) > 300:
-            reply = reply[:300] + "..."
-
         if reply.lower() == "none":
             reply = "⚠️ ARIS could not generate a response."
 
@@ -4447,15 +4443,9 @@ def voice_chat():
         # ==================================
         # PROCESS THROUGH MAIN ARIS ENGINE
         # ==================================
-        voice_prompt = (
-            user_text +
-            "\n\nPlease respond in a concise voice-friendly answer "
-            "of 3 to 5 sentences."
-        )
-
         result = process_ai_request(
             user_id,
-            voice_prompt
+            user_text
         )
 
         reply = result.get("reply", "")
@@ -4486,28 +4476,11 @@ def voice_chat():
             as_attachment=False
         )
 
-        # ==================================
-        # SANITIZE HEADER VALUES
-        # ==================================
-        clean_transcript = (
-            str(user_text)
-            .replace("\n", " ")
-            .replace("\r", " ")
-            .strip()
-        )
-
-        clean_reply = (
-            str(reply)
-            .replace("\n", " ")
-            .replace("\r", " ")
-            .strip()
-        )
-
         # Transcript of what user said
-        response.headers["X-ARIS-Transcript"] = clean_transcript[:500]
+        response.headers["X-ARIS-Transcript"] = user_text
 
         # Text reply from ARIS
-        response.headers["X-ARIS-Reply"] = clean_reply[:1000]
+        response.headers["X-ARIS-Reply"] = reply[:1000]
 
         # Remaining tokens
         response.headers["X-ARIS-Tokens"] = str(tokens_left)
@@ -4530,8 +4503,6 @@ def voice_chat():
             "success": False,
             "message": f"Voice processing failed: {str(e)}"
         }), 500
-
-
 
 @app.route('/api/upload-image', methods=['POST'])
 def api_upload_image():
