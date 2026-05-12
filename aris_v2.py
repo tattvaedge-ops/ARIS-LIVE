@@ -4476,11 +4476,28 @@ def voice_chat():
             as_attachment=False
         )
 
+        # ==================================
+        # SANITIZE HEADER VALUES
+        # ==================================
+        clean_transcript = (
+            str(user_text)
+            .replace("\n", " ")
+            .replace("\r", " ")
+            .strip()
+        )
+
+        clean_reply = (
+            str(reply)
+            .replace("\n", " ")
+            .replace("\r", " ")
+            .strip()
+        )
+
         # Transcript of what user said
-        response.headers["X-ARIS-Transcript"] = user_text
+        response.headers["X-ARIS-Transcript"] = clean_transcript[:500]
 
         # Text reply from ARIS
-        response.headers["X-ARIS-Reply"] = reply[:1000]
+        response.headers["X-ARIS-Reply"] = clean_reply[:1000]
 
         # Remaining tokens
         response.headers["X-ARIS-Tokens"] = str(tokens_left)
@@ -4504,6 +4521,8 @@ def voice_chat():
             "message": f"Voice processing failed: {str(e)}"
         }), 500
 
+
+        
 @app.route('/api/upload-image', methods=['POST'])
 def api_upload_image():
     try:
