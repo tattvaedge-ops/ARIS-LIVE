@@ -4455,7 +4455,7 @@ def voice_chat():
 
         result = process_ai_request(
             user_id,
-            user_text
+            voice_prompt
         )
 
         reply = result.get("reply", "")
