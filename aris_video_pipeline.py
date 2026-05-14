@@ -1,5 +1,5 @@
 from aris_video_script import generate_video_script
-from aris_image_engine import generate_image
+from aris_cloud_image import generate_image
 from aris_voice_engine import generate_voice
 from aris_video_builder import build_video
 from aris_scene_planner import generate_scenes
