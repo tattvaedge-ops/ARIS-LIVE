@@ -6,3 +6,4 @@ openai
 Pillow
 pyjwt==2.12.1
 edge-tts
+PyJWT

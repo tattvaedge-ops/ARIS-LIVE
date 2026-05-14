@@ -10,10 +10,16 @@ from aris_knowledge_graph import generate_knowledge_graph
 from aris_overlay_engine import generate_overlays
 from aris_self_improvement_engine import store_video_data, evaluate_video
 from aris_cinematic_story_engine import generate_story_arc
-from aris_visual_consistency_engine import select_visual_style, apply_visual_consistency
+from aris_visual_consistency_engine import (
+    select_visual_style,
+    apply_visual_consistency,
+)
 from aris_camera_engine import generate_camera_plan, apply_camera_style
 from aris_scene_physics_engine import generate_physics_scene
-from aris_world_simulation_engine import generate_world_context, apply_world_simulation
+from aris_world_simulation_engine import (
+    generate_world_context,
+    apply_world_simulation,
+)
 from aris_dynamic_animation_engine import apply_animation
 from aris_scene_composition_engine import apply_scene_composition
 from aris_motion_diffusion_engine import generate_motion_video
@@ -25,9 +31,14 @@ from aris_cinematic_editing_engine import ARISCinematicEditingEngine
 from aris_clip_motion_engine import ARISClipMotionEngine
 from aris_video_render_engine import ARISVideoRenderEngine
 
+import os
+
+
+KLING_ACCESS_KEY = os.getenv("KLING_ACCESS_KEY")
+KLING_SECRET_KEY = os.getenv("KLING_SECRET_KEY")
+
 
 def clean_topic(user_input):
-
     text = user_input.lower()
 
     text = text.replace("create video about", "")
@@ -39,11 +50,25 @@ def clean_topic(user_input):
 
 
 def create_video(user_input):
+    """
+    Main ARIS video generation pipeline.
+
+    Current behavior:
+    1. First tries premium motion generation via generate_motion_video().
+       - This function can internally call Kling AI if integrated there.
+    2. Falls back to image generation + motion clips.
+    3. Generates narration.
+    4. Renders final cinematic video.
+    """
 
     print("ARIS VIDEO ENGINE STARTED")
 
-    topic = clean_topic(user_input)
+    if KLING_ACCESS_KEY and KLING_SECRET_KEY:
+        print("KLING AI CREDENTIALS DETECTED")
+    else:
+        print("KLING AI CREDENTIALS NOT FOUND - USING LOCAL PIPELINE")
 
+    topic = clean_topic(user_input)
     print("Detected topic:", topic)
 
     # -----------------------------
@@ -95,7 +120,6 @@ def create_video(user_input):
     # SCENE PLANNING
     # -----------------------------
     scene_data = generate_scenes(topic)
-
     print("SCENE PLAN GENERATED")
 
     # -----------------------------
@@ -104,21 +128,18 @@ def create_video(user_input):
     image_prompts = []
 
     for scene in scene_data:
-
         prompt = scene.get("visual_prompt")
-
         if prompt:
             image_prompts.append(prompt)
 
     if not image_prompts:
-
         image_prompts = [
             f"cinematic introduction of {topic}",
             f"visual explanation of {topic}",
             f"real world example of {topic}",
             f"close up demonstration of {topic}",
             f"advanced visualization of {topic}",
-            f"cinematic ending scene about {topic}"
+            f"cinematic ending scene about {topic}",
         ]
 
     # -----------------------------
@@ -127,14 +148,12 @@ def create_video(user_input):
     scenes = []
 
     for prompt in image_prompts:
-
         scene = {
             "description": prompt,
-            "narration": script
+            "narration": script,
         }
 
         tags = tagging_engine.generate_tags(scene)
-
         scene["visual_tags"] = tags
 
         scenes.append(scene)
@@ -169,24 +188,22 @@ def create_video(user_input):
     # GENERATION LOOP
     # -----------------------------
     for i, scene in enumerate(edited_scenes):
-
         base_prompt = scene["description"]
 
         mapped_prompt = map_visual_elements(topic, base_prompt)
-
         world_prompt = apply_world_simulation(mapped_prompt, world)
-
         physics_prompt = generate_physics_scene(topic, world_prompt)
-
         animated_prompt = apply_animation(physics_prompt, topic)
-
         composition_prompt = apply_scene_composition(animated_prompt, topic)
-
         enhanced_prompt = enhance_visual_prompt(topic, composition_prompt)
-
-        consistent_prompt = apply_visual_consistency(enhanced_prompt, visual_profile)
-
-        final_prompt = apply_camera_style(consistent_prompt, camera_plan[i])
+        consistent_prompt = apply_visual_consistency(
+            enhanced_prompt,
+            visual_profile,
+        )
+        final_prompt = apply_camera_style(
+            consistent_prompt,
+            camera_plan[i],
+        )
 
         print("Generating scene:", final_prompt)
 
@@ -194,14 +211,18 @@ def create_video(user_input):
         # VIDEO GENERATION
         # -----------------------------
         if USE_VIDEO_MODE:
+            try:
+                clip = generate_motion_video(final_prompt)
 
-            clip = generate_motion_video(final_prompt)
+                if clip:
+                    print("MOTION VIDEO GENERATED:", clip)
+                    scene_files.append(clip)
+                    continue
 
-            if clip:
-                scene_files.append(clip)
-                continue
-
-            print("Motion generation failed, fallback to image")
+                print("Motion generation returned no clip. Falling back to image.")
+            except Exception as e:
+                print("Motion generation failed:", str(e))
+                print("Falling back to image generation.")
 
         # -----------------------------
         # IMAGE FALLBACK
@@ -209,18 +230,21 @@ def create_video(user_input):
         img = generate_image(final_prompt)
 
         if img:
+            duration = scene.get("duration", 3)
 
-            duration = scene["duration"]
+            clip = clip_engine.create_motion_clip(
+                img,
+                duration,
+                i,
+            )
 
-            clip = clip_engine.create_motion_clip(img, duration, i)
-
-            scene_files.append(clip)
+            if clip:
+                scene_files.append(clip)
 
     # -----------------------------
     # SAFETY CHECK
     # -----------------------------
     if not scene_files:
-
         print("ERROR: No scenes generated")
         return "ARIS ERROR: Scene generation failed."
 
@@ -228,7 +252,6 @@ def create_video(user_input):
     # VOICE GENERATION
     # -----------------------------
     narration = generate_voice(script)
-
     print("Voice narration generated")
 
     # -----------------------------
@@ -236,7 +259,14 @@ def create_video(user_input):
     # -----------------------------
     print("Rendering cinematic video")
 
-    video_file = render_engine.render_final_video(scene_files)
+    try:
+        video_file = render_engine.render_final_video(
+            scene_files,
+            narration,
+        )
+    except TypeError:
+        # Backward compatibility if the renderer accepts only scene_files
+        video_file = render_engine.render_final_video(scene_files)
 
     # -----------------------------
     # SELF IMPROVEMENT
@@ -249,12 +279,12 @@ def create_video(user_input):
     print(review)
 
     return f"""
-ARIS CINEMATIC VIDEO GENERATED
+🎬 ARIS CINEMATIC VIDEO GENERATED
 
-Topic: {topic}
+🧠 Topic: {topic}
 
-Scenes Created: {len(scene_files)}
+🎞️ Scenes Created: {len(scene_files)}
 
-Final Video File:
+📁 Final Video File:
 {video_file}
 """
