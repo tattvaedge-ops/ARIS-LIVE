@@ -1442,40 +1442,39 @@ def process_ai_request(user_id, msg):
             "reel"
         ])
 
-        # ==================================
-        # VIDEO MODE
-        # ==================================
-        if is_video:
-            try:
-                print("🎬 VIDEO MODE")
+       # ==================================
+# VIDEO MODE
+# ==================================
+if is_video:
+    try:
+        print("🎬 VIDEO MODE")
 
-                reply = simulate_video(msg)
+        reply = simulate_video(msg)
 
-                deduct_token(user_id, 10)
-                log_usage(user_id, 10)
+        deduct_token(user_id, 10)
+        log_usage(user_id, 10)
 
-                return {
-                    "reply": "🎬 Your video is ready.",
-                    "suggestions": [
-                        "Create another video",
-                        "Generate image thumbnail",
-                        "Write YouTube title",
-                        "Create video script"
-                    ],    
-                    "tokens_left": get_tokens(user_id),
-                    "type": "video",
-                    "url": video_url
-                }
+        return {
+            "reply": reply,
+            "suggestions": [
+                "Create another cinematic video",
+                "Generate storyboard",
+                "Write video script",
+                "Create image thumbnails"
+            ],
+            "tokens_left": get_tokens(user_id),
+            "type": "text"
+        }
 
-            except Exception as e:
-                print("❌ VIDEO ERROR:", str(e))
+    except Exception as e:
+        print("❌ VIDEO ERROR:", str(e))
 
-                return {
-                    "reply": "⚠️ ARIS could not generate the video.",
-                    "suggestions": [],
-                    "tokens_left": get_tokens(user_id),
-                    "type": "text"
-                }
+        return {
+            "reply": "⚠️ ARIS could not generate the video.",
+            "suggestions": [],
+            "tokens_left": get_tokens(user_id),
+            "type": "text"
+        }
         # ==================================
         # GREETING
         # ==================================
