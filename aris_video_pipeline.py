@@ -1,6 +1,6 @@
 from aris_video_script import generate_video_script
 from aris_cloud_image import generate_image
-from aris_voice_engine import generate_voice
+from aris_cloud_tts import generate_voice
 from aris_video_builder import build_video
 from aris_scene_planner import generate_scenes
 from aris_visual_engine import enhance_visual_prompt
