@@ -23,7 +23,7 @@ from aris_tools.voice_input import speech_to_text
 from aris_tools.aris_voice_engine import generate_voice
 from flask import request, send_file, jsonify
 from aris_tools.aris_image_engine import generate_image
-from aris_video_pipeline import generate_video
+
 
 JWT_SECRET = os.getenv("SECRET_KEY")
 JWT_ALGO = "HS256"
@@ -1449,7 +1449,7 @@ def process_ai_request(user_id, msg):
             try:
                 print("🎬 VIDEO MODE")
 
-                video_url = generate_video(msg)
+                reply = simulate_video(msg)
 
                 deduct_token(user_id, 10)
                 log_usage(user_id, 10)
