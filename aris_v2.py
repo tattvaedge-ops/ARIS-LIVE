@@ -1,31 +1,107 @@
 from flask import Flask, render_template_string, request, jsonify, send_from_directory, session, redirect
+from aris_coordinator import ARISCoordinator
 import sqlite3
 import datetime
 import requests
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+try:
+    import pytesseract
+except:
+    pytesseract = None
+from PIL import Image
+from aris_engines.aris_student_engine import solve_academic_question
+from werkzeug.security import generate_password_hash, check_password_hash
+from dotenv import load_dotenv
+load_dotenv()
+import jwt
+import datetime
+from aris_tools.aris_image_engine import generate_image
+from aris_tools.voice_input import speech_to_text
+from aris_tools.aris_voice_engine import generate_voice
+from flask import request, send_file, jsonify
+from aris_tools.aris_image_engine import generate_image
+
+JWT_SECRET = os.getenv("SECRET_KEY")
+JWT_ALGO = "HS256"
+
+def generate_token(user_id):
+    payload = {
+        "user_id": user_id,
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=1)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
+
+def verify_token(token):
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
+        return payload["user_id"]
+    except:
+        return None
+
+print("API KEY LOADED SUCCESSFULLY")  # Safe log
+
+from openai import OpenAI
+api_key = os.getenv("OPENAI_API_KEY")
+
+if not api_key:
+    raise ValueError("❌ OPENAI_API_KEY NOT FOUND")
+
+client = OpenAI(api_key=api_key)
+
 
 app = Flask(__name__)
-app.secret_key = "aris_secret_key"
+
+app.secret_key = os.getenv("SECRET_KEY")
+if not app.secret_key:
+    raise ValueError("❌ SECRET_KEY NOT SET")
+
+app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_TYPE"] = "filesystem"
+app.config["SESSION_COOKIE_SECURE"] = False  # True later in production (HTTPS)
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+
+# Initialize ARIS Coordinator
+coordinator = ARISCoordinator()
+
+# ===== ARIS GLOBAL CONTROL =====
+ARIS_ACTIVE = True
+
+
+# ===== FILE UPLOAD SYSTEM =====
+UPLOAD_FOLDER = "uploads"
+
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
 
 # ================= DATABASE =================
 def init_db():
+
     conn = sqlite3.connect("aris_memory.db")
     c = conn.cursor()
 
+    # ---------------- USERS ----------------
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE,
+            password TEXT,
             created_at TEXT
         )
     """)
 
+    # ---------------- TOKEN WALLET ----------------
     c.execute("""
         CREATE TABLE IF NOT EXISTS token_wallet(
-            user_id INTEGER,
+            user_id INTEGER PRIMARY KEY,
             balance INTEGER DEFAULT 20
         )
     """)
 
+    # ---------------- USAGE LOGS ----------------
     c.execute("""
         CREATE TABLE IF NOT EXISTS usage_logs(
             user_id INTEGER,
@@ -34,131 +110,1507 @@ def init_db():
         )
     """)
 
+    # ---------------- LIVE USERS ----------------
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS live_users(
+            user_id INTEGER PRIMARY KEY,
+            last_seen TEXT
+        )
+    """)
+
+    # ---------------- CONVERSATION MEMORY ----------------
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS conversation_memory(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            role TEXT,
+            message TEXT,
+            timestamp TEXT
+        )
+    """)
+
+    # ---------------- USER MEMORY ----------------
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS user_memory(
+            user_id INTEGER PRIMARY KEY,
+            goals TEXT,
+            preferences TEXT,
+            updated_at TEXT
+        )
+    """)
+
+    # ---------------- USER TASK MEMORY ----------------
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS user_tasks(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            task TEXT,
+            status TEXT,
+            updated_at TEXT
+        )
+    """)
+
     conn.commit()
     conn.close()
 
 init_db()
 
+def create_user(email, password):
 
-def create_or_get_user(email):
+    conn = None
+
+    try:
+        email = str(email).strip().lower()
+        password = str(password).strip()
+
+        # ==================================
+        # BASIC VALIDATION
+        # ==================================
+        if not email or not password:
+            return None
+
+        if len(password) < 6:
+            return None
+
+        conn = sqlite3.connect("aris_memory.db")
+        c = conn.cursor()
+
+        # ==================================
+        # HASH PASSWORD
+        # ==================================
+        hashed_password = generate_password_hash(password)
+
+        # ==================================
+        # CREATE USER
+        # ==================================
+        c.execute(
+            """
+            INSERT INTO users (email, password, created_at)
+            VALUES (?, ?, ?)
+            """,
+            (
+                email,
+                hashed_password,
+                str(datetime.datetime.now())
+            )
+        )
+
+        conn.commit()
+
+        user_id = c.lastrowid
+
+        # ==================================
+        # FREE STARTER TOKENS
+        # ==================================
+        c.execute(
+            """
+            INSERT INTO token_wallet (user_id, balance)
+            VALUES (?, ?)
+            """,
+            (user_id, 20)
+        )
+
+        conn.commit()
+
+        return user_id
+
+    except Exception as e:
+        print("❌ CREATE USER ERROR:", str(e))
+        return None
+
+    finally:
+        if conn:
+            conn.close()
+
+
+def save_user_task(user_id, task):
+
     conn = sqlite3.connect("aris_memory.db")
     c = conn.cursor()
 
-    c.execute("SELECT id FROM users WHERE email=?", (email,))
+    c.execute("""
+    INSERT INTO user_tasks (user_id, task, status, updated_at)
+    VALUES (?, ?, 'active', ?)
+    """, (
+        user_id,
+        task,
+        str(datetime.datetime.now())
+    ))
+
+    conn.commit()
+    conn.close()
+
+def get_last_task(user_id):
+
+    conn = sqlite3.connect("aris_memory.db")
+    c = conn.cursor()
+
+    c.execute("""
+    SELECT task FROM user_tasks
+    WHERE user_id=? AND status='active'
+    ORDER BY id DESC
+    LIMIT 1
+    """, (user_id,))
+
     row = c.fetchone()
 
-    if row:
-        user_id = row[0]
-    else:
-        c.execute(
-            "INSERT INTO users (email, created_at) VALUES (?, ?)",
-            (email, str(datetime.datetime.now()))
-        )
-        conn.commit()
-        user_id = c.lastrowid
-
-        c.execute(
-            "INSERT INTO token_wallet VALUES (?, ?)",
-            (user_id, 20)
-        )
-        conn.commit()
-
     conn.close()
-    return user_id
+
+    return row[0] if row else None
+
+def authenticate_user(email, password):
+
+    conn = None
+
+    try:
+        email = str(email).strip().lower()
+        password = str(password).strip()
+
+        if not email or not password:
+            return None
+
+        conn = sqlite3.connect("aris_memory.db")
+        c = conn.cursor()
+
+        c.execute(
+            """
+            SELECT id, password
+            FROM users
+            WHERE email = ?
+            LIMIT 1
+            """,
+            (email,)
+        )
+
+        row = c.fetchone()
+
+        if not row:
+            return None
+
+        user_id, hashed_password = row
+
+        if check_password_hash(hashed_password, password):
+            return user_id
+
+        return None
+
+    except Exception as e:
+        print("❌ AUTH ERROR:", str(e))
+        return None
+
+    finally:
+        if conn:
+            conn.close()
 
 # ================= TOKEN SYSTEM =================
 
 def get_tokens(user_id):
-    conn = sqlite3.connect("aris_memory.db")
-    c = conn.cursor()
-    c.execute("SELECT balance FROM token_wallet WHERE user_id=?", (user_id,))
-    row = c.fetchone()
-    conn.close()
-    return row[0] if row else 0
+
+    conn = None
+
+    try:
+        if not user_id:
+            return 0
+
+        conn = sqlite3.connect("aris_memory.db")
+        c = conn.cursor()
+
+        c.execute(
+            """
+            SELECT balance
+            FROM token_wallet
+            WHERE user_id = ?
+            LIMIT 1
+            """,
+            (user_id,)
+        )
+
+        row = c.fetchone()
+
+        if not row:
+            return 0
+
+        balance = row[0]
+
+        if balance is None:
+            return 0
+
+        return max(0, int(balance))
+
+    except Exception as e:
+        print("❌ GET TOKENS ERROR:", str(e))
+        return 0
+
+    finally:
+        if conn:
+            conn.close()
 
 
 def deduct_token(user_id, amount):
-    conn = sqlite3.connect("aris_memory.db")
-    c = conn.cursor()
-    c.execute(
-        "UPDATE token_wallet SET balance = balance - ? WHERE user_id=?",
-        (amount, user_id),
-    )
-    conn.commit()
-    conn.close()
+
+    conn = None
+
+    try:
+        if not user_id:
+            return False
+
+        amount = int(amount)
+
+        if amount <= 0:
+            return False
+
+        conn = sqlite3.connect("aris_memory.db")
+        c = conn.cursor()
+
+        c.execute(
+            """
+            UPDATE token_wallet
+            SET balance = balance - ?
+            WHERE user_id = ?
+            AND balance >= ?
+            """,
+            (amount, user_id, amount)
+        )
+
+        conn.commit()
+
+        success = c.rowcount > 0
+
+        return success
+
+    except Exception as e:
+        print("❌ DEDUCT TOKEN ERROR:", str(e))
+        return False
+
+    finally:
+        if conn:
+            conn.close()
 
 
 def log_usage(user_id, tokens):
+
+    conn = None
+
+    try:
+        if not user_id:
+            return False
+
+        tokens = int(tokens)
+
+        if tokens <= 0:
+            return False
+
+        conn = sqlite3.connect("aris_memory.db")
+        c = conn.cursor()
+
+        c.execute(
+            """
+            INSERT INTO usage_logs (
+                user_id,
+                tokens_used,
+                timestamp
+            )
+            VALUES (?, ?, ?)
+            """,
+            (
+                user_id,
+                tokens,
+                str(datetime.datetime.now())
+            )
+        )
+
+        conn.commit()
+
+        return True
+
+    except Exception as e:
+        print("❌ LOG USAGE ERROR:", str(e))
+        return False
+
+    finally:
+        if conn:
+            conn.close()
+
+
+# ================= LIVE USER TRACKING =================
+def update_last_seen(user_id):
     conn = sqlite3.connect("aris_memory.db")
     c = conn.cursor()
-    c.execute(
-        "INSERT INTO usage_logs VALUES (?,?,?)",
-        (user_id, tokens, str(datetime.datetime.now())),
-    )
+
+    c.execute("""
+        INSERT OR REPLACE INTO live_users(user_id, last_seen)
+        VALUES (?, ?)
+    """, (user_id, str(datetime.datetime.now())))
+
+    conn.commit()
+    conn.close()
+
+# ================= MEMORY ENGINE =================
+
+def save_message(user_id, role, message):
+
+    conn = None
+
+    try:
+        if not user_id:
+            return False
+
+        role = str(role).strip().lower()
+        message = str(message).strip()
+
+        if not role or not message:
+            return False
+
+        # ==================================
+        # LIMIT MESSAGE SIZE
+        # ==================================
+        if len(message) > 12000:
+            message = message[:12000]
+
+        conn = sqlite3.connect("aris_memory.db")
+        c = conn.cursor()
+
+        c.execute(
+            """
+            INSERT INTO conversation_memory
+            (user_id, role, message, timestamp)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                role,
+                message,
+                str(datetime.datetime.now())
+            )
+        )
+
+        conn.commit()
+
+        return True
+
+    except Exception as e:
+        print("❌ SAVE MESSAGE ERROR:", str(e))
+        return False
+
+    finally:
+        if conn:
+            conn.close()
+
+def get_recent_memory(user_id, limit=6):
+
+    conn = None
+
+    try:
+        if not user_id:
+            return ""
+
+        limit = int(limit)
+
+        if limit <= 0:
+            limit = 6
+
+        if limit > 15:
+            limit = 15
+
+        conn = sqlite3.connect("aris_memory.db")
+        c = conn.cursor()
+
+        c.execute(
+            """
+            SELECT role, message
+            FROM conversation_memory
+            WHERE user_id = ?
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (user_id, limit)
+        )
+
+        rows = c.fetchall()
+
+        if not rows:
+            return ""
+
+        rows.reverse()
+
+        history_lines = []
+
+        for role, message in rows:
+
+            role = str(role).strip().upper()
+            message = str(message).strip()
+
+            if not message:
+                continue
+
+            # Trim huge messages
+            if len(message) > 1200:
+                message = message[:1200]
+
+            history_lines.append(f"{role}: {message}")
+
+        return "\n".join(history_lines)
+
+    except Exception as e:
+        print("❌ MEMORY FETCH ERROR:", str(e))
+        return ""
+
+    finally:
+        if conn:
+            conn.close()
+
+def save_user_goal(user_id, goal):
+    conn = sqlite3.connect("aris_memory.db")
+    c = conn.cursor()
+
+    c.execute("""
+        INSERT OR REPLACE INTO user_memory
+        (user_id, goals, updated_at)
+        VALUES (?, ?, ?)
+    """, (
+        user_id,
+        goal,
+        str(datetime.datetime.now())
+    ))
+
     conn.commit()
     conn.close()
 
 
-# ================= OLLAMA CONNECTION =================
-def ask_ollama(prompt):
+def get_user_goal(user_id):
+    conn = sqlite3.connect("aris_memory.db")
+    c = conn.cursor()
+
+    c.execute("""
+        SELECT goals FROM user_memory
+        WHERE user_id=?
+    """, (user_id,))
+
+    row = c.fetchone()
+    conn.close()
+
+    return row[0] if row else ""
+
+# ================= ONLINE USERS COUNT =================
+def get_live_users():
+    conn = sqlite3.connect("aris_memory.db")
+    c = conn.cursor()
+
+    cutoff = datetime.datetime.now() - datetime.timedelta(seconds=60)
+
+    c.execute("""
+        SELECT COUNT(*) FROM live_users
+        WHERE last_seen >= ?
+    """, (str(cutoff),))
+
+    count = c.fetchone()[0]
+    conn.close()
+
+    return count
+
+    # ================= PROFIT INTELLIGENCE =================
+ARIS_PRICE_MONTHLY = 199          # subscription price
+AI_COST_PER_TOKEN = 0.02          # estimated AI cost (₹)
+
+def get_profit_metrics():
+
+    conn = sqlite3.connect("aris_memory.db")
+    c = conn.cursor()
+
+    # total users
+    c.execute("SELECT COUNT(*) FROM users")
+    users = c.fetchone()[0]
+
+    # tokens used
+    c.execute("SELECT SUM(tokens_used) FROM usage_logs")
+    used = c.fetchone()[0] or 0
+
+    conn.close()
+
+    # calculations
+    revenue = users * ARIS_PRICE_MONTHLY
+    ai_cost = used * AI_COST_PER_TOKEN
+    profit = revenue - ai_cost
+
+    avg_user_value = revenue / users if users else 0
+
+    return {
+        "users": users,
+        "revenue": round(revenue, 2),
+        "ai_cost": round(ai_cost, 2),
+        "profit": round(profit, 2),
+        "avg_user_value": round(avg_user_value, 2),
+        "tokens_used": used
+    }
+
+
+
+# ================= OPENAI BRAIN =================
+def ask_openai(prompt):
+
     try:
-        response = requests.post(
-            "http://localhost:11434/api/generate",
-            json={
-                "model": "tinyllama",
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "num_predict": 25,
-                    "temperature": 0.5,
-                    "num_ctx": 256,
-                    "top_k": 15
-                }
-            },
-            timeout=60
+        prompt = str(prompt).strip()
+
+        if not prompt:
+            return "__OPENAI_ERROR__"
+
+        # ==================================
+        # SMART TOKEN LIMIT
+        # ==================================
+        length = len(prompt)
+
+        if length < 800:
+            max_tokens = 700
+        elif length < 2000:
+            max_tokens = 900
+        else:
+            max_tokens = 1200
+
+        # ==================================
+        # MODE DETECTION
+        # ==================================
+        is_student = (
+            "aris student ai" in prompt.lower()
+            or "student ai premium" in prompt.lower()
         )
 
-        data = response.json()
+        # ==================================
+        # SYSTEM PROMPT
+        # ==================================
+        if is_student:
+            system_prompt = """
+You are ARIS Student AI Premium.
 
-        if "response" in data:
-            return data["response"].strip()
+Rules:
+- Follow user requested format exactly.
+- Plain text only.
+- No markdown headings.
+- No LaTeX.
+- Keep answers concise, clean, premium.
+- Final answer first.
+- Student friendly.
+"""
+            temperature = 0.2
+
         else:
-            return f"Ollama Error: {data}"
+            system_prompt = """
+You are ARIS (Advanced Real-Time Integrated System).
+
+Rules:
+1. Respond with clear structured outputs
+2. Be practical and intelligent
+3. Avoid generic chatbot tone
+4. Use clean formatting
+5. Give real-world useful answers
+"""
+            temperature = 0.5
+
+        # ==================================
+        # API CALL
+        # ==================================
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_prompt
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=temperature,
+            max_tokens=max_tokens
+        )
+
+        # ==================================
+        # SAFE RESPONSE
+        # ==================================
+        if not response or not response.choices:
+            return "__OPENAI_ERROR__"
+
+        content = response.choices[0].message.content
+
+        if not content:
+            return "__OPENAI_ERROR__"
+
+        return str(content).strip()
 
     except Exception as e:
-        return f"Connection Error: {str(e)}"
+        error_text = str(e).lower()
+        print("🔥 OPENAI ERROR:", str(e))
+
+        if "rate limit" in error_text:
+            return "__OPENAI_RATE_LIMIT__"
+
+        if "quota" in error_text or "insufficient_quota" in error_text:
+            return "__OPENAI_QUOTA_ERROR__"
+
+        return "__OPENAI_ERROR__"
+        
+# ================= AVATAR GENERATION =================
+def generate_avatar(image_path, style_prompt):
+
+    try:
+        import base64
+        import uuid
+
+        response = client.images.generate(
+            model="gpt-image-1",
+            prompt=f"Create a realistic AI avatar portrait of a person: {style_prompt}, ultra detailed, cinematic lighting, 4K",
+            size="1024x1024"
+        )
+
+        image_base64 = response.data[0].b64_json
+
+        filename = f"avatar_{uuid.uuid4().hex}.png"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+
+        with open(filepath, "wb") as f:
+            f.write(base64.b64decode(image_base64))
+
+        image_url = f"/uploads/{filename}"
+
+        return f"""
+🔥 ARIS AVATAR GENERATED
+
+🎨 Style:
+{style_prompt}
+
+🖼️ Avatar:
+<a href="{image_url}" target="_blank">View Avatar</a>
+
+⬇️ Download:
+<a href="{image_url}" download>Download Avatar</a>
+"""
+
+    except Exception as e:
+        print("🔥 AVATAR ERROR:", str(e))   # ✅ DEBUG
+        return f"❌ Avatar generation error: {str(e)}"
+
+
+# ================= OCR QUESTION ENGINE =================
+
+def extract_text_from_image(image_path):
+
+    try:
+        # ==================================
+        # FIRST TRY: OPENAI VISION OCR
+        # ==================================
+        try:
+            import base64
+
+            with open(image_path, "rb") as f:
+                image_data = base64.b64encode(f.read()).decode("utf-8")
+
+            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Extract only the text exactly from this academic question image. Do not solve it. Return only readable text."
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Read all visible question text from image."
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{image_data}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=500
+            )
+
+            text = response.choices[0].message.content.strip()
+
+            if text and len(text) > 5:
+                return text
+
+        except Exception as vision_error:
+            print("⚠️ Vision OCR fallback to Tesseract:", str(vision_error))
+
+        # ==================================
+        # SECOND TRY: TESSERACT
+        # ==================================
+        if pytesseract is None:
+            return "⚠️ OCR unavailable"
+
+        img = Image.open(image_path)
+        img = img.convert("L")
+
+        w, h = img.size
+        img = img.resize((w * 2, h * 2))
+
+        config = r'--oem 3 --psm 6'
+
+        text = pytesseract.image_to_string(
+            img,
+            config=config
+        ).strip()
+
+        return text
+
+    except Exception as e:
+        print("❌ OCR ERROR:", str(e))
+        return ""
+
+
+from aris_engines.aris_student_engine import solve_academic_question
+
+def solve_question_from_image(image_path, user_id=None):
+
+    try:
+        # ==================================
+        # OCR READ
+        # ==================================
+        question_text = extract_text_from_image(image_path)
+
+        if question_text:
+            question_text = str(question_text).strip()
+
+        # ==================================
+        # HANDLE OCR SYSTEM ERRORS
+        # ==================================
+        if not question_text:
+            return """⚠️ ARIS could not read the image.
+
+Tips:
+• Upload brighter image
+• Keep camera straight
+• Crop only question area
+• Avoid blur/shadow
+"""
+
+        q_lower = question_text.lower()
+
+        if "ocr not available" in q_lower:
+            return "⚠️ Image OCR is not installed on cloud server yet."
+
+        if "ocr error" in q_lower:
+            return "⚠️ OCR failed while reading the image."
+
+        # ==================================
+        # TOO SHORT / UNCLEAR TEXT
+        # ==================================
+        if len(question_text) < 5:
+            return """⚠️ ARIS could not clearly detect the question.
+
+Tips:
+• Crop only question text
+• Use clear lighting
+• Keep image straight
+• Avoid handwriting shadows
+"""
+
+        # ==================================
+        # CLEAN OCR NOISE
+        # ==================================
+        question_text = question_text.replace("|", "I")
+        question_text = question_text.replace("§", "5")
+        question_text = question_text.replace("€", "C")
+
+        # ==================================
+        # SOLVE WITH STUDENT ENGINE
+        # ==================================
+        answer = solve_academic_question(
+            question_text,
+            ask_openai
+        )
+
+        if not answer:
+            answer = "⚠️ ARIS read the question but could not generate answer."
+
+        return f"""📸 Question Detected:
+
+{question_text}
+
+🎓 ARIS Solution:
+
+{answer}
+"""
+
+    except Exception as e:
+        print("❌ IMAGE SOLVER ERROR:", str(e))
+        return "⚠️ ARIS image doubt solver temporarily unavailable."
+
+# ================= INTENT DETECTION =================
+def detect_intent(msg):
+
+    try:
+        m = str(msg).lower().strip()
+
+        if not m:
+            return "general"
+
+        # ==================================
+        # 🎨 IMAGE GENERATION (TOP PRIORITY)
+        # ==================================
+        if any(x in m for x in [
+            "generate image",
+            "create image",
+            "make image",
+            "ai image",
+            "draw image",
+            "draw picture",
+            "image prompt"
+        ]):
+            return "creator_image"
+
+        # ==================================
+        # 🎓 STUDENT
+        # ==================================
+        if any(x in m for x in [
+            "study", "exam", "test", "concept",
+            "physics", "math", "maths",
+            "chemistry", "biology",
+            "jee", "neet", "olympiad",
+            "ntse", "nstse", "mhtcet", "sat",
+            "semester", "assignment",
+            "notes", "revision",
+            "question", "solve", "formula",
+            "numerical", "mcq", "syllabus"
+        ]):
+            return "student"
+
+        # ==================================
+        # 💼 PROFESSIONAL
+        # ==================================
+        if any(x in m for x in [
+            "email", "presentation", "report",
+            "business", "proposal",
+            "startup", "marketing",
+            "revenue", "swot",
+            "pitch deck", "resume",
+            "cv", "invoice", "sales"
+        ]):
+            return "professional"
+
+        # ==================================
+        # 🔬 RESEARCH
+        # ==================================
+        if any(x in m for x in [
+            "research", "paper", "citation",
+            "analysis", "journal",
+            "literature review",
+            "methodology", "abstract",
+            "thesis", "dissertation",
+            "ugc", "phd", "dataset"
+        ]):
+            return "research"
+
+        # ==================================
+        # 🎨 CREATOR (NON-IMAGE)
+        # ==================================
+        if any(x in m for x in [
+            "logo", "design", "video",
+            "thumbnail", "creative",
+            "poster", "caption",
+            "script", "brand name",
+            "tagline", "reel"
+        ]):
+            return "creator"
+
+        # ==================================
+        # 🧭 LIFE
+        # ==================================
+        if any(x in m for x in [
+            "life", "goal", "career",
+            "habit", "plan",
+            "productivity", "decision",
+            "schedule", "routine",
+            "motivation", "discipline"
+        ]):
+            return "life"
+
+        return "general"
+
+    except Exception as e:
+        print("❌ INTENT ERROR:", str(e))
+        return "general"
+
+# ================= PROMPT BUILDER =================
+def build_prompt(intent, msg, memory_context="", goal_context=""):
+
+    msg = str(msg).strip()
+    memory_context = str(memory_context).strip()
+    goal_context = str(goal_context).strip()
+
+    # ==================================
+    # IMAGE CREATION
+    # ==================================
+    if intent == "creator_image":
+        from aris_creation_agent import creation_agent
+        return creation_agent(msg)
+
+    # ==================================
+    # COMMON CONTEXT BLOCK
+    # ==================================
+    context_block = f"""
+
+Recent Context:
+{memory_context}
+
+User Goal:
+{goal_context}
+
+User Request:
+{msg}
+"""
+
+    # ==================================
+    # STUDENT
+    # ==================================
+    if intent == "student":
+        return f"""
+You are ARIS Student Intelligence.
+
+Help students from school to competitive exams.
+
+Rules:
+- Explain clearly and simply.
+- Match difficulty to user level.
+- If asked for notes, make concise notes.
+- If asked for test, create quality questions.
+- If numerical/problem, solve step-by-step.
+
+Format:
+Title
+Explanation
+Key Points
+Example
+Summary
+{context_block}
+"""
+
+    # ==================================
+    # PROFESSIONAL
+    # ==================================
+    if intent == "professional":
+        return f"""
+You are ARIS Professional Intelligence.
+
+Give practical business and career outputs.
+
+Format:
+Title
+Explanation
+Action Steps
+Summary
+{context_block}
+"""
+
+    # ==================================
+    # CREATOR
+    # ==================================
+    if intent == "creator":
+        return f"""
+You are ARIS Creator Intelligence.
+
+Generate creative, modern, high-value output.
+
+Format:
+Idea
+Description
+Execution Steps
+Tips
+{context_block}
+"""
+
+    # ==================================
+    # RESEARCH
+    # ==================================
+    if intent == "research":
+        return f"""
+You are ARIS Research Intelligence.
+
+Write analytical and academic quality responses.
+
+Format:
+Title
+Abstract
+Explanation
+Key Insights
+Conclusion
+{context_block}
+"""
+
+    # ==================================
+    # LIFE
+    # ==================================
+    if intent == "life":
+        return f"""
+You are ARIS Life Intelligence.
+
+Give practical life guidance.
+
+Format:
+Situation
+Analysis
+Recommended Actions
+Summary
+{context_block}
+"""
+
+    # ==================================
+    # GENERAL
+    # ==================================
+    return f"""
+You are ARIS, an intelligent AI assistant.
+
+Rules:
+- Short query = short answer
+- Complex query = structured answer
+- Be clear, practical, useful
+- Avoid unnecessary long output
+
+Answer directly.
+
+{context_block}
+
+Answer:
+"""
 
 # ================= ARIS BRAIN =================
 def brain(msg, user_id=None):
 
-    prompt = f"""
-You are ARIS — Advanced Real-Time Intelligence System.
-You are a fast offline AI assistant.
-Be concise, structured, and direct.
-Never mention Microsoft or OpenAI.
-Always say you are ARIS.
+    try:
+        msg = str(msg).strip()
 
-User: {msg}
-ARIS:
+        if not msg:
+            return "⚠️ Please enter a valid message."
+
+        # ==================================
+        # MEMORY CONTEXT
+        # ==================================
+        memory_context = ""
+        goal_context = ""
+
+        if user_id:
+            try:
+                memory_context = get_recent_memory(user_id) or ""
+                goal_context = get_user_goal(user_id) or ""
+            except Exception as mem_error:
+                print("⚠️ MEMORY LOAD ERROR:", str(mem_error))
+
+        # ==================================
+        # DETECT INTENT
+        # ==================================
+        try:
+            intent = detect_intent(msg)
+        except:
+            intent = "general"
+
+        # ==================================
+        # BUILD PROMPT
+        # ==================================
+        prompt = build_prompt(
+            intent=intent,
+            msg=msg,
+            memory_context=memory_context,
+            goal_context=goal_context
+        )
+
+        # ==================================
+        # ASK OPENAI
+        # ==================================
+        response = ask_openai(prompt)
+
+        if response in [
+            "__OPENAI_QUOTA_ERROR__",
+            "__OPENAI_RATE_LIMIT__",
+            "__OPENAI_ERROR__"
+        ]:
+            return "⚠️ ARIS AI service temporarily unavailable. Please try again shortly."
+
+        response = str(response).strip()
+
+        if not response:
+            return "⚠️ No response generated. Please try again."
+
+        # ==================================
+        # CLEAN OUTPUT
+        # ==================================
+        bad_phrases = [
+            "Conversation so far:",
+            "User goal:",
+            "User Goal:",
+            "Conversation:",
+            "You are ARIS"
+        ]
+
+        for phrase in bad_phrases:
+            response = response.replace(phrase, "")
+
+        return response.strip()
+
+    except Exception as e:
+        print("❌ BRAIN ERROR:", str(e))
+        return "⚠️ ARIS encountered an internal issue. Please try again."
+
+    # ================= LOW TOKEN WARNING =================
+def low_token_warning(tokens_left):
+
+    if tokens_left <= 0:
+        return "⚠️ Intelligence credits exhausted."
+
+    if tokens_left <= 3:
+        return "⚡ Only a few tokens left. Recharge soon."
+
+    if tokens_left <= 7:
+        return "🧠 You are actively using ARIS. Consider adding tokens."
+
+    return None
+
+
+# ================= SUGGESTION ENGINE =================
+
+def simulate_video(prompt):
+
+    scenes = [
+        f"🎬 Scene 1: Introduction of {prompt}",
+        f"🎥 Scene 2: Core concept explained visually",
+        f"📊 Scene 3: Real-world example",
+        f"🚀 Scene 4: Advanced insight",
+        f"🌍 Scene 5: Application in real life",
+        f"✨ Scene 6: Final summary"
+    ]
+
+    return f"""
+🎬 ARIS CINEMATIC VIDEO GENERATED
+
+🧠 Topic: {prompt}
+
+🎞️ Scenes:
+{chr(10).join(scenes)}
+
+⚡ Note:
+High-quality cinematic rendering will be enabled in full version.
 """
 
-    return ask_ollama(prompt)
+def generate_suggestions(message):
 
-# ================= CONTROL LAYER =================
+    try:
+        msg = str(message).lower().strip()
+
+        if not msg:
+            return [
+                "Explain clearly",
+                "Create structured plan",
+                "Give best advice"
+            ]
+
+        # ==================================
+        # 🎓 STUDENT AI
+        # ==================================
+        if any(x in msg for x in [
+            "study", "concept", "physics", "math", "maths",
+            "chemistry", "biology", "jee", "neet",
+            "exam", "assignment", "notes",
+            "revision", "question", "solve"
+        ]):
+            return [
+                "📘 Explain the concept behind this",
+                "🎯 Generate similar practice questions",
+                "🧪 Create a mini test from this topic",
+                "📝 Make short revision notes",
+                "⚡ Give shortcut tricks"
+            ]
+
+        # ==================================
+        # 💼 PROFESSIONAL
+        # ==================================
+        if any(x in msg for x in [
+            "business", "startup", "strategy",
+            "revenue", "marketing", "plan",
+            "resume", "email", "report"
+        ]):
+            return [
+                "Create business plan",
+                "Build revenue model",
+                "Run SWOT analysis",
+                "Generate pitch deck outline",
+                "Write executive summary"
+            ]
+
+        # ==================================
+        # 🎨 CREATOR
+        # ==================================
+        if any(x in msg for x in [
+            "logo", "design", "image",
+            "video", "thumbnail",
+            "creative", "poster"
+        ]):
+            return [
+                "Generate image prompt ideas",
+                "Create video/reel concept",
+                "Write creative caption",
+                "Suggest color palette",
+                "Build premium brand style"
+            ]
+
+        # ==================================
+        # 🔬 RESEARCH
+        # ==================================
+        if any(x in msg for x in [
+            "research", "analysis", "paper",
+            "journal", "study data",
+            "thesis", "citation"
+        ]):
+            return [
+                "Generate research outline",
+                "Create literature review",
+                "Summarize key insights",
+                "Build comparison table",
+                "Suggest methodology"
+            ]
+
+        # ==================================
+        # 🧭 LIFE
+        # ==================================
+        if any(x in msg for x in [
+            "goal", "career", "life",
+            "decision", "habit",
+            "routine", "discipline"
+        ]):
+            return [
+                "Create 30-day action plan",
+                "Build decision matrix",
+                "Define next priorities",
+                "Generate daily routine",
+                "Boost productivity system"
+            ]
+
+        # ==================================
+        # DEFAULT
+        # ==================================
+        return [
+            "Break this into steps",
+            "Explain in simple terms",
+            "Create structured plan",
+            "Give expert advice",
+            "Best next actions"
+        ]
+
+    except Exception as e:
+        print("❌ SUGGESTION ERROR:", str(e))
+
+        return [
+            "Explain clearly",
+            "Create plan",
+            "Next steps"
+        ]
+
 def process_ai_request(user_id, msg):
+    try:
+        print("🔥 PROCESS_AI_REQUEST CALLED")
+        print("MSG:", msg)
 
-    tokens = get_tokens(user_id)
+        msg = str(msg).strip()
 
-    if tokens <= 0:
-        return "⚠️ Tokens exhausted. Please buy more tokens."
+        if not msg:
+            return {
+                "reply": "⚠️ Please enter a valid message.",
+                "suggestions": [],
+                "tokens_left": get_tokens(user_id),
+                "type": "text"
+            }
 
-    deduct_token(user_id, 1)
+        msg_lower = msg.lower()
+        
+        # ==================================
+        # GREETING
+        # ==================================
+        if msg_lower in ["hi", "hello", "hey", "hii", "helo", "yo"]:
+            return {
+                "reply": "👋 Hello! This is ARIS Intelligence. What would you like to do today?",
+                "suggestions": [
+                    "Solve physics question",
+                    "Create image",
+                    "Write business email",
+                    "Research topic"
+                ],
+                "tokens_left": get_tokens(user_id),
+                "type": "text"
+            }
 
-    reply = brain(msg)
+        # ==================================
+        # ACTIVE CHECK
+        # ==================================
+        if not ARIS_ACTIVE:
+            return {
+                "reply": "⚠️ ARIS temporarily paused.",
+                "suggestions": [],
+                "tokens_left": get_tokens(user_id),
+                "type": "text"
+            }
 
-    log_usage(user_id, 1)
+        # ==================================
+        # TOKEN CHECK
+        # ==================================
+        tokens = get_tokens(user_id)
 
-    return reply
+        if tokens <= 0:
+            return {
+                "reply": "⚠️ Tokens exhausted.",
+                "suggestions": [],
+                "tokens_left": 0,
+                "type": "text"
+            }
+
+        # ==================================
+        # IMAGE CHECK
+        # ==================================
+        is_image = any(x in msg_lower for x in [
+            "generate image",
+            "create image",
+            "image of",
+            "draw",
+            "picture of",
+            "diagram of",
+            "labelled image",
+            "labeled image",
+            "with labels"
+        ])
+
+        # ==================================
+        # IMAGE MODE
+        # ==================================
+        if is_image:
+            try:
+                print("🖼️ IMAGE MODE")
+
+                result = generate_image(msg)
+
+                if not result:
+                    return {
+                        "reply": "⚠️ ARIS could not generate the image.",
+                        "suggestions": [
+                            "Create labelled solar system diagram",
+                            "Create realistic Earth image",
+                            "Create human heart diagram"
+                        ],
+                        "tokens_left": tokens,
+                        "type": "text"
+                    }
+
+                if not result.get("success", False):
+                    error_message = result.get(
+                        "message",
+                        "⚠️ ARIS could not generate the requested image."
+                    )
+
+                    return {
+                        "reply": error_message,
+                        "suggestions": [
+                            "Create labelled solar system diagram",
+                            "Create realistic Earth image",
+                            "Create human heart diagram"
+                        ],
+                        "tokens_left": tokens,
+                        "type": "text"
+                    }
+
+                image_url = str(result.get("url", "")).strip()
+
+                if not image_url:
+                    return {
+                        "reply": "⚠️ Image was generated but no URL was returned.",
+                        "suggestions": [],
+                        "tokens_left": tokens,
+                        "type": "text"
+                    }
+
+                # Deduct tokens only after success
+                deduct_token(user_id, 7)
+                log_usage(user_id, 7)
+
+                return {
+                    "reply": "🖼️ Image generated successfully.",
+                    "url": image_url,
+                    "engine": result.get("engine", "ARIS"),
+                    "suggestions": generate_suggestions(msg),
+                    "tokens_left": get_tokens(user_id),
+                    "type": "image"
+                }
+
+            except Exception as e:
+                print("❌ IMAGE ERROR:", str(e))
+
+                return {
+                    "reply": "⚠️ ARIS could not generate the image. Please try again.",
+                    "suggestions": [
+                        "Create labelled solar system diagram",
+                        "Create realistic Earth image",
+                        "Create human heart diagram"
+                    ],
+                    "tokens_left": tokens,
+                    "type": "text"
+                }
+
+        # ==================================
+        # STUDENT AI MODE
+        # ==================================
+        student_words = [
+            "solve", "question", "physics", "math",
+            "chemistry", "biology", "concept",
+            "exam", "jee", "neet", "theory",
+            "law", "formula", "derive"
+        ]
+
+        if any(x in msg_lower for x in student_words):
+            print("🎓 STUDENT MODE")
+            reply = solve_academic_question(msg, ask_openai)
+        else:
+            print("🧠 GENERAL MODE")
+            reply = brain(msg, user_id)
+
+        # ==================================
+        # SAFE REPLY CHECK
+        # ==================================
+        if not reply:
+            reply = "⚠️ ARIS could not generate a response."
+
+        reply = str(reply).strip()
+
+        if reply.lower() == "none":
+            reply = "⚠️ ARIS could not generate a response."
+
+        print("✅ FINAL REPLY:", reply[:200])
+
+        # ==================================
+        # TOKEN DEDUCT
+        # ==================================
+        deduct_token(user_id, 1)
+        log_usage(user_id, 1)
+
+        return {
+            "reply": reply,
+            "suggestions": generate_suggestions(msg),
+            "tokens_left": get_tokens(user_id),
+            "type": "text"
+        }
+
+    except Exception as e:
+        print("❌ PROCESS ERROR:", str(e))
+
+        return {
+            "reply": "⚠️ ARIS internal issue. Please retry.",
+            "suggestions": [],
+            "tokens_left": get_tokens(user_id),
+            "type": "text"
+        }
+
 
 # ================= LOGIN PAGE =================
 LOGIN_HTML = """
@@ -177,7 +1629,7 @@ LOGIN_HTML = """
 <style>
 body{
 margin:0;
-font-family:Segoe UI,Arial;
+font-family: "Segoe UI", Arial, sans-serif;
 background:#0a192f;
 color:white;
 display:flex;
@@ -232,10 +1684,11 @@ z-index:-3;
 
 /* PARTICLES */
 #tsparticles{
-position:fixed;
+position:absolute;
 width:100%;
 height:100%;
-z-index:-1;
+z-index:0;
+pointer-events:none;
 }
 
 /* LOGIN CARD */
@@ -263,7 +1716,7 @@ inset 0 0 25px rgba(255,255,255,0.06);
 
 /* LOGO */
 .logo-box{
-background:dark navy blue;
+background:#0a192f;
 padding:14px;
 border-radius:18px;
 border:2px solid #f97316;
@@ -336,7 +1789,97 @@ z-index:-1;
 pointer-events:none;
 filter:blur(.3px);
 }
+
+.wow-btn{
+background:#f97316;
+border:none;
+padding:10px 16px;
+border-radius:10px;
+color:white;
+margin:6px 6px 0 0;
+cursor:pointer;
+font-weight:600;
+transition:.2s;
+}
+
+.wow-btn:hover{
+transform:scale(1.05);
+box-shadow:0 0 12px rgba(249,115,22,.8);
+}
+
+.file-title{
+color:#f97316;
+font-weight:700;
+font-size:16px;
+margin-bottom:12px;
+letter-spacing:0.6px;
+}
+
+.file-option{
+color:white;
+font-style:italic;
+font-weight:600;
+cursor:pointer;
+margin:10px 0;
+transition:.2s;
+}
+
+.file-option:hover{
+color:#f97316;
+transform:translateX(5px);
+}
+
+/* ===== ARIS WELCOME PANEL ===== */
+
+.welcome-panel{
+background:rgba(255,255,255,0.06);
+backdrop-filter:blur(14px);
+-webkit-backdrop-filter:blur(14px);
+
+border:1px solid rgba(255,255,255,0.08);
+border-radius:18px;
+
+padding:26px 28px;
+max-width:420px;
+
+box-shadow:
+0 0 40px rgba(0,0,0,0.5),
+0 0 25px rgba(249,115,22,0.25);
+
+animation:fadeUp .6s ease;
+}
+
+.welcome-title{
+font-size:20px;
+font-weight:700;
+color:white;
+margin-bottom:6px;
+}
+
+.welcome-sub{
+opacity:.8;
+margin-bottom:18px;
+}
+
+.wow-btn{
+background:linear-gradient(90deg,#f97316,#ff8c3a);
+border:none;
+padding:10px 14px;
+border-radius:10px;
+color:white;
+margin:6px 6px 0 0;
+cursor:pointer;
+font-weight:600;
+transition:.25s;
+}
+
+.wow-btn:hover{
+transform:translateY(-2px) scale(1.05);
+box-shadow:0 0 18px rgba(249,115,22,.9);
+}
+
 </style>
+
 </head>
 
 <body>
@@ -366,10 +1909,52 @@ loop autoplay>
 <div class="subtitle">Your AI Brain for Life - Study - Business</div>
 
 <form method="POST">
-<input name="email" type="email" placeholder="Enter your email" required autofocus>
+
+<input name="email" type="email" placeholder="Email" required>
 <br>
-<button type="submit">Enter ARIS →</button>
+
+<input name="password" type="password" placeholder="Password" required>
+<br>
+
+<button name="action" value="login">
+Login →
+</button>
+
+<button name="action" value="signup">
+Create Account
+</button>
+
+<br><br>
+
+<button type="button" onclick="showForgotPassword()" style="background:#444;color:#fff;padding:10px;border-radius:8px;border:none;">
+Forgot Password?
+</button>
+
+<script>
+function showForgotPassword() {
+    const email = prompt("Enter your registered email:");
+
+    if (!email) return;
+
+    fetch("/forgot-password", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email: email })
+    })
+    .then(res => res.json())
+    .then(data => {
+        alert(data.message);
+    });
+}
+</script>
+
 </form>
+
+<div style="color:#ff8c3a;margin-top:10px;">
+{{error}}
+</div>
 
 <div class="micro">
 Secure - Private - Personal Intelligence System
@@ -400,15 +1985,216 @@ HTML = """
 <script src="https://cdn.jsdelivr.net/npm/tsparticles@2/tsparticles.bundle.min.js"></script>
 
 <style>
+
+/* HEADER LAYOUT */
+.header{
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:14px 20px;
+font-size:22px;
+font-weight:700;
+border-bottom:1px solid rgba(255,255,255,0.05);
+color:white;
+flex-shrink:0;
+}
+
+/* RIGHT SIDE CONTROLS */
+.header-right{
+display:flex;
+align-items:center;
+gap:14px;
+flex-shrink:0;
+}
+
+/* TOKEN ANIMATION */
+.token-pulse{
+animation: tokenPulse 0.45s ease;
+}
+
+@keyframes tokenPulse{
+0%{
+transform:scale(1);
+}
+40%{
+transform:scale(1.25);
+box-shadow:0 0 18px rgba(249,115,22,0.9);
+}
+100%{
+transform:scale(1);
+}
+}
+
+/* BUY BUTTON */
+.buy-btn{
+background:#f97316;
+border:none;
+padding:8px 16px;
+border-radius:10px;
+color:#0a192f;
+cursor:pointer;
+
+font-family:"Segoe UI", Arial, sans-serif;
+font-size:15px;
+font-weight:600;
+letter-spacing:0.3px;
+
+display:flex;
+align-items:center;
+justify-content:center;
+
+transition:.2s;
+}
+
+.buy-btn:hover{
+transform:scale(1.05);
+box-shadow:0 0 15px rgba(249,115,22,.8);
+}
+
+.attach-btn{
+background:#f97316;
+border:none;
+color:white;
+padding:10px 14px;
+border-radius:10px;
+cursor:pointer;
+margin-right:8px;
+font-size:18px;
+display:flex;
+align-items:center;
+justify-content:center;
+transition:.2s;
+}
+
+.attach-btn:hover{
+transform:scale(1.05);
+box-shadow:0 0 12px rgba(249,115,22,0.8);
+}
+
+.attach-btn img{
+width:28px;
+height:28px;
+filter: brightness(0) invert(1);
+}
+
+.attach-btn:hover{
+box-shadow:0 0 14px rgba(249,115,22,.8);
+transform:scale(1.05);
+}
+
+/* TOKEN BOX */
+.token-box{
+background:linear-gradient(90deg,#f97316,#ff8c3a);
+padding:8px 16px;
+border-radius:10px;
+
+font-family:"Segoe UI", Arial, sans-serif;
+font-size:15px;
+font-weight:600;
+letter-spacing:0.3px;
+
+display:flex;
+align-items:center;
+}
+
 body{
 margin:0;
 font-family:Segoe UI;
 background:#0a192f;
-color:white;
+color:#0a192f;
 display:flex;
 height:100vh;
 overflow:hidden;
 }
+
+.profile-panel{
+margin-top:10px;
+padding:14px;
+background:rgba(255,255,255,0.04);
+border-radius:12px;
+display:none;
+flex-direction:column;
+gap:8px;
+animation:fadeUp .3s ease;
+}
+
+.profile-title{
+font-size:18px;
+font-weight:600;
+color:white;
+margin-bottom:8px;
+}
+
+.profile-info{
+font-size:13px;
+color:#d1d5db;
+line-height:1.5;
+}
+
+.profile-btn{
+margin-top:8px;
+padding:10px;
+border:none;
+background:#f97316;
+color:white;
+border-radius:8px;
+cursor:pointer;
+font-weight:600;
+}
+
+.logout-btn{
+margin-top:6px;
+padding:10px;
+border:none;
+background:#374151;
+color:white;
+border-radius:8px;
+cursor:pointer;
+}
+
+/* ===== LAYOUT FIX ===== */
+
+.main{
+flex:1;
+display:flex;
+flex-direction:column;
+min-height:0;
+position:relative;
+}
+
+.aris-view{
+flex:1;
+display:flex;
+flex-direction:column;
+min-height:0;
+padding:0 60px;   /* ⭐ ADD THIS */
+}
+
+.aris-view{
+flex:1;
+display:flex;
+flex-direction:column;
+min-height:0;
+}
+
+.aris-view:not(.active-view){
+display:none;
+}
+
+.aris-thinking{
+color:#f97316;
+font-style:italic;
+opacity:0.9;
+animation:thinkingPulse 1.2s infinite;
+}
+
+@keyframes thinkingPulse{
+0%{opacity:0.3;}
+50%{opacity:1;}
+100%{opacity:0.3;}
+}
+
+
 
 /* SIDEBAR */
 .sidebar{
@@ -417,11 +2203,13 @@ background:linear-gradient(180deg,#071427,#0a192f);
 padding:18px;
 display:flex;
 flex-direction:column;
+overflow-y:auto;
+height:100vh;
 }
 
 /* RECTANGULAR LOGO */
 .logo-box{
-background:dark navy blue;
+background:#0a192f;
 padding:15px;
 border-radius:14px;
 border:3px solid #f97316;
@@ -434,14 +2222,16 @@ justify-content:center;
 margin-bottom:8px;
 }
 .logo-box img{
-height:165px;
+height:300px;
 }
 
 .logo-title{
-font-size:15px;
-opacity:.7;
+font-size:20px;
+color:#f97316;        /* ⭐ ARIS Orange */
 margin-bottom:18px;
 text-align:center;
+font-weight:600;
+letter-spacing:0.5px;
 }
 
 /* MENU */
@@ -461,34 +2251,73 @@ background:rgba(255,255,255,0.05);
 background:linear-gradient(90deg,#7a4a2b,#3a2a22);
 }
 
+.menu-section.logout{
+color:#ff6b6b;
+}
+
+.menu-section.logout:hover{
+background:rgba(255,80,80,0.15);
+}
+
 .menu-title{
 font-weight:600;
 margin-bottom:6px;
+color:white;              /* ⭐ makes WORKSPACE / PLANS / ACTIVITY visible */
+letter-spacing:0.5px;
 }
 
 .submenu{
 display:none;
+max-height:220px;
+overflow-y:auto;
+padding-right:4px;
 }
 
-.menu-section.active .submenu{
-display:block;
+.submenu::-webkit-scrollbar{
+width:6px;
+}
+
+.submenu::-webkit-scrollbar-thumb{
+background:#f97316;
+border-radius:6px;
+}
+
+.menu-section.active{
+background:linear-gradient(
+90deg,
+rgba(249,115,22,0.35),
+rgba(249,115,22,0.08)
+);
+border-left:3px solid #f97316;
+}
+
+.menu-section{
+color:white;
 }
 
 .submenu div{
-font-size:13px;
-opacity:.85;
-margin:4px 0;
-padding-left:6px;
+font-size:14px;
+color:#e5e7eb;
+
+margin:8px 0;
+padding:6px 6px 6px 22px;   /* ⭐ INDENT */
+
+cursor:pointer;
+transition:.2s;
+line-height:1.6;
 }
 
-/* MAIN AREA */
-.main{
-flex:1;
-display:flex;
-flex-direction:column;
-position:relative;
-overflow:hidden;
+.submenu div:hover{
+color:#f97316;
+transform:translateX(6px);
+padding-left:12px;
 }
+
+.submenu div:hover{
+color:#f97316;            /* ARIS orange */
+transform:translateX(4px);
+}
+
 
 #tsparticles{
 position:absolute;
@@ -500,32 +2329,105 @@ z-index:0;
 .header{
 padding:14px 20px;
 font-size:22px;
-font-weight:700;   /* ← makes it BOLD */
+font-weight:700;
 letter-spacing:0.5px;
 border-bottom:1px solid rgba(255,255,255,0.05);
 z-index:1;
+color:white;     /* ⭐ ADD THIS */
 }
 
+/* ================= PREMIUM VIEW ANIMATION ================= */
+
+
+
+
+/* ================= SIDEBAR INDICATOR ================= */
+
+.menu-section{
+position:relative;
+overflow:hidden;
+}
+
+.menu-section::before{
+content:"";
+position:absolute;
+left:0;
+top:0;
+height:100%;
+width:0px;
+background:#f97316;
+transition:width .3s ease;
+}
+
+.menu-section.active::before{
+width:4px;
+}
+
+/* ================= MICRO TAB INTERACTION ================= */
+
+.menu-title,
+.submenu div{
+transition:all .2s ease;
+}
+
+.menu-title:active,
+.submenu div:active{
+transform:scale(.96);
+}
+
+/* Smooth hover glow */
+.menu-section.active{
+box-shadow:0 0 18px rgba(249,115,22,.25);
+}
+
+/* ===== VIEW HEADINGS ===== */
+
+
+
+
+
+
 /* CHAT */
+
 #chat-container{
 flex:1;
 display:flex;
 flex-direction:column;
-z-index:1;
-overflow:hidden;
+min-height:0;
+position:relative;
+z-index:2;
 }
 
 #chat{
 flex:1;
 overflow-y:auto;
-padding:20px;
+padding:0px 15px 15px 15px;
 display:flex;
 flex-direction:column;
-gap:15px;
+gap:10px;
+min-height:0;
+}
+
+.message.aris:first-child{
+margin-top:-15px;
+}
+
+#chat{
+max-width:1100px;
+margin:auto;
+width:100%;
+}
+
+#input-area{
+display:flex;
+padding:12px;
+border-top:1px solid rgba(255,255,255,0.05);
+background:#0a192f;
+flex-shrink:0;
 }
 
 .message{
-max-width:65%;
+max-width:60%;
 padding:12px;
 border-radius:14px;
 white-space:pre-wrap;
@@ -537,15 +2439,25 @@ align-self:flex-end;
 }
 
 .aris{
-background:white;
-color:black;
+background:transparent;
+color:white;
 align-self:flex-start;
+}
+
+.token-warning{
+color:#0a192f !important;   /*#0a192f */
+font-weight:700 !important; /* bold */
+font-style:italic !important;
+display:block;
+margin-top:6px;
 }
 
 #input-area{
 display:flex;
 padding:12px;
 border-top:1px solid rgba(255,255,255,0.05);
+background:#0a192f;
+position:relative;
 }
 
 #msg{
@@ -564,6 +2476,80 @@ color:white;
 cursor:pointer;
 margin-left:10px;
 }
+
+/* ===== ADD HERE ===== */
+
+
+
+
+.welcome-panel{
+background:linear-gradient(
+145deg,
+rgba(255,255,255,0.06),
+rgba(255,255,255,0.02)
+);
+backdrop-filter:blur(16px);
+-webkit-backdrop-filter:blur(16px);
+border:1px solid rgba(249,115,22,0.25);
+border-radius:20px;
+padding:28px 30px;
+max-width:440px;
+box-shadow:
+0 0 50px rgba(0,0,0,0.6),
+0 0 30px rgba(249,115,22,0.35);
+animation:fadeUp .6s ease;
+}
+
+.welcome-title{
+font-size:22px;
+font-weight:700;
+color:white;
+margin-bottom:6px;
+}
+
+.welcome-sub{
+opacity:.85;
+margin-top:20px;
+margin-bottom:8px;
+color:#e5e7eb;
+font-size:15px;
+font-weight:600;
+}
+
+.wow-btn{
+background:linear-gradient(90deg,#f97316,#ff8c3a);
+border:none;
+
+padding:4px 15px;      /* ✅ reduced height */
+border-radius:10px;
+
+color:#0a192f;
+font-weight:600;
+font-size:15px;        /* ✅ slightly tighter text */
+
+cursor:pointer;
+transition:.25s;
+
+box-shadow:0 6px 10px rgba(249,115,22,.35);
+display:inline-flex;
+align-items:center;
+gap:6px;               /* ✅ icon spacing */
+}
+
+.wow-btn:hover{
+transform:translateY(-2px) scale(1.04);
+box-shadow:0 10px 26px rgba(249,115,22,.7);
+}
+
+.wow-container{
+display:flex;
+flex-wrap:wrap;
+gap:16px;      /* more space between buttons */
+margin-top:10px;
+margin-bottom:10px;
+align-items:center;
+}
+
 </style>
 </head>
 
@@ -574,125 +2560,1975 @@ margin-left:10px;
 <div class="logo-box">
 <img src="/logo">
 </div>
+
 <div class="logo-title">Intelligence System</div>
 
-<div class="menu-section active" onclick="toggleMenu(this)">
+<!-- WORKSPACE -->
+<div class="menu-section active" onclick="switchView('workspace', this)">
 <div class="menu-title">WORKSPACE ⭐</div>
+</div>
+
+
+<!-- STUDENT AI -->
+<div class="menu-section" onclick="toggleMenu(this)">
+<div class="menu-title">🎓 Student AI</div>
+
 <div class="submenu">
-<div>→ User overview</div>
-<div>→ Goals</div>
-<div>→ Current mode</div>
+
+<!-- 🔥 MAIN CTA -->
+<div onclick="triggerDoubtUpload()" style="
+background:linear-gradient(90deg,#f97316,#ff8c3a);
+color:#0a192f;
+font-weight:700;
+padding:10px;
+border-radius:10px;
+margin-bottom:10px;
+text-align:center;
+cursor:pointer;
+">
+📸 Upload Question / Photo
+</div>
+
+<div onclick="quickStart('Solve this question step by step')">
+🧠 Solve Question
+</div>
+
+<div onclick="quickStart('Explain this concept clearly with examples')">
+📘 Concept Explainer
+</div>
+
+<div onclick="quickStart('Generate exam ready notes')">
+📝 Notes Generator
+</div>
+
+<div onclick="quickStart('Generate practice questions with solutions')">
+🎯 Practice Questions
+</div>
+
+<div onclick="quickStart('Generate a mock test with answers')">
+🧪 Mock Test
+</div>
+
+<div onclick="quickStart('Generate full exam paper with solutions')">
+📄 Full Paper Generator
+</div>
+
 </div>
 </div>
 
+<!-- PROFESSIONAL AI -->
 <div class="menu-section" onclick="toggleMenu(this)">
-<div class="menu-title">PLANS ⭐</div>
+<div class="menu-title">💼 Professional AI</div>
+
 <div class="submenu">
-<div>→ Created plans</div>
-<div>→ Execution systems</div>
-<div>→ Saved outputs</div>
+
+<div onclick="quickStart('Write a professional document')">
+Document Writer
+</div>
+
+<div onclick="quickStart('Create a business presentation')">
+Presentation Maker
+</div>
+
+<div onclick="quickStart('Generate professional email')">
+Email Generator
+</div>
+
+<div onclick="quickStart('Create business report')">
+Report Builder
+</div>
+
+<div onclick="quickStart('Analyze business data')">
+Data Analyzer
+</div>
+
 </div>
 </div>
 
+
+<!-- CREATOR AI -->
 <div class="menu-section" onclick="toggleMenu(this)">
-<div class="menu-title">ACTIVITY ⭐</div>
+<div class="menu-title">🎨 Creator AI</div>
+
 <div class="submenu">
-<div>→ Chat history</div>
-<div>→ Recent interactions</div>
-<div>→ Timeline view</div>
+
+<div onclick="quickStart('Generate logo ideas')">
+Logo Generator
 </div>
+
+<div onclick="quickStart('Generate AI image')">
+Image Generator
+</div>
+
+<div onclick="quickStart('Generate video concept')">
+Video Creator
+</div>
+
+<div onclick="quickStart('Create social media caption')">
+Caption Generator
+</div>
+
+<div onclick="quickStart('Write creative script')">
+Script Writer
+</div>
+
+</div>
+</div>
+
+
+<!-- RESEARCH AI -->
+<div class="menu-section" onclick="toggleMenu(this)">
+<div class="menu-title">🔬 Research AI</div>
+
+<div class="submenu">
+
+<div onclick="quickStart('Write literature review')">
+Literature Review
+</div>
+
+<div onclick="quickStart('Generate research summary')">
+Research Summary
+</div>
+
+<div onclick="quickStart('Generate research citations')">
+Citation Generator
+</div>
+
+<div onclick="quickStart('Analyze research data')">
+Data Analysis
+</div>
+
+<div onclick="quickStart('Create research proposal')">
+Research Proposal
+</div>
+
+</div>
+</div>
+
+
+<!-- LIFE AI -->
+<div class="menu-section" onclick="toggleMenu(this)">
+<div class="menu-title">🧭 Life AI</div>
+
+<div class="submenu">
+
+<div onclick="quickStart('Create life goals plan')">
+Goal Planner
+</div>
+
+<div onclick="quickStart('Create daily schedule')">
+Daily Planner
+</div>
+
+<div onclick="quickStart('Help me make a decision')">
+Decision Matrix
+</div>
+
+<div onclick="quickStart('Plan my career')">
+Career Planner
+</div>
+
+<div onclick="quickStart('Create productivity system')">
+Productivity System
+</div>
+
+</div>
+</div>
+
+
+<!-- PROFILE TAB -->
+<div class="menu-section" onclick="toggleProfile(this)">
+<div class="menu-title">PROFILE 👤</div>
+</div>
+
+
+<!-- PROFILE PANEL -->
+<div id="profile-panel" class="profile-panel">
+
+<div class="profile-title">
+👤 User Profile
+</div>
+
+<div class="profile-info">
+<p><strong>Email:</strong> {{email}}</p>
+<p><strong>User ID:</strong> {{user_id}}</p>
+<p><strong>Tokens:</strong> <span id="profileTokens">{{tokens}}</span></p>
+</div>
+
+<button class="profile-btn" onclick="buyTokens()">
+Add Tokens
+</button>
+
+<button class="logout-btn" onclick="window.location.href='/logout'">
+Logout
+</button>
+
 </div>
 
 </div>
 
 <div class="main">
 
+<div id="lockScreen" style="
+display:none;
+position:absolute;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(10,25,47,0.92);
+z-index:5;
+justify-content:center;
+align-items:center;
+flex-direction:column;
+backdrop-filter:blur(6px);
+">
+
+<h2 style="color:white;margin-bottom:10px;">
+⚠️ Tokens Exhausted
+</h2>
+
+<p style="opacity:.8;margin-bottom:20px;">
+Purchase tokens to continue using ARIS
+</p>
+
+<button onclick="buyTokens()" style="
+background:#f97316;
+border:none;
+padding:14px 26px;
+border-radius:10px;
+color:white;
+font-size:16px;
+cursor:pointer;
+box-shadow:0 0 20px rgba(249,115,22,.7);
+">
+Buy Tokens
+</button>
+
+</div>
+
 <div id="tsparticles"></div>
 
-<div class="header">ARIS Intelligence</div>
+<div class="header">
 
-<div id="chat-container">
-<div id="chat"></div>
+<div class="header-left">
+ARIS Intelligence
+</div>
 
-<div id="input-area">
-<input id="msg" placeholder="Talk to ARIS..." onkeypress="if(event.key==='Enter') send()">
+<div class="header-right">
+
+<button class="buy-btn" onclick="buyTokens()">
+Buy Tokens
+</button>
+
+<div id="tokenBox" class="token-box">
+🧠 Tokens: 0
+</div>
+
+</div>
+
+</div>
+
+<!-- ================= WORKSPACE VIEW ================= -->
+<div id="workspace_view" class="aris-view active-view">
+
+    <div id="chat-container">
+        <div id="chat"></div>
+
+        <div id="input-area">
+
+<input type="file" id="fileUpload" style="display:none" onchange="uploadFile()">
+
+<button class="attach-btn" onclick="triggerDoubtUpload()">
+📎
+</button>
+
+<input id="msg" placeholder="Talk to ARIS..."
+onkeypress="if(event.key==='Enter') send()">
+
 <button class="send" onclick="send()">Send</button>
-</div>
-</div>
+<button onclick="startRecording()">🎤 Speak</button>
+
 
 </div>
+
+
 
 <script>
 tsParticles.load("tsparticles",{particles:{number:{value:40},color:{value:"#f97316"},links:{enable:true,color:"#f97316"},move:{speed:1}}});
 
-function toggleMenu(el){
-document.querySelectorAll(".menu-section").forEach(m=>m.classList.remove("active"));
-el.classList.add("active");
+
+// ================= WOW FIRST SCREEN =================
+function showWelcome(){
+
+const chat=document.getElementById("chat");
+
+if(chat.dataset.welcomeShown) return;
+chat.dataset.welcomeShown = true;
+
+const box=document.createElement("div");
+box.classList.add("message","aris");
+
+box.innerHTML = `
+
+<div class="welcome-title">
+🧠 ARIS Intelligence Workspace
+</div>
+
+<div class="welcome-sub">
+Select a tool from the left sidebar or try quick actions below.
+</div>
+
+
+<div class="welcome-sub" style="margin-top:12px;">
+🎓 Student AI
+</div>
+
+<div class="wow-container">
+
+<button class="wow-btn" onclick="quickStart('Explain Newton laws with examples')">
+Concept Explainer
+</button>
+
+<button class="wow-btn" onclick="quickStart('Generate study notes for photosynthesis')">
+Notes Generator
+</button>
+
+<button class="wow-btn" onclick="quickStart('Solve this physics problem step by step')">
+Solve Question
+</button>
+
+<button class="wow-btn" onclick="quickStart('Generate a mock test for class 10 science')">
+Mock Test
+</button>
+
+</div>
+
+
+<div class="welcome-sub" style="margin-top:14px;">
+💼 Professional AI
+</div>
+
+<div class="wow-container">
+
+<button class="wow-btn" onclick="quickStart('Write a professional email')">
+Email Writer
+</button>
+
+<button class="wow-btn" onclick="quickStart('Create business presentation outline')">
+Presentation Maker
+</button>
+
+<button class="wow-btn" onclick="quickStart('Generate business strategy plan')">
+Business Strategy
+</button>
+
+</div>
+
+
+<div class="welcome-sub" style="margin-top:14px;">
+🎨 Creator AI
+</div>
+
+<div class="wow-container">
+
+<button class="wow-btn" onclick="quickStart('Generate logo ideas for my brand')">
+Logo Generator
+</button>
+
+<button class="wow-btn" onclick="quickStart('Generate AI image concept')">
+Image Generator
+</button>
+
+<button class="wow-btn" onclick="quickStart('Write a video script')">
+Script Writer
+</button>
+
+</div>
+
+`;
+
+
+chat.appendChild(box);
+chat.scrollTop=chat.scrollHeight;
+}
+
+
+let ARIS_MODE = "general";
+
+function setMode(mode){
+
+ARIS_MODE = mode;
+
+const chat = document.getElementById("chat");
+
+const msg = document.createElement("div");
+msg.classList.add("message","aris");
+
+msg.innerHTML = "⚙️ ARIS Mode Activated: <b>" + mode.toUpperCase() + " INTELLIGENCE</b>";
+
+chat.appendChild(msg);
+chat.scrollTop = chat.scrollHeight;
+
+}
+
+function quickStart(text){
+document.getElementById("msg").value=text;
+send();
+}
+
+function triggerDoubtUpload(){
+
+    const fileInput = document.getElementById("fileUpload");
+
+    if(!fileInput){
+        alert("❌ File input not found");
+        return;
+    }
+
+    fileInput.click();
+}
+
+function toggleProfile(element){
+
+const panel = document.getElementById("profile-panel");
+
+if(panel.style.display === "block"){
+panel.style.display = "none";
+element.classList.remove("active");
+}
+else{
+panel.style.display = "block";
+element.classList.add("active");
+}
+
+}
+
+function showThinking(){
+
+const chat = document.getElementById("chat");
+
+const box = document.createElement("div");
+box.classList.add("message","aris","aris-thinking");
+box.id = "thinkingBox";
+
+box.innerHTML = "🧠 ARIS analyzing your request...";
+
+chat.appendChild(box);
+chat.scrollTop = chat.scrollHeight;
+
+setTimeout(()=>{
+if(document.getElementById("thinkingBox"))
+document.getElementById("thinkingBox").innerHTML =
+"🔎 ARIS accessing intelligence modules...";
+},400);
+
+setTimeout(()=>{
+if(document.getElementById("thinkingBox"))
+document.getElementById("thinkingBox").innerHTML =
+"⚡ ARIS generating solution...";
+},900);
+
+}
+
+function removeThinking(){
+
+const box = document.getElementById("thinkingBox");
+
+if(box){
+box.parentNode.removeChild(box);
+}
+
+}
+
+async function fileCommand(text){
+
+const input = document.getElementById("msg");
+
+input.value = text;
+
+await send();
+
 }
 
 async function send(){
-const input=document.getElementById("msg");
-const text=input.value.trim();
+
+const input = document.getElementById("msg");
+const text = input.value.trim();
+
 if(!text) return;
 
 addMessage(text,"user");
-input.value="";
 
-const res=await fetch("/chat",{
+input.value = "";
+
+showThinking();
+
+const res = await fetch("/chat",{
 method:"POST",
 headers:{"Content-Type":"application/json"},
-body:JSON.stringify({msg:text})
+body:JSON.stringify({
+msg:text,
+mode:ARIS_MODE
+})
 });
 
-const data=await res.json();
-addMessage(data.reply,"aris");
+const data = await res.json();
+
+removeThinking();
+
+// ✅ SAFE TOKEN UPDATE
+if(data.tokens_left !== undefined){
+
+    const tokenBox = document.getElementById("tokenBox");
+    const profileTokens = document.getElementById("profileTokens");
+
+    if(tokenBox){
+        tokenBox.innerText = "🧠 Tokens: " + data.tokens_left;
+    }
+
+    if(profileTokens){
+        profileTokens.innerText = data.tokens_left;
+    }
+
 }
 
+if(data.url){
+    addMessage(`
+<div style="display:flex;flex-direction:column;gap:10px;">
+<img src="${data.url}" style="max-width:450px;border-radius:14px;">
+
+<a href="${data.url}" download="aris-image.png"
+style="
+background:#f97316;
+color:white;
+padding:10px 14px;
+border-radius:10px;
+text-decoration:none;
+font-weight:600;
+width:fit-content;
+box-shadow:0 0 12px rgba(249,115,22,.45);
+">
+⬇ Download Image
+</a>
+
+</div>
+`,"aris");
+}
+
+if(
+    data.reply &&
+    data.reply !== "None" &&
+    data.reply !== "null" &&
+    data.reply.trim() !== ""
+){
+    addMessage(data.reply,"aris");
+}
+
+// Suggestions
+if(data.suggestions){
+    showSuggestions(data.suggestions);
+}
+
+// 🔥 FINAL STABLE SYNC (IMPORTANT)
+await loadTokens();
+
+}
+
+
+loadTokens();
+showWelcome();
+
 function addMessage(text,type){
+
 const chat=document.getElementById("chat");
+
 const msg=document.createElement("div");
 msg.classList.add("message",type);
-msg.innerText=text;
+
 chat.appendChild(msg);
-chat.scrollTop=chat.scrollHeight;
+
+if(type === "aris"){
+
+    // If response contains HTML (links etc)
+    if(text.includes("<a") || text.includes("<b") || text.includes("<br>") || text.includes("<img")){
+        msg.innerHTML = text;
+    }
+    else{
+
+        typeWriter(msg, text, () => {
+
+   
+
+});
+    }
+
+}else{
+    msg.innerHTML = text;
 }
+
+chat.scrollTop = chat.scrollHeight;
+
+}
+
+function typeWriter(element, text, callback){
+
+let i = 0;
+element.innerHTML = "";
+
+function typing(){
+
+    if(i < text.length){
+        element.innerHTML += text[i];
+        i++;
+        setTimeout(typing, 12);
+    } else {
+        // ✅ AFTER TYPING COMPLETE
+        if(callback) callback();
+    }
+
+}
+
+typing();
+
+}
+
+async function loadTokens(){
+
+    const res = await fetch("/tokens");
+    const data = await res.json();
+
+    const tokens = data.tokens;   // ✅ ONLY USE THIS
+
+    document.getElementById("tokenBox").innerText =
+        "🧠 Tokens: " + tokens;
+
+    document.getElementById("profileTokens").innerText = tokens;
+
+    const input = document.getElementById("msg");
+    const lock = document.getElementById("lockScreen");
+
+    if(tokens <= 0){
+        input.disabled = true;
+        lock.style.display = "flex";
+    }else{
+        input.disabled = false;
+        lock.style.display = "none";
+    }
+}
+
+async function buyTokens(){
+
+
+
+    const res = await fetch("/buy_tokens");
+    const data = await res.json();
+
+    alert(data.message);
+
+    await loadTokens();   // refresh instantly
+}
+
+// load on start
+
+
+
+
+// refresh after every message
+
+</script>
+
+<script>
+
+function toggleMenu(element){
+
+const submenu = element.querySelector(".submenu");
+
+if(!submenu) return;
+
+if(submenu.style.display === "block"){
+submenu.style.display = "none";
+}
+else{
+submenu.style.display = "block";
+}
+
+}
+
+function switchView(view, element){
+
+    // remove active from all views
+    document.querySelectorAll(".aris-view")
+        .forEach(v=>{
+            v.classList.remove("active-view");
+        });
+
+    // show selected view
+    const selected = document.getElementById(view + "_view");
+    selected.classList.add("active-view");
+
+    // sidebar highlight
+    document.querySelectorAll(".menu-section")
+        .forEach(sec=>sec.classList.remove("active"));
+
+    element.closest(".menu-section")
+        .classList.add("active");
+}
+
+
+async function uploadFile(){
+
+    console.log("UPLOAD FUNCTION TRIGGERED");  // ✅ ADD HERE
+
+    const fileInput = document.getElementById("fileUpload");
+    const file = fileInput.files[0];
+
+    if(!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch("/upload",{
+        method:"POST",
+        body:formData
+    });
+
+    const data = await res.json();
+
+    addMessage("📎 Uploaded: " + data.filename,"user");
+
+    
+
+    showFileOptions(data.type, data.filename);
+}
+
+function showFileOptions(type, filename){
+
+const chat = document.getElementById("chat");
+
+const box = document.createElement("div");
+box.classList.add("message","aris");
+
+let options = "";
+
+if(type === "image"){
+
+options = `
+<div class="file-title">📸 STUDENT QUESTION DETECTED</div>
+
+<div class="file-option" onclick="solveUploadedQuestion('${filename}')">
+🧠 Solve Question Step-by-Step
+</div>
+
+<div class="file-option" onclick="fileCommand('Explain the concept behind this question')">
+📚 Explain Concept
+</div>
+
+<div class="file-option" onclick="fileCommand('Extract text from this image')">
+📝 Extract Text
+</div>
+
+<div class="file-option" onclick="fileCommand('Generate similar practice questions')">
+🎯 Generate Similar Questions
+</div>
+`;
+}
+
+else if(type === "pdf" || type === "document"){
+
+options = `
+<div class="file-title">📄 DOCUMENT DETECTED</div>
+
+<div class="file-option" onclick="fileCommand('Summarize this document')">
+Summarize document
+</div>
+
+<div class="file-option" onclick="fileCommand('Extract insights from this document')">
+Extract insights
+</div>
+
+<div class="file-option" onclick="fileCommand('Convert this document into notes')">
+Convert to notes
+</div>
+`;
+
+}
+
+else if(type === "video"){
+
+options = `
+<div class="file-title">🎬 VIDEO DETECTED</div>
+
+<div class="file-option">Summarize video</div>
+<div class="file-option">Extract key moments</div>
+`;
+
+}
+
+
+box.innerHTML = options;
+
+chat.appendChild(box);
+chat.scrollTop = chat.scrollHeight;
+
+}
+
+// ADD THIS FUNCTION BELOW
+async function solveUploadedQuestion(filename){
+
+const chat = document.getElementById("chat");
+
+showThinking();
+
+const res = await fetch("/solve_image_question",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+filename: filename
+})
+});
+
+const data = await res.json();
+
+removeThinking();
+
+
+if(data.url){
+
+    addImage(data.url);
+}
+
+if (
+    data.reply &&
+    data.reply !== "None" &&
+    data.reply !== "null" &&
+    data.reply.trim() !== ""
+){
+    addMessage(data.reply, "aris");
+}
+
+    // 🔥 DELAYED TOKEN UPDATE (FINAL FIX)
+    setTimeout(() => {
+
+        if(data.tokens_left !== undefined && data.tokens_left !== null){
+
+            document.getElementById("tokenBox").innerText =
+                "🧠 Tokens: " + data.tokens_left;
+
+            document.getElementById("profileTokens").innerText =
+                data.tokens_left;
+
+        }
+
+    }, 100);
+    }
+
+    </script>
+
+    </script>
+
+<!-- 🎤 VOICE SCRIPT START -->
+<script>
+let mediaRecorder;
+let audioChunks = [];
+let audioUnlocked = false;
+
+// 🔥 Unlock audio on first user interaction
+document.addEventListener('click', () => {
+    if (!audioUnlocked) {
+        const tempAudio = new Audio();
+        tempAudio.play().catch(() => {});
+        audioUnlocked = true;
+        console.log("🔓 Audio unlocked");
+    }
+}, { once: true });
+
+async function startRecording() {
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.start();
+
+        mediaRecorder.ondataavailable = event => {
+            audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+
+            const formData = new FormData();
+            formData.append("audio", audioBlob, "voice.wav");
+
+            const response = await fetch("/voice", {
+                method: "POST",
+                body: formData
+            });
+
+            const audioResponse = await response.blob();
+            const audioURL = URL.createObjectURL(audioResponse);
+
+            const audio = new Audio(audioURL);
+
+            // 🔥 Ensure play works
+            try {
+                await audio.play();
+                console.log("🔊 Playing response");
+            } catch (err) {
+                console.log("🔁 Retrying play...");
+                setTimeout(() => {
+                    audio.play();
+                }, 500);
+            }
+        };
+
+        // ⏳ record for 4 seconds
+        setTimeout(() => {
+            mediaRecorder.stop();
+        }, 4000);
+
+    } catch (error) {
+        alert("Mic Error: " + error);
+        console.error(error);
+    }
+}
+</script>
+<!-- 🎤 VOICE SCRIPT END -->
 </script>
 
 </body>
 </html>
 """
 
-# ================= ROUTES =================
+    # ================= ROUTES =================
+
+@app.route("/forgot-password", methods=["POST"])
+def forgot_password():
+
+    data = request.get_json()
+    email = data.get("email")
+
+    conn = sqlite3.connect("aris_memory.db", check_same_thread=False)
+    c = conn.cursor()
+
+    c.execute("SELECT id FROM users WHERE email=?", (email,))
+    user = c.fetchone()
+
+    conn.close()
+
+    if user:
+        return jsonify({
+            "message": "Password reset feature coming soon. Please contact support for now."
+        })
+    else:
+        return jsonify({
+            "message": "Email not found."
+        })
+
+
 @app.route("/", methods=["GET", "POST"])
 def login():
-    if request.method == "POST":
-        email = request.form["email"]
-        session["user_id"] = create_or_get_user(email)
-        return redirect("/aris")
-    return LOGIN_HTML
+
+    error = ""
+
+    try:
+        if request.method == "POST":
+
+            action = request.form.get("action", "").strip().lower()
+            email = request.form.get("email", "").strip().lower()
+            password = request.form.get("password", "").strip()
+
+            # ===============================
+            # BASIC VALIDATION
+            # ===============================
+            if not email or not password:
+                error = "Please enter email and password."
+                return LOGIN_HTML.replace("{{error}}", error)
+
+            # ===============================
+            # SIGNUP
+            # ===============================
+            if action == "signup":
+
+                user_id = create_user(email, password)
+
+                if user_id:
+                    session["user_id"] = user_id
+
+                    token = generate_token(user_id)
+
+                    resp = redirect("/aris")
+                    resp.set_cookie(
+                        "aris_token",
+                        token,
+                        httponly=True,
+                        secure=False,
+                        samesite="Lax"
+                    )
+
+                    return resp
+
+                else:
+                    error = "User already exists."
+
+            # ===============================
+            # LOGIN
+            # ===============================
+            elif action == "login":
+
+                user_id = authenticate_user(email, password)
+
+                if user_id:
+                    session["user_id"] = user_id
+
+                    token = generate_token(user_id)
+
+                    resp = redirect("/aris")
+                    resp.set_cookie(
+                        "aris_token",
+                        token,
+                        httponly=True,
+                        secure=False,
+                        samesite="Lax"
+                    )
+
+                    return resp
+
+                else:
+                    error = "Invalid credentials."
+
+            else:
+                error = "Invalid action."
+
+    except Exception as e:
+        print("❌ LOGIN ERROR:", str(e))
+        error = "Login system error. Please try again."
+
+    return LOGIN_HTML.replace("{{error}}", error)
+
+# ==========================================
+# MOBILE API LOGIN ENDPOINT
+# ==========================================
+@app.route("/api/login", methods=["POST"])
+def api_login():
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                "success": False,
+                "message": "No data received."
+            }), 400
+
+        email = str(data.get("email", "")).strip().lower()
+        password = str(data.get("password", "")).strip()
+
+        if not email or not password:
+            return jsonify({
+                "success": False,
+                "message": "Email and password are required."
+            }), 400
+
+        user_id = authenticate_user(email, password)
+
+        if not user_id:
+            return jsonify({
+                "success": False,
+                "message": "Invalid credentials."
+            }), 401
+
+        token = generate_token(user_id)
+        token_balance = get_tokens(user_id)
+
+        # Example: shree@gmail.com -> Shree
+        name = email.split("@")[0].replace(".", " ").title()
+
+        return jsonify({
+            "success": True,
+            "token": token,
+            "user": {
+                "id": user_id,
+                "name": name,
+                "email": email,
+                "tokens": token_balance
+            }
+        })
+
+    except Exception as e:
+        print("❌ API LOGIN ERROR:", str(e))
+        return jsonify({
+            "success": False,
+            "message": "Login system error."
+        }), 500
+
+# ==========================================
+# MOBILE API SIGNUP ENDPOINT
+# ==========================================
+@app.route("/api/signup", methods=["POST"])
+def api_signup():
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                "success": False,
+                "message": "No data received."
+            }), 400
+
+        email = str(data.get("email", "")).strip().lower()
+        password = str(data.get("password", "")).strip()
+
+        if not email or not password:
+            return jsonify({
+                "success": False,
+                "message": "Email and password are required."
+            }), 400
+
+        # Create new user
+        user_id = create_user(email, password)
+
+        if not user_id:
+            return jsonify({
+                "success": False,
+                "message": "User already exists."
+            }), 400
+
+        # Generate token
+        token = generate_token(user_id)
+
+        # Get starting token balance
+        token_balance = get_tokens(user_id)
+
+        # Convert email into display name
+        # example: test.user@gmail.com -> Test User
+        name = email.split("@")[0].replace(".", " ").title()
+
+        return jsonify({
+            "success": True,
+            "token": token,
+            "user": {
+                "id": user_id,
+                "name": name,
+                "email": email,
+                "tokens": token_balance
+            }
+        })
+
+    except Exception as e:
+        print("❌ API SIGNUP ERROR:", str(e))
+        return jsonify({
+            "success": False,
+            "message": "Signup system error."
+        }), 500
 
 @app.route("/aris")
 def aris():
+
     if "user_id" not in session:
         return redirect("/")
-    return render_template_string(HTML)
+
+    user_id = session["user_id"]
+
+    conn = sqlite3.connect("aris_memory.db")
+    c = conn.cursor()
+
+    c.execute("SELECT email FROM users WHERE id=?", (user_id,))
+    row = c.fetchone()
+
+    if not row:
+        return redirect("/")
+
+    email = row[0]
+
+    conn.close()
+
+    tokens = get_tokens(user_id)
+
+    return render_template_string(
+        HTML,
+        email=email,
+        user_id=user_id,
+        tokens=tokens
+    )
 
 @app.route("/logo")
 def logo():
     return send_from_directory(".", "tattva_logo.png")
 
+
+# ===== TOKENS ROUTE =====
+@app.route("/tokens")
+def tokens():
+
+    try:
+        # ==================================
+        # AUTH : JWT → SESSION FALLBACK
+        # ==================================
+        user_id = None
+
+        token = request.cookies.get("aris_token")
+
+        if token:
+            user_id = verify_token(token)
+
+        if not user_id:
+            user_id = session.get("user_id")
+
+        if not user_id:
+            return jsonify({
+                "tokens": 0,
+                "status": "logged_out"
+            })
+
+        # ==================================
+        # GET BALANCE
+        # ==================================
+        balance = get_tokens(user_id)
+
+        if balance is None:
+            balance = 0
+
+        return jsonify({
+            "tokens": int(balance),
+            "status": "active"
+        })
+
+    except Exception as e:
+        print("❌ TOKENS ROUTE ERROR:", str(e))
+
+        return jsonify({
+            "tokens": 0,
+            "status": "error"
+        })
+
+# ===== CHAT ROUTE (JWT + SESSION HYBRID) =====
 @app.route("/chat", methods=["POST"])
 def chat():
-    if "user_id" not in session:
-        return jsonify({"reply": "Login required"})
+
+    try:
+        data = request.get_json(silent=True) or {}
+
+        user_input = str(
+            data.get("message")
+            or data.get("msg")
+            or data.get("text")
+            or ""
+        ).strip()
+
+        if not user_input:
+            return jsonify({
+                "reply": "⚠️ Please enter a message."
+            })
+
+        # ==========================================
+        # AUTH : JWT FIRST → SESSION FALLBACK
+        # ==========================================
+        user_id = None
+
+        token = request.cookies.get("aris_token")
+
+        if token:
+            user_id = verify_token(token)
+
+        if not user_id:
+            user_id = session.get("user_id")
+
+        if not user_id:
+            return jsonify({
+                "reply": "⚠️ Session expired. Please login again.",
+                "tokens_left": 0,
+                "suggestions": []
+            })
+
+        # ==========================================
+        # PROCESS REQUEST
+        # ==========================================
+        result = process_ai_request(user_id, user_input)
+
+        if not isinstance(result, dict):
+            result = {
+                "reply": str(result),
+                "tokens_left": get_tokens(user_id),
+                "suggestions": []
+            }
+
+        reply = result.get("reply", "")
+        tokens_left = result.get("tokens_left", get_tokens(user_id))
+        suggestions = result.get("suggestions", [])
+        image_url = result.get("url", "")
+        image_type = result.get("type", "")
+
+        # ==========================================
+        # SAVE MEMORY
+        # ==========================================
+        try:
+            save_message(user_id, "user", user_input)
+
+            if reply:
+                save_message(user_id, "aris", reply)
+
+        except Exception as mem_error:
+            print("⚠️ MEMORY SAVE ERROR:", str(mem_error))
+
+        # ==========================================
+        # FINAL RESPONSE
+        # ==========================================
+        return jsonify({
+            "reply": reply,
+            "tokens_left": tokens_left,
+            "suggestions": suggestions,
+            "url": image_url,
+            "type": image_type
+        })
+
+    except Exception as e:
+        print("❌ CHAT ROUTE ERROR:", str(e))
+
+        return jsonify({
+            "reply": "⚠️ ARIS server error. Please try again.",
+            "tokens_left": 0,
+            "suggestions": []
+        })
+
+@app.route("/live_users")
+def live_users():
+    return jsonify({"online": get_live_users()})
+
+    UPLOAD_FOLDER = "uploads"
+
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+
+@app.route("/upload", methods=["POST"])
+def upload():
+
+    try:
+        from werkzeug.utils import secure_filename
+        import uuid
+
+        if "file" not in request.files:
+            return jsonify({"error": "No file uploaded."})
+
+        file = request.files["file"]
+
+        if not file or file.filename.strip() == "":
+            return jsonify({"error": "Invalid file."})
+
+        # ==================================
+        # SAFE FILE NAME
+        # ==================================
+        original_name = secure_filename(file.filename)
+
+        if "." not in original_name:
+            return jsonify({"error": "Unsupported file type."})
+
+        ext = original_name.rsplit(".", 1)[1].lower()
+
+        allowed_ext = [
+            "pdf", "doc", "docx", "txt",
+            "png", "jpg", "jpeg", "webp",
+            "xls", "xlsx",
+            "mp4", "mov", "avi"
+        ]
+
+        if ext not in allowed_ext:
+            return jsonify({"error": "File type not allowed."})
+
+        # ==================================
+        # UNIQUE FILE NAME
+        # ==================================
+        filename = f"{uuid.uuid4().hex}.{ext}"
+        path = os.path.join(UPLOAD_FOLDER, filename)
+
+        file.save(path)
+
+        # ==================================
+        # DETECT FILE TYPE
+        # ==================================
+        file_type = "file"
+        solution = None
+
+        if ext == "pdf":
+            file_type = "pdf"
+
+        elif ext in ["doc", "docx", "txt"]:
+            file_type = "document"
+
+        elif ext in ["png", "jpg", "jpeg", "webp"]:
+            file_type = "image"
+
+            # Student doubt solver
+            try:
+                solution = solve_question_from_image(path)
+            except Exception as e:
+                print("⚠️ OCR ERROR:", str(e))
+                solution = None
+
+        elif ext in ["xls", "xlsx"]:
+            file_type = "excel"
+
+        elif ext in ["mp4", "mov", "avi"]:
+            file_type = "video"
+
+        return jsonify({
+            "filename": filename,
+            "type": file_type,
+            "solution": solution
+        })
+
+    except Exception as e:
+        print("❌ UPLOAD ERROR:", str(e))
+
+        return jsonify({
+            "error": "Upload failed. Please try again."
+        })
+# ================= BUY TOKENS =================
+@app.route("/buy_tokens")
+def buy_tokens():
+
+    try:
+        # ==================================
+        # AUTH CHECK (JWT → SESSION)
+        # ==================================
+        user_id = None
+
+        token = request.cookies.get("aris_token")
+
+        if token:
+            user_id = verify_token(token)
+
+        if not user_id:
+            user_id = session.get("user_id")
+
+        if not user_id:
+            return jsonify({
+                "message": "⚠️ Session expired. Please login again."
+            })
+
+        # ==================================
+        # TOKEN CREDIT
+        # ==================================
+        conn = sqlite3.connect("aris_memory.db")
+        c = conn.cursor()
+
+        c.execute("""
+            UPDATE token_wallet
+            SET balance = balance + 20
+            WHERE user_id = ?
+        """, (user_id,))
+
+        conn.commit()
+
+        # get updated balance
+        c.execute("""
+            SELECT balance FROM token_wallet
+            WHERE user_id = ?
+        """, (user_id,))
+
+        row = c.fetchone()
+        balance = row[0] if row else 0
+
+        conn.close()
+
+        print(f"💰 TOKENS ADDED | USER {user_id} | BALANCE {balance}")
+
+        return jsonify({
+            "message": "✅ 20 tokens added successfully.",
+            "tokens": balance
+        })
+
+    except Exception as e:
+        print("❌ BUY TOKENS ERROR:", str(e))
+
+        return jsonify({
+            "message": "⚠️ Token purchase failed. Please try again."
+        })
+
+@app.route("/solve_image_question", methods=["POST"])
+def solve_image_question():
 
     data = request.get_json()
-    msg = data.get("msg")
+    filename = data.get("filename")
 
-    reply = process_ai_request(session["user_id"], msg)
+    path = os.path.join(UPLOAD_FOLDER, filename)
 
-    return jsonify({"reply": reply})
+    if not os.path.exists(path):
+        return jsonify({"reply":"⚠️ Image not found."})
 
+    solution = solve_question_from_image(path)
+
+    return jsonify({
+        "reply": solution
+    })
+
+    
+
+
+
+    # ================= ADMIN DASHBOARD =================
+
+ADMIN_EMAIL = "tattvaedge@gmail.com"
+
+
+def is_admin():
+    if "user_id" not in session:
+        return False
+
+    conn = sqlite3.connect("aris_memory.db")
+    c = conn.cursor()
+
+    c.execute("SELECT email FROM users WHERE id=?", (session["user_id"],))
+    row = c.fetchone()
+
+    conn.close()
+
+    return row and row[0] == ADMIN_EMAIL
+
+
+def get_admin_stats():
+    conn = sqlite3.connect("aris_memory.db")
+    c = conn.cursor()
+
+    c.execute("SELECT COUNT(*) FROM users")
+    users = c.fetchone()[0]
+
+    c.execute("SELECT SUM(balance) FROM token_wallet")
+    tokens_left = c.fetchone()[0] or 0
+
+    c.execute("SELECT SUM(tokens_used) FROM usage_logs")
+    tokens_used = c.fetchone()[0] or 0
+
+    conn.close()
+
+    return {
+        "users": users,
+        "tokens_left": tokens_left,
+        "tokens_used": tokens_used
+    }
+
+
+# ================= ADMIN UI =================
+ADMIN_HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+<title>ARIS Admin Live</title>
+
+<style>
+
+
+body{
+background:#0a192f;
+color:white;
+font-family:Segoe UI;
+padding:30px;
+}
+
+.card{
+background:rgba(255,255,255,0.05);
+padding:20px;
+border-radius:12px;
+margin-bottom:20px;
+}
+
+h1{
+color:#f97316;
+}
+
+.stat{
+font-size:22px;
+margin:10px 0;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:20px;
+}
+
+th,td{
+padding:10px;
+border-bottom:1px solid rgba(255,255,255,0.1);
+text-align:left;
+}
+
+th{
+color:#f97316;
+}
+
+</style>
+</head>
+
+<body>
+
+<h1 style="color:#f97316;">🧠 ARIS ADMIN LIVE</h1>
+
+<!-- ===== TOP INTELLIGENCE STATS ===== -->
+<div class="card">
+
+<div class="stat">👥 Total Users: {{users}}</div>
+<div class="stat">🧠 Tokens Remaining: {{tokens}}</div>
+<div class="stat">⚡ Tokens Used: {{used}}</div>
+<div class="stat">🟢 Users Online: <span id="onlineUsers">0</span></div>
+</div>
+
+<hr style="opacity:.2;margin:18px 0;">
+
+<div class="stat">⚡ Requests / Minute: {{rpm}}</div>
+<div class="stat">💰 Revenue Estimate: ₹ {{revenue}}</div>
+<div class="stat">🧠 AI Cost Estimate: ₹ {{cost}}</div>
+<div class="stat">📈 Estimated Profit: ₹ {{profit}}</div>
+
+</div>
+
+<div class="card">
+<h3>📊 Profit Intelligence</h3>
+
+<div class="stat">💰 Revenue: ₹ {{metrics.revenue}}</div>
+<div class="stat">🧠 AI Cost: ₹ {{metrics.ai_cost}}</div>
+<div class="stat">📈 Net Profit: ₹ {{metrics.profit}}</div>
+<div class="stat">👤 Avg User Value: ₹ {{metrics.avg_user_value}}</div>
+<div class="stat">⚡ Tokens Consumed: {{metrics.tokens_used}}</div>
+
+</div>
+
+<div class="card">
+<h3>⚙️ Command Center</h3>
+
+<button onclick="pauseAI()">⛔ Pause ARIS</button>
+<button onclick="resumeAI()">✅ Resume ARIS</button>
+
+<p id="aiStatus">Checking status...</p>
+</div>
+
+
+<!-- ===== LIVE ACTIVITY ===== -->
+<div class="card">
+
+<h3 style="margin-bottom:15px;">Live Activity</h3>
+
+<table>
+<tr>
+<th>User</th>
+<th>Tokens Used</th>
+<th>Time</th>
+</tr>
+
+{% for log in logs %}
+<tr>
+<td>{{log[0]}}</td>
+<td>{{log[1]}}</td>
+<td>{{log[2]}}</td>
+</tr>
+{% endfor %}
+
+</table>
+
+</div>
+
+<script>
+
+async function pauseAI(){
+    const res = await fetch("/pause_ai");
+    const data = await res.json();
+    alert(data.status);
+    checkStatus();
+}
+
+async function resumeAI(){
+    const res = await fetch("/resume_ai");
+    const data = await res.json();
+    alert(data.status);
+    checkStatus();
+}
+
+async function checkStatus(){
+    const res = await fetch("/ai_status");
+    const data = await res.json();
+
+    document.getElementById("aiStatus").innerText =
+        data.active ? "🟢 ARIS LIVE" : "🔴 ARIS PAUSED";
+}
+
+checkStatus();
+
+</script>
+
+</body>
+</html>
+"""
+
+# ================= ADMIN INTELLIGENCE =================
+
+def admin_intelligence():
+
+    conn = sqlite3.connect("aris_memory.db")
+    c = conn.cursor()
+
+    # total users
+    total_users = c.execute(
+        "SELECT COUNT(*) FROM users"
+    ).fetchone()[0]
+
+    # tokens remaining
+    tokens_remaining = c.execute(
+        "SELECT SUM(balance) FROM token_wallet"
+    ).fetchone()[0] or 0
+
+    # tokens used
+    tokens_used = c.execute(
+        "SELECT SUM(tokens_used) FROM usage_logs"
+    ).fetchone()[0] or 0
+
+    # requests last minute
+    one_min_ago = str(datetime.datetime.now() - datetime.timedelta(minutes=1))
+
+    rpm = c.execute("""
+        SELECT COUNT(*) FROM usage_logs
+        WHERE timestamp >= ?
+    """, (one_min_ago,)).fetchone()[0]
+
+    conn.close()
+
+    # ===== BUSINESS ESTIMATES =====
+    PRICE_PER_USER = 199        # ₹ subscription
+    COST_PER_TOKEN = 0.02       # estimated OpenAI cost ₹
+
+    revenue_estimate = total_users * PRICE_PER_USER
+    ai_cost = tokens_used * COST_PER_TOKEN
+    profit_estimate = revenue_estimate - ai_cost
+
+    return {
+        "users": total_users,
+        "tokens_remaining": tokens_remaining,
+        "tokens_used": tokens_used,
+        "rpm": rpm,
+        "revenue": revenue_estimate,
+        "cost": round(ai_cost, 2),
+        "profit": round(profit_estimate, 2)
+    }
+
+
+@app.route("/admin")
+def admin():
+
+    conn = sqlite3.connect("aris_memory.db")
+    c = conn.cursor()
+
+    c.execute("SELECT COUNT(*) FROM users")
+    total_users = c.fetchone()[0]
+
+    c.execute("SELECT SUM(balance) FROM token_wallet")
+    tokens_remaining = c.fetchone()[0] or 0
+
+    c.execute("SELECT SUM(tokens_used) FROM usage_logs")
+    tokens_used = c.fetchone()[0] or 0
+
+    c.execute("SELECT * FROM usage_logs ORDER BY timestamp DESC LIMIT 20")
+    logs = c.fetchall()
+
+    conn.close()
+
+    # ⭐ ADD THIS LINE
+    metrics = get_profit_metrics()
+
+    return render_template_string(
+        ADMIN_HTML,
+        users=total_users,
+        tokens=tokens_remaining,
+        used=tokens_used,
+        logs=logs,
+        metrics=metrics   # ⭐ ADD THIS
+    )
+
+# ===== COMMAND CENTER CONTROLS =====
+
+@app.route("/pause_ai")
+def pause_ai():
+    global ARIS_ACTIVE
+    ARIS_ACTIVE = False
+    return jsonify({"status": "ARIS PAUSED"})
+
+@app.route("/resume_ai")
+def resume_ai():
+    global ARIS_ACTIVE
+    ARIS_ACTIVE = True
+    return jsonify({"status": "ARIS RESUMED"})
+
+@app.route("/ai_status")
+def ai_status():
+    return jsonify({"active": ARIS_ACTIVE})
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/")
+
+@app.route("/test_openai")
+def test_openai():
+    try:
+        from openai import OpenAI
+        client = OpenAI()
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "user", "content": "Say hello"}
+            ]
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        return f"ERROR: {str(e)}"
+
+@app.route("/voice", methods=["POST"])
+def voice_chat():
+    try:
+        response = send_file(
+            "static/test.mp3",
+            mimetype="audio/mpeg",
+            as_attachment=False
+        )
+
+        response.headers["X-ARIS-Transcript"] = "Hello ARIS"
+        response.headers["X-ARIS-Reply"] = "Hello Shree, voice route is working perfectly."
+        response.headers["X-ARIS-Tokens"] = "999"
+
+        response.headers[
+            "Access-Control-Expose-Headers"
+        ] = (
+            "X-ARIS-Transcript, "
+            "X-ARIS-Reply, "
+            "X-ARIS-Tokens"
+        )
+
+        return response
+
+    except Exception as e:
+        print("❌ Voice Route Error:", str(e))
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
+
+@app.route('/api/upload-image', methods=['POST'])
+def api_upload_image():
+    try:
+        # ==========================================
+        # AUTHENTICATION
+        # ==========================================
+        token = request.cookies.get("aris_token")
+
+        if not token:
+            return jsonify({
+                "success": False,
+                "message": "Authentication required."
+            }), 401
+
+        user_id = verify_token(token)
+
+        if not user_id:
+            return jsonify({
+                "success": False,
+                "message": "Invalid or expired token."
+            }), 401
+
+        # ==========================================
+        # FILE VALIDATION
+        # ==========================================
+        if 'image' not in request.files:
+            return jsonify({
+                "success": False,
+                "message": "No image uploaded."
+            }), 400
+
+        image = request.files['image']
+
+        if image.filename == '':
+            return jsonify({
+                "success": False,
+                "message": "Empty image file."
+            }), 400
+
+        # ==========================================
+        # SAVE IMAGE
+        # ==========================================
+        import uuid
+
+        extension = os.path.splitext(image.filename)[1]
+        if not extension:
+            extension = ".jpg"
+
+        filename = f"{uuid.uuid4().hex}{extension}"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+
+        if not os.path.exists(UPLOAD_FOLDER):
+            os.makedirs(UPLOAD_FOLDER)
+
+        image.save(filepath)
+
+        # ==========================================
+        # OCR + AI SOLUTION
+        # ==========================================
+        print("📷 Starting OCR extraction...")
+
+        extracted_text = extract_text_from_image(filepath)
+
+        print("📄 OCR Extracted Text:")
+        print(extracted_text)
+
+        if not extracted_text or not str(extracted_text).strip():
+            return jsonify({
+                "success": False,
+                "message": "Unable to extract text from image."
+            }), 400
+
+        print("🧠 Sending extracted text to ARIS...")
+
+        result = process_ai_request(user_id, extracted_text)
+
+        reply = result.get(
+            "reply",
+            "⚠️ Unable to solve the question."
+        )
+
+        # ==========================================
+        # TOKEN DEDUCTION
+        # ==========================================
+        deduct_token(user_id, 1)
+        log_usage(user_id, 1)
+
+        tokens_left = get_tokens(user_id)
+
+        # ==========================================
+        # RETURN JSON RESPONSE
+        # ==========================================
+        return jsonify({
+            "success": True,
+            "reply": reply,
+            "tokens_left": tokens_left,
+            "type": "text"
+        })
+
+    except Exception as e:
+        print("❌ API UPLOAD IMAGE ERROR:", str(e))
+
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
+
+
+import os
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
