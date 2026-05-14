@@ -1429,6 +1429,52 @@ def process_ai_request(user_id, msg):
         msg_lower = msg.lower()
 
         # ==================================
+        # VIDEO CHECK
+        # ==================================
+        is_video = any(x in msg_lower for x in [
+            "generate video",
+            "create video",
+            "make video",
+            "video of",
+            "cinematic video",
+            "animation",
+            "reel"
+        ])
+
+        # ==================================
+        # VIDEO MODE
+        # ==================================
+        if is_video:
+            try:
+                print("🎬 VIDEO MODE")
+
+                reply = simulate_video(msg)
+
+                deduct_token(user_id, 10)
+                log_usage(user_id, 10)
+
+                return {
+                    "reply": reply,
+                    "suggestions": [
+                        "Create another cinematic video",
+                        "Generate storyboard",
+                        "Write video script",
+                        "Create image thumbnails"
+                    ],
+                    "tokens_left": get_tokens(user_id),
+                    "type": "text"
+                }
+
+            except Exception as e:
+                print("❌ VIDEO ERROR:", str(e))
+
+                return {
+                    "reply": "⚠️ ARIS could not generate the video.",
+                    "suggestions": [],
+                    "tokens_left": get_tokens(user_id),
+                    "type": "text"
+                }
+        # ==================================
         # GREETING
         # ==================================
         if msg_lower in ["hi", "hello", "hey", "hii", "helo", "yo"]:

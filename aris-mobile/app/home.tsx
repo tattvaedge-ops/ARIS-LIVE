@@ -1,6 +1,10 @@
 // C:\AGENTIC AI- ARIS\aris-mobile\app\home.tsx
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, {
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   View,
   Text,
@@ -24,7 +28,12 @@ import {
 } from 'expo-router';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as API from '../services/api';
+import {
+  sendMessage,
+  uploadImage,
+  buyTokens,
+  sendVoiceMessage,
+} from '../services/api';
 
 const COLORS = {
   background: '#0a192f',
@@ -538,37 +547,23 @@ const runConversationLoop =
 
       // 3. Send audio to backend
       const audioBlob =
-        await sendVoiceToBackend(
+        await sendVoiceMessage(
           audioUri,
           authToken
         );
 
-      if (result.transcript) {
-        addMessage(
-        'user',
-       result.transcript
-      );
-      }
-
-      if (result.reply) {
-        addMessage(
-          'assistant',
-          result.reply
-        );
-      }
-
-
-      // 4. Play returned audio
+      // 4. Play ARIS voice response
       await playVoiceResponse(
         audioBlob
       );
 
+      // 5. Show completion message
       addMessage(
         'assistant',
         '✅ Voice conversation completed.'
       );
 
-      // 5. Stop conversation after one full cycle
+      // 6. Reset conversation state
       setConversationMode(false);
       setVoiceState('idle');
     } catch (error: any) {

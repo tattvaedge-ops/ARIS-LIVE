@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { loginUser, signupUser } from '../services/api';
 
 const COLORS = {
@@ -33,41 +34,40 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async () => {
-  if (!email.trim() || !password.trim()) {
-    Alert.alert('Validation', 'Please enter email and password.');
-    return;
-  }
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Validation', 'Please enter email and password.');
+      return;
+    }
 
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const data =
-      mode === 'login'
-        ? await loginUser(email.trim(), password)
-        : await signupUser(email.trim(), password);
+      const data =
+        mode === 'login'
+          ? await loginUser(email.trim(), password)
+          : await signupUser(email.trim(), password);
 
-    // Save auth data
-    await AsyncStorage.setItem('auth_token', data.token);
-    await AsyncStorage.setItem('user_name', data.user.name);
-    await AsyncStorage.setItem('user_email', data.user.email);
-    await AsyncStorage.setItem(
-      'user_tokens',
-      String(data.user.tokens)
-    );
+      await AsyncStorage.setItem('auth_token', data.token);
+      await AsyncStorage.setItem('user_name', data.user.name);
+      await AsyncStorage.setItem('user_email', data.user.email);
+      await AsyncStorage.setItem(
+        'user_tokens',
+        String(data.user.tokens)
+      );
 
-    // Navigate to home
-    router.replace('/home');
-  } catch (error: any) {
-    Alert.alert(
-      mode === 'login' ? 'Login Failed' : 'Signup Failed',
-      error.message || 'Request failed.'
-    );
-  } finally {
-    setLoading(false);
-  }
-};
+      router.replace('/home');
+    } catch (error: any) {
+      Alert.alert(
+        mode === 'login' ? 'Login Failed' : 'Signup Failed',
+        error.message || 'Request failed.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleForgotPassword = () => {
     Alert.alert(
@@ -85,7 +85,14 @@ export default function LoginScreen() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={
+          Platform.OS === 'ios'
+            ? 'padding'
+            : 'height'
+        }
+        keyboardVerticalOffset={
+          Platform.OS === 'ios' ? 0 : 20
+        }
       >
         <ScrollView
           contentContainerStyle={styles.content}
@@ -97,7 +104,10 @@ export default function LoginScreen() {
             resizeMode="contain"
           />
 
-          <Text style={styles.title}>ARIS Intelligence</Text>
+          <Text style={styles.title}>
+            ARIS Intelligence
+          </Text>
+
           <Text style={styles.subtitle}>
             Your AI Brain for Life · Study · Business
           </Text>
@@ -113,14 +123,33 @@ export default function LoginScreen() {
               onChangeText={setEmail}
             />
 
-            <TextInput
-              placeholder="Password"
-              placeholderTextColor="#9CA3AF"
-              style={styles.input}
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
+            <View style={styles.passwordContainer}>
+              <TextInput
+                placeholder="Password"
+                placeholderTextColor="#9CA3AF"
+                style={styles.passwordInput}
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+              />
+
+              <TouchableOpacity
+                onPress={() =>
+                  setShowPassword(!showPassword)
+                }
+                style={styles.eyeButton}
+              >
+                <Ionicons
+                  name={
+                    showPassword
+                      ? 'eye-off'
+                      : 'eye'
+                  }
+                  size={22}
+                  color="#9CA3AF"
+                />
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               style={styles.loginButton}
@@ -128,10 +157,14 @@ export default function LoginScreen() {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color={COLORS.primaryText} />
+                <ActivityIndicator
+                  color={COLORS.primaryText}
+                />
               ) : (
                 <Text style={styles.loginText}>
-                  {mode === 'login' ? 'Login' : 'Create Account'}
+                  {mode === 'login'
+                    ? 'Login'
+                    : 'Create Account'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -139,7 +172,11 @@ export default function LoginScreen() {
             <View style={styles.secondaryActions}>
               <TouchableOpacity
                 onPress={() =>
-                  setMode(mode === 'login' ? 'signup' : 'login')
+                  setMode(
+                    mode === 'login'
+                      ? 'signup'
+                      : 'login'
+                  )
                 }
               >
                 <Text style={styles.secondaryText}>
@@ -216,6 +253,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#111827',
     marginBottom: 16,
+  },
+
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#111827',
+  },
+
+  eyeButton: {
+    paddingLeft: 8,
+    paddingVertical: 4,
   },
 
   loginButton: {

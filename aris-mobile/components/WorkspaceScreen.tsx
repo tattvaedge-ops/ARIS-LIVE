@@ -18,17 +18,21 @@ import {
   Platform,
   Image,
   Linking,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import ImagePicker from 'react-native-image-crop-picker';
+import * as ImagePicker from 'expo-image-picker';
 
 import {
   sendMessage,
   uploadImage,
 } from '../services/api';
+
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 
 
 const COLORS = {
@@ -298,6 +302,45 @@ const handleActionPress = async (
   }
 };
 
+const handleDownloadImage = async (imageUrl: string) => {
+  try {
+    const permission =
+      await MediaLibrary.requestPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert(
+        'Permission Required',
+        'Please allow photo library access to save images.'
+      );
+      return;
+    }
+
+    const fileUri =
+      FileSystem.documentDirectory +
+      `aris-${Date.now()}.jpg`;
+
+    const downloadResult =
+      await FileSystem.downloadAsync(
+        imageUrl,
+        fileUri
+      );
+
+    await MediaLibrary.saveToLibraryAsync(
+      downloadResult.uri
+    );
+
+    Alert.alert(
+      'Success',
+      'Image saved to your gallery.'
+    );
+  } catch (error) {
+    Alert.alert(
+      'Download Failed',
+      'Unable to save image.'
+    );
+  }
+};
+
 const speakText = (text: string) => {
   if (!text) return;
 
@@ -379,13 +422,16 @@ const speakText = (text: string) => {
       />
 
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={
-          Platform.OS === 'ios'
-            ? 'padding'
-            : undefined
-        }
-      >
+  style={{ flex: 1 }}
+  behavior={
+    Platform.OS === 'ios'
+      ? 'padding'
+      : 'height'
+  }
+  keyboardVerticalOffset={
+    Platform.OS === 'ios' ? 0 : 20
+  }
+>
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.iconButton}
@@ -418,7 +464,8 @@ const speakText = (text: string) => {
           showsVerticalScrollIndicator={
             false
           }
-        >
+          keyboardShouldPersistTaps="handled"
+        > 
           {messages.length === 0 && (
             <>
               <Text style={styles.subtitle}>
@@ -585,27 +632,36 @@ const speakText = (text: string) => {
                 )}
 
                 {msg.imageUrl && (
-                  <TouchableOpacity
-                    onPress={() =>
-                      Linking.openURL(
-                        msg.imageUrl!
-                      )
-                    }
-                    style={
-                      styles.chatImageWrapper
-                    }
-                  >
-                    <Image
-                      source={{
-                        uri: msg.imageUrl,
-                      }}
-                      style={
-                        styles.chatImage
-                      }
-                      resizeMode="cover"
-                    />
-                  </TouchableOpacity>
-                )}
+  <View style={styles.chatImageWrapper}>
+    <TouchableOpacity
+      onPress={() =>
+        Linking.openURL(msg.imageUrl!)
+      }
+    >
+      <Image
+        source={{ uri: msg.imageUrl }}
+        style={styles.chatImage}
+        resizeMode="cover"
+      />
+    </TouchableOpacity>
+
+    <TouchableOpacity
+      style={styles.downloadButton}
+      onPress={() =>
+        handleDownloadImage(msg.imageUrl!)
+      }
+    >
+      <Ionicons
+        name="download-outline"
+        size={18}
+        color="#ffffff"
+      />
+      <Text style={styles.downloadButtonText}>
+        Save Image
+      </Text>
+    </TouchableOpacity>
+  </View>
+)}
               </View>
             </View>
           ))}
@@ -894,6 +950,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#111827',
     maxHeight: 120,
+  },
+
+  downloadButton: {
+    marginTop: 10,
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+
+  downloadButtonText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 14,
   },
 
   sendButton: {
