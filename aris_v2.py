@@ -4242,6 +4242,57 @@ def upload():
         return jsonify({
             "error": "Upload failed. Please try again."
         })
+
+
+
+# ================= SUBSCRIBE =================
+@app.route("/subscribe/<plan_key>")
+def subscribe(plan_key):
+    try:
+        # ==================================
+        # AUTH CHECK (JWT → SESSION)
+        # ==================================
+        user_id = None
+
+        token = request.cookies.get("aris_token")
+
+        if token:
+            user_id = verify_token(token)
+
+        if not user_id:
+            user_id = session.get("user_id")
+
+        if not user_id:
+            return jsonify({
+                "success": False,
+                "message": "⚠️ Session expired. Please login again."
+            }), 401
+
+        # ==================================
+        # VALIDATE PLAN
+        # ==================================
+        if plan_key not in SUBSCRIPTION_PLANS:
+            return jsonify({
+                "success": False,
+                "message": "Invalid subscription plan."
+            }), 400
+
+        # ==================================
+        # ACTIVATE SUBSCRIPTION
+        # ==================================
+        result = activate_subscription(user_id, plan_key)
+
+        return jsonify(result)
+
+    except Exception as e:
+        print("❌ SUBSCRIPTION ERROR:", str(e))
+
+        return jsonify({
+            "success": False,
+            "message": "⚠️ Subscription activation failed."
+        }), 500
+
+        
 # ================= BUY TOKENS =================
 @app.route("/buy_tokens")
 def buy_tokens():
