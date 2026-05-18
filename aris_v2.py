@@ -4178,6 +4178,15 @@ def buy_tokens():
             })
 
         # ==================================
+        # SUBSCRIPTION CHECK
+        # ==================================
+        if not user_has_active_subscription(user_id):
+            return jsonify({
+                "success": False,
+                "message": "⚠️ Active subscription required to purchase token packs."
+            }), 403    
+
+        # ==================================
         # TOKEN CREDIT
         # ==================================
         conn = sqlite3.connect("aris_memory.db")
