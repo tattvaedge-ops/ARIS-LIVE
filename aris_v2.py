@@ -432,6 +432,64 @@ def get_subscription_status(user_id):
             "message": "No active subscription."
         }        
 
+def activate_subscription(user_id, plan_key):
+    if plan_key not in SUBSCRIPTION_PLANS:
+        raise ValueError("Invalid subscription plan.")
+
+    plan = SUBSCRIPTION_PLANS[plan_key]
+
+    start_date = datetime.datetime.utcnow()
+    end_date = start_date + datetime.timedelta(days=plan["duration_days"])
+
+    conn = sqlite3.connect("aris_memory.db")
+    c = conn.cursor()
+
+    # Insert or update subscription record
+    c.execute("""
+        INSERT OR REPLACE INTO subscriptions (
+            user_id,
+            plan_name,
+            start_date,
+            end_date,
+            status
+        )
+        VALUES (?, ?, ?, ?, ?)
+    """, (
+        user_id,
+        plan["name"],
+        start_date.strftime("%Y-%m-%d"),
+        end_date.strftime("%Y-%m-%d"),
+        "active"
+    ))
+
+    # Add plan tokens to wallet
+    c.execute("""
+        INSERT OR REPLACE INTO token_wallet (
+            user_id,
+            balance
+        )
+        VALUES (
+            ?,
+            COALESCE(
+                (SELECT balance FROM token_wallet WHERE user_id = ?),
+                0
+            ) + ?
+        )
+    """, (
+        user_id,
+        user_id,
+        plan["tokens"]
+    ))
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True,
+        "plan_name": plan["name"],
+        "tokens_added": plan["tokens"],
+        "expires_on": end_date.strftime("%Y-%m-%d")
+    }
 
 def deduct_token(user_id, amount):
 
