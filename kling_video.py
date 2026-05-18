@@ -19,9 +19,11 @@ def generate_kling_video(prompt):
     }
 
     payload = {
+        "model_name": "kling-v1",
         "prompt": prompt,
         "duration": 5,
         "aspect_ratio": "16:9",
+         "mode": "std"
     }
 
     response = requests.post(
@@ -32,6 +34,8 @@ def generate_kling_video(prompt):
     )
 
     if response.status_code not in [200, 201]:
+        print("KLING STATUS:", response.status_code)
+        print("KLING RESPONSE:", response.text)
         raise Exception(response.text)
 
     return response.json()
