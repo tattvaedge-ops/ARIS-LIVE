@@ -390,6 +390,18 @@ def user_has_active_subscription(user_id):
     except:
         return False
 
+def get_subscription_status(user_id):
+    if user_has_active_subscription(user_id):
+        return {
+            "active": True,
+            "message": "Subscription active."
+        }
+    else:
+        return {
+            "active": False,
+            "message": "No active subscription."
+        }        
+
 
 def deduct_token(user_id, amount):
 
