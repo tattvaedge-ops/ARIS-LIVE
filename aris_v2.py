@@ -361,6 +361,36 @@ def get_tokens(user_id):
             conn.close()
 
 
+def user_has_active_subscription(user_id):
+    conn = sqlite3.connect("aris_memory.db")
+    c = conn.cursor()
+
+    c.execute("""
+        SELECT end_date, status
+        FROM subscriptions
+        WHERE user_id = ?
+    """, (user_id,))
+
+    row = c.fetchone()
+    conn.close()
+
+    if not row:
+        return False
+
+    end_date, status = row
+
+    if status != "active":
+        return False
+
+    try:
+        from datetime import datetime
+
+        expiry = datetime.strptime(end_date, "%Y-%m-%d")
+        return expiry >= datetime.utcnow()
+    except:
+        return False
+
+
 def deduct_token(user_id, amount):
 
     conn = None
