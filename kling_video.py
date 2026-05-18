@@ -20,10 +20,12 @@ def generate_kling_video(prompt):
 
     payload = {
         "model_name": "kling-v1",
-        "prompt": prompt,
+        "mode": "std",
         "duration": 5,
         "aspect_ratio": "16:9",
-         "mode": "std"
+        "input": {
+            "prompt": prompt
+        }    
     }
 
     response = requests.post(
