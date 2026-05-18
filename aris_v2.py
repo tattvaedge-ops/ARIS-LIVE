@@ -23,6 +23,7 @@ from aris_tools.voice_input import speech_to_text
 from aris_tools.aris_voice_engine import generate_voice
 from flask import request, send_file, jsonify
 from aris_tools.aris_image_engine import generate_image
+from kling_video import generate_kling_video
 
 JWT_SECRET = os.getenv("SECRET_KEY")
 JWT_ALGO = "HS256"
@@ -1427,6 +1428,57 @@ def process_ai_request(user_id, msg):
             }
 
         msg_lower = msg.lower()
+
+                # ==================================
+        # KLING VIDEO GENERATION
+        # ==================================
+        if msg_lower.startswith("create video"):
+            try:
+                print("🎬 KLING VIDEO MODE")
+
+                video_prompt = msg[12:].strip()
+
+                if not video_prompt:
+                    return {
+                        "reply": "⚠️ Please provide a prompt after 'create video'.",
+                        "suggestions": [
+                            "create video a cinematic rocket launch",
+                            "create video a futuristic AI city",
+                            "create video solar system animation"
+                        ],
+                        "tokens_left": get_tokens(user_id),
+                        "type": "text"
+                    }
+
+                result = generate_kling_video(video_prompt)
+
+                deduct_token(user_id, 15)
+                log_usage(user_id, 15)
+
+                return {
+                    "reply": "🎬 Video generation started successfully.",
+                    "result": result,
+                    "suggestions": [
+                        "Create another video",
+                        "Generate image from same prompt",
+                        "Write video script"
+                    ],
+                    "tokens_left": get_tokens(user_id),
+                    "type": "video"
+                }
+
+            except Exception as e:
+                print("❌ KLING VIDEO ERROR:", str(e))
+
+                return {
+                    "reply": f"⚠️ Kling video generation failed: {str(e)}",
+                    "suggestions": [
+                        "Try a shorter prompt",
+                        "Create image instead"
+                    ],
+                    "tokens_left": get_tokens(user_id),
+                    "type": "text"
+                }
         
         # ==================================
         # GREETING
