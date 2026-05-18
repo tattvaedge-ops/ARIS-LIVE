@@ -4243,6 +4243,63 @@ def upload():
             "error": "Upload failed. Please try again."
         })
 
+# ================= SUBSCRIPTION STATUS =================
+@app.route("/subscription_status")
+def subscription_status():
+    try:
+        # ==================================
+        # AUTH CHECK (JWT → SESSION)
+        # ==================================
+        user_id = None
+
+        token = request.cookies.get("aris_token")
+
+        if token:
+            user_id = verify_token(token)
+
+        if not user_id:
+            user_id = session.get("user_id")
+
+        if not user_id:
+            return jsonify({
+                "active": False,
+                "message": "Session expired."
+            }), 401
+
+        conn = sqlite3.connect("aris_memory.db")
+        c = conn.cursor()
+
+        c.execute("""
+            SELECT plan_name, end_date, status
+            FROM subscriptions
+            WHERE user_id = ?
+        """, (user_id,))
+
+        row = c.fetchone()
+        conn.close()
+
+        if not row:
+            return jsonify({
+                "active": False,
+                "message": "No active subscription."
+            })
+
+        plan_name, end_date, status = row
+
+        return jsonify({
+            "active": user_has_active_subscription(user_id),
+            "plan_name": plan_name,
+            "expires_on": end_date,
+            "status": status
+        })
+
+    except Exception as e:
+        print("❌ SUBSCRIPTION STATUS ERROR:", str(e))
+
+        return jsonify({
+            "active": False,
+            "message": "Unable to fetch subscription status."
+        }), 500
 
 
 # ================= SUBSCRIBE =================
@@ -4292,7 +4349,7 @@ def subscribe(plan_key):
             "message": "⚠️ Subscription activation failed."
         }), 500
 
-        
+
 # ================= BUY TOKENS =================
 @app.route("/buy_tokens")
 def buy_tokens():
