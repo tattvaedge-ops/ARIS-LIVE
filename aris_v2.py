@@ -1448,7 +1448,7 @@ def process_ai_request(user_id, msg):
 
         msg_lower = msg.lower()
 
-        s# ==================================
+        # ==================================
         # SELF-REPAIR DIAGNOSTICS
         # ==================================
         if msg_lower in [
