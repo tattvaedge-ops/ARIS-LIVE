@@ -1,75 +1,176 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ARIS Pricing</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARIS Pricing</title>
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+body {
+    background: radial-gradient(circle at top, #08111f 0%, #000000 70%);
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+.glow-card {
+    background: rgba(10, 20, 40, 0.95);
+    border: 2px solid #ff8c32;
+    border-radius: 24px;
+    box-shadow:
+        0 0 15px rgba(255, 140, 50, 0.35),
+        0 0 35px rgba(255, 140, 50, 0.15);
+}
+
+.plan-card {
+    background: rgba(10, 20, 40, 0.95);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 24px;
+    transition: all 0.3s ease;
+}
+
+.plan-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 0 25px rgba(255, 140, 50, 0.25);
+    border-color: rgba(255, 140, 50, 0.6);
+}
+
+.best-value {
+    border: 1px solid #f5c542;
+    box-shadow: 0 0 25px rgba(245, 197, 66, 0.25);
+}
+
+.subscribe-btn {
+    background: linear-gradient(90deg, #ff8c32, #ffb347);
+    color: #000;
+    font-weight: bold;
+    border-radius: 14px;
+    padding: 14px;
+    width: 100%;
+    transition: 0.3s;
+}
+
+.subscribe-btn:hover {
+    transform: scale(1.02);
+    box-shadow: 0 0 15px rgba(255, 140, 50, 0.5);
+}
+</style>
 </head>
-<body class="bg-black text-white min-h-screen">
+<body>
 
-  <div class="max-w-7xl mx-auto px-6 py-12">
-    <h1 class="text-5xl font-bold text-center mb-4">
-      ARIS Pricing
-    </h1>
+<div class="max-w-7xl mx-auto px-6 py-12">
 
-    <p class="text-center text-gray-400 mb-12 text-lg">
-      Free to Learn. Pay for Powerful Creations.
+    <!-- ARIS Logo Card -->
+    <div class="max-w-md mx-auto glow-card p-6 text-center mb-10">
+        <img src="/static/tattva_logo.png"
+             alt="ARIS Logo"
+             class="mx-auto mb-3 max-h-20 object-contain">
+        <p class="text-3xl font-bold text-orange-400">
+            Intelligence System
+        </p>
+    </div>
+
+    <!-- Heading -->
+    <h1 class="text-5xl font-bold text-center mb-4">ARIS Pricing</h1>
+
+    <p class="text-center text-gray-300 text-xl mb-12">
+        Free to Learn. Pay for Powerful Creations.
     </p>
 
+    <!-- Subscription Status -->
+    <div id="subscription-status"
+     class="max-w-3xl mx-auto mb-12 hidden">
+    </div>
+
+    <!-- Pricing Cards -->
     <div class="grid md:grid-cols-4 gap-6">
 
-      <!-- Monthly -->
-      <div class="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-        <h2 class="text-2xl font-bold mb-2">Monthly</h2>
-        <p class="text-4xl font-bold mb-4">₹199</p>
-        <p class="text-green-400 mb-6">60 Premium Tokens</p>
-        <button
-          onclick="window.location.href='/subscribe/monthly'"
-          class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-xl font-semibold">
-          Subscribe
-        </button>
-      </div>
+        <!-- Monthly -->
+        <div class="plan-card p-8">
+            <h2 class="text-3xl font-bold mb-4">Monthly</h2>
+            <div class="text-5xl font-bold mb-4">₹199</div>
+            <p class="text-green-400 text-lg mb-8">60 Premium Tokens</p>
+            <button onclick="window.location.href='/subscribe/monthly'"
+                    class="subscribe-btn">
+                Subscribe
+            </button>
+        </div>
 
-      <!-- Quarterly -->
-      <div class="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-        <h2 class="text-2xl font-bold mb-2">3 Months</h2>
-        <p class="text-4xl font-bold mb-4">₹499</p>
-        <p class="text-green-400 mb-6">200 Premium Tokens</p>
-        <button
-          onclick="window.location.href='/subscribe/quarterly'"
-          class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-xl font-semibold">
-          Subscribe
-        </button>
-      </div>
+        <!-- Quarterly -->
+        <div class="plan-card p-8">
+            <div class="text-orange-400 font-semibold mb-2">
+                Most Popular
+            </div>
+            <h2 class="text-3xl font-bold mb-4">3 Months</h2>
+            <div class="text-5xl font-bold mb-4">₹499</div>
+            <p class="text-green-400 text-lg mb-8">200 Premium Tokens</p>
+            <button onclick="window.location.href='/subscribe/quarterly'"
+                    class="subscribe-btn">
+                Subscribe
+            </button>
+        </div>
 
-      <!-- Half-Yearly -->
-      <div class="bg-gray-900 rounded-2xl p-6 border border-gray-800">
-        <h2 class="text-2xl font-bold mb-2">6 Months</h2>
-        <p class="text-4xl font-bold mb-4">₹899</p>
-        <p class="text-green-400 mb-6">450 Premium Tokens</p>
-        <button
-          onclick="window.location.href='/subscribe/half_yearly'"
-          class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-xl font-semibold">
-          Subscribe
-        </button>
-      </div>
+        <!-- Half Yearly -->
+        <div class="plan-card p-8">
+            <h2 class="text-3xl font-bold mb-4">6 Months</h2>
+            <div class="text-5xl font-bold mb-4">₹899</div>
+            <p class="text-green-400 text-lg mb-8">450 Premium Tokens</p>
+            <button onclick="window.location.href='/subscribe/half_yearly'"
+                    class="subscribe-btn">
+                Subscribe
+            </button>
+        </div>
 
-      <!-- Annual -->
-      <div class="bg-gray-900 rounded-2xl p-6 border border-yellow-500">
-        <div class="text-yellow-400 font-semibold mb-2">Best Value</div>
-        <h2 class="text-2xl font-bold mb-2">Annual</h2>
-        <p class="text-4xl font-bold mb-4">₹1499</p>
-        <p class="text-green-400 mb-6">1000 Premium Tokens</p>
-        <button
-          onclick="window.location.href='/subscribe/annual'"
-          class="w-full bg-yellow-500 hover:bg-yellow-600 text-black py-3 rounded-xl font-semibold">
-          Subscribe
-        </button>
-      </div>
+        <!-- Annual -->
+        <div class="plan-card best-value p-8">
+            <div class="text-yellow-400 font-semibold mb-2">
+                Best Value
+            </div>
+            <h2 class="text-3xl font-bold mb-4">Annual</h2>
+            <div class="text-5xl font-bold mb-4">₹1499</div>
+            <p class="text-green-400 text-lg mb-8">1000 Premium Tokens</p>
+            <button onclick="window.location.href='/subscribe/annual'"
+                    class="subscribe-btn">
+                Subscribe
+            </button>
+        </div>
 
     </div>
-  </div>
 
+</div>
+
+
+<script>
+async function loadSubscriptionStatus() {
+    try {
+        const response = await fetch('/subscription_status');
+        const data = await response.json();
+
+        const box = document.getElementById('subscription-status');
+
+        if (data.active) {
+            box.classList.remove('hidden');
+
+            box.innerHTML = `
+                <div class="bg-green-900/30 border border-green-500 rounded-2xl p-5 text-center">
+                    <h3 class="text-2xl font-bold text-green-400 mb-2">
+                        Active Subscription
+                    </h3>
+                    <p class="text-white">
+                        <strong>${data.plan_name}</strong>
+                    </p>
+                    <p class="text-gray-300">
+                        Valid until ${data.expires_on}
+                    </p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.log("Subscription status unavailable.");
+    }
+}
+
+loadSubscriptionStatus();
+</script>
 </body>
 </html>
