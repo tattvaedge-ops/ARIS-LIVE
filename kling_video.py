@@ -14,9 +14,8 @@ def generate_kling_video(prompt):
     url = "https://api.klingai.com/v1/videos"
 
     headers = {
-        "X-Access-Key": KLING_ACCESS_KEY,
-        "X-Secret-Key": KLING_SECRET_KEY,
-        "Content-Type": "application/json",
+        "Authorization": f"Bearer {KLING_ACCESS_KEY}",
+        "Content-Type": "application/json", 
     }
 
     payload = {
