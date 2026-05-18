@@ -4896,7 +4896,27 @@ def api_upload_image():
             "message": str(e)
         }), 500
 
-        
+
+@app.route("/buy_tokens_page")
+def buy_tokens_page():
+    user_id = None
+
+    token = request.cookies.get("aris_token")
+
+    if token:
+        user_id = verify_token(token)
+
+    if not user_id:
+        user_id = session.get("user_id")
+
+    if not user_id:
+        return redirect("/login")
+
+    if not user_has_active_subscription(user_id):
+        return redirect("/pricing")
+
+    return send_from_directory("static", "buy_tokens.html")
+
 @app.route("/pricing")
 def pricing():
     return send_from_directory("static", "pricing.html")
