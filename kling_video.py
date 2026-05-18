@@ -2,8 +2,8 @@ import os
 import requests
 
 
-KLING_ACCESS_KEY = os.getenv("KLING_ACCESS_KEY")
-KLING_SECRET_KEY = os.getenv("KLING_SECRET_KEY")
+KLING_ACCESS_KEY = os.getenv("KLING_ACCESS_KEY", "").strip()
+KLING_SECRET_KEY = os.getenv("KLING_SECRET_KEY", "").strip()
 
 
 def generate_kling_video(prompt):
@@ -36,4 +36,3 @@ def generate_kling_video(prompt):
         raise Exception(response.text)
 
     return response.json()
-    
