@@ -4896,6 +4896,10 @@ def api_upload_image():
             "message": str(e)
         }), 500
 
+        
+@app.route("/pricing")
+def pricing():
+    return send_from_directory("static", "pricing.html")
 
 import os
 

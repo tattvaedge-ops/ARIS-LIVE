@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARIS Pricing</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black text-white min-h-screen">
+
+  <div class="max-w-7xl mx-auto px-6 py-12">
+    <h1 class="text-5xl font-bold text-center mb-4">
+      ARIS Pricing
+    </h1>
+
+    <p class="text-center text-gray-400 mb-12 text-lg">
+      Free to Learn. Pay for Powerful Creations.
+    </p>
+
+    <div class="grid md:grid-cols-4 gap-6">
+
+      <!-- Monthly -->
+      <div class="bg-gray-900 rounded-2xl p-6 border border-gray-800">
+        <h2 class="text-2xl font-bold mb-2">Monthly</h2>
+        <p class="text-4xl font-bold mb-4">₹199</p>
+        <p class="text-green-400 mb-6">60 Premium Tokens</p>
+        <button
+          onclick="window.location.href='/subscribe/monthly'"
+          class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-xl font-semibold">
+          Subscribe
+        </button>
+      </div>
+
+      <!-- Quarterly -->
+      <div class="bg-gray-900 rounded-2xl p-6 border border-gray-800">
+        <h2 class="text-2xl font-bold mb-2">3 Months</h2>
+        <p class="text-4xl font-bold mb-4">₹499</p>
+        <p class="text-green-400 mb-6">200 Premium Tokens</p>
+        <button
+          onclick="window.location.href='/subscribe/quarterly'"
+          class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-xl font-semibold">
+          Subscribe
+        </button>
+      </div>
+
+      <!-- Half-Yearly -->
+      <div class="bg-gray-900 rounded-2xl p-6 border border-gray-800">
+        <h2 class="text-2xl font-bold mb-2">6 Months</h2>
+        <p class="text-4xl font-bold mb-4">₹899</p>
+        <p class="text-green-400 mb-6">450 Premium Tokens</p>
+        <button
+          onclick="window.location.href='/subscribe/half_yearly'"
+          class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-xl font-semibold">
+          Subscribe
+        </button>
+      </div>
+
+      <!-- Annual -->
+      <div class="bg-gray-900 rounded-2xl p-6 border border-yellow-500">
+        <div class="text-yellow-400 font-semibold mb-2">Best Value</div>
+        <h2 class="text-2xl font-bold mb-2">Annual</h2>
+        <p class="text-4xl font-bold mb-4">₹1499</p>
+        <p class="text-green-400 mb-6">1000 Premium Tokens</p>
+        <button
+          onclick="window.location.href='/subscribe/annual'"
+          class="w-full bg-yellow-500 hover:bg-yellow-600 text-black py-3 rounded-xl font-semibold">
+          Subscribe
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+</body>
+</html>
