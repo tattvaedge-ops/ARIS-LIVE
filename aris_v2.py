@@ -30,6 +30,36 @@ from aris_security import sanitize_input, is_malicious_input
 JWT_SECRET = os.getenv("SECRET_KEY")
 JWT_ALGO = "HS256"
 
+# ==================================
+# ARIS SUBSCRIPTION PLANS
+# ==================================
+SUBSCRIPTION_PLANS = {
+    "monthly": {
+        "name": "ARIS Starter",
+        "price": 199,
+        "tokens": 60,
+        "duration_days": 30
+    },
+    "quarterly": {
+        "name": "ARIS Quarterly",
+        "price": 499,
+        "tokens": 200,
+        "duration_days": 90
+    },
+    "half_yearly": {
+        "name": "ARIS Half-Yearly",
+        "price": 899,
+        "tokens": 450,
+        "duration_days": 180
+    },
+    "annual": {
+        "name": "ARIS Annual",
+        "price": 1499,
+        "tokens": 1000,
+        "duration_days": 365
+    }
+}
+
 def generate_token(user_id):
     payload = {
         "user_id": user_id,
