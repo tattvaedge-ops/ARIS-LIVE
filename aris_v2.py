@@ -24,6 +24,7 @@ from aris_tools.aris_voice_engine import generate_voice
 from flask import request, send_file, jsonify
 from aris_tools.aris_image_engine import generate_image
 from kling_video import generate_kling_video
+from aris_self_repair_engine import run_self_diagnostics
 
 JWT_SECRET = os.getenv("SECRET_KEY")
 JWT_ALGO = "HS256"
@@ -1430,6 +1431,46 @@ def process_ai_request(user_id, msg):
         msg_lower = msg.lower()
 
                 # ==================================
+        # SELF-REPAIR DIAGNOSTICS
+        # ==================================
+        if msg_lower in [
+            "system health",
+            "run diagnostics",
+            "self repair",
+            "check system"
+        ]:
+            try:
+                report = run_self_diagnostics()
+
+                status = report.get("status", "unknown")
+                checks = report.get("checks", {})
+
+                lines = [f"🛠️ ARIS System Status: {status.upper()}", ""]
+
+                for key, value in checks.items():
+                    label = key.replace("_", " ").title()
+                    lines.append(f"• {label}: {value}")
+
+                return {
+                    "reply": "\n".join(lines),
+                    "suggestions": [
+                        "Check system",
+                        "Show token balance",
+                        "Create image"
+                    ],
+                    "tokens_left": get_tokens(user_id),
+                    "type": "text"
+                }
+
+            except Exception as e:
+                return {
+                    "reply": f"⚠️ Diagnostics failed: {str(e)}",
+                    "suggestions": [],
+                    "tokens_left": get_tokens(user_id),
+                    "type": "text"
+                }
+
+        # ==================================
         # KLING VIDEO GENERATION
         # ==================================
         if msg_lower.startswith("create video"):
