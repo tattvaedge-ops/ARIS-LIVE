@@ -25,6 +25,7 @@ from flask import request, send_file, jsonify
 from aris_tools.aris_image_engine import generate_image
 from kling_video import generate_kling_video
 from aris_self_repair_engine import run_self_diagnostics
+from aris_security import sanitize_input, is_malicious_input
 
 JWT_SECRET = os.getenv("SECRET_KEY")
 JWT_ALGO = "HS256"
@@ -1420,6 +1421,23 @@ def process_ai_request(user_id, msg):
 
         msg = str(msg).strip()
 
+        # ==================================
+        # SECURITY LAYER
+        # ==================================
+        msg = sanitize_input(msg)
+
+        if is_malicious_input(msg):
+            return {
+                "reply": "⚠️ Request blocked by ARIS security system.",
+                "suggestions": [
+                    "Ask a normal question",
+                    "Create image",
+                    "Solve a problem"
+                ],
+                "tokens_left": get_tokens(user_id),
+                "type": "text"
+            }
+
         if not msg:
             return {
                 "reply": "⚠️ Please enter a valid message.",
@@ -1430,7 +1448,7 @@ def process_ai_request(user_id, msg):
 
         msg_lower = msg.lower()
 
-                # ==================================
+        s# ==================================
         # SELF-REPAIR DIAGNOSTICS
         # ==================================
         if msg_lower in [
