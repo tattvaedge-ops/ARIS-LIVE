@@ -153,6 +153,18 @@ def init_db():
         )
     """)
 
+    # ---------------- SUBSCRIPTIONS ----------------
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS subscriptions(
+            user_id INTEGER PRIMARY KEY,
+            plan_name TEXT,
+            start_date TEXT,
+            end_date TEXT,
+            status TEXT
+        )
+    """)
+
+
     conn.commit()
     conn.close()
 
