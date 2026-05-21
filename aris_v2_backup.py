@@ -3785,8 +3785,16 @@ def forgot_password():
         })
 
 
-@app.route("/", methods=["GET", "POST"])
-def login():
+@app.route("/")
+def landing_page():
+    return send_from_directory("static", "landing.html")
+   
+
+
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login_page():
 
     error = ""
 
@@ -3864,6 +3872,7 @@ def login():
         error = "Login system error. Please try again."
 
     return LOGIN_HTML.replace("{{error}}", error)
+
 
 # ==========================================
 # MOBILE API LOGIN ENDPOINT
@@ -3983,10 +3992,22 @@ def api_signup():
 @app.route("/aris")
 def aris():
 
-    if "user_id" not in session:
-        return redirect("/")
+    # ===============================
+    # AUTH CHECK (JWT + SESSION)
+    # ===============================
 
-    user_id = session["user_id"]
+    user_id = None
+
+    token = request.cookies.get("aris_token")
+
+    if token:
+        user_id = verify_token(token)
+
+    if not user_id:
+        user_id = session.get("user_id")
+
+    if not user_id:
+        return redirect("/login")
 
     conn = sqlite3.connect("aris_memory.db")
     c = conn.cursor()
