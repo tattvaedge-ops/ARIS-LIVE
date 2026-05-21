@@ -2186,14 +2186,42 @@ loop autoplay>
 <input name="email" type="email" placeholder="Email" required>
 <br>
 
-<input name="password" type="password" placeholder="Password" required>
+<div style="position:relative;display:inline-block;">
+
+<input
+id="passwordField"
+name="password"
+type="password"
+placeholder="Password"
+required
+style="padding-right:45px;">
+
+<span
+onclick="togglePassword()"
+style="
+position:absolute;
+right:14px;
+top:50%;
+transform:translateY(-50%);
+cursor:pointer;
+font-size:18px;
+user-select:none;
+opacity:.8;
+">
+👁
+</span>
+
+</div>
 <br>
 
 <button name="action" value="login">
 Login →
 </button>
 
-<button name="action" value="signup">
+<button
+name="action"
+value="signup"
+onclick="clearLoginFields()">
 Create Account
 </button>
 
@@ -2244,6 +2272,24 @@ links:{enable:true,color:"#f97316"},
 move:{speed:1}
 }
 });
+
+function togglePassword(){
+
+    const field = document.getElementById("passwordField");
+
+    if(field.type === "password"){
+        field.type = "text";
+    }else{
+        field.type = "password";
+    }
+}
+
+function clearLoginFields(){
+
+    document.querySelector('input[name="email"]').value = "";
+    document.getElementById("passwordField").value = "";
+}
+
 </script>
 
 </body>

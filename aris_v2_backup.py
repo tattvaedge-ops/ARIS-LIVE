@@ -1948,7 +1948,7 @@ pointer-events:none;
 .login-box{
 text-align:center;
 background:rgba(255,255,255,0.06);
-padding:45px 60px;
+padding:50px 65px;
 border-radius:20px;
 backdrop-filter:blur(14px);
 -webkit-backdrop-filter:blur(14px);
@@ -1981,38 +1981,58 @@ margin:0 auto 50px;
 
 /* TITLES */
 .title{
-font-size:28px;
-font-weight:700;
-margin-top:8px;
+font-size:34px;
+font-weight:800;
+margin-top:10px;
+letter-spacing:.5px;
 }
 .subtitle{
-opacity:.75;
-font-size:14px;
-margin-bottom:25px;
+opacity:.82;
+font-size:15px;
+margin-bottom:28px;
+color:#e5e7eb;
+line-height:1.5;
 }
 
 /* INPUT */
 input{
-width:260px;
-padding:13px;
-border-radius:10px;
-border:none;
+width:280px;
+padding:14px 16px;
+border-radius:14px;
+border:1px solid rgba(255,255,255,0.08);
 outline:none;
 font-size:14px;
 margin-bottom:18px;
+
+background:rgba(255,255,255,0.06);
+color:white;
+
+transition:.25s;
+}
+
+input:focus{
+border-color:#f97316;
+box-shadow:0 0 14px rgba(249,115,22,.35);
 }
 
 /* BUTTON */
 button{
-padding:12px 28px;
+padding:13px 30px;
 border:none;
-border-radius:10px;
+border-radius:14px;
+
 background:linear-gradient(90deg,#f97316,#ff8c3a);
+
 color:white;
-font-weight:600;
+font-weight:700;
+font-size:14px;
+letter-spacing:.3px;
+
 cursor:pointer;
-box-shadow:0 0 15px rgba(249,115,22,.6);
-transition:.2s;
+
+box-shadow:0 0 18px rgba(249,115,22,.5);
+
+transition:.25s;
 }
 button:hover{
 transform:scale(1.05);
