@@ -2222,6 +2222,7 @@ Login →
 <button
 name="action"
 value="signup"
+onclick="clearLoginFields()">
 Create Account
 </button>
 
