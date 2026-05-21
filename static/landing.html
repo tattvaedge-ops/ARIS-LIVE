@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>ARIS Nexus</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial, sans-serif;
+background:radial-gradient(circle at top,#08111f 0%,#000000 70%);
+color:white;
+overflow-x:hidden;
+}
+
+/* Glow */
+.glow{
+box-shadow:0 0 30px rgba(255,140,50,0.25);
+}
+
+/* Hero Button */
+.hero-btn{
+background:linear-gradient(90deg,#ff8c32,#ffb347);
+padding:14px 28px;
+border-radius:14px;
+font-weight:bold;
+color:black;
+transition:.3s;
+display:inline-block;
+text-decoration:none;
+}
+
+.hero-btn:hover{
+transform:translateY(-3px);
+box-shadow:0 0 20px rgba(255,140,50,0.6);
+}
+
+/* Secondary */
+.secondary-btn{
+border:1px solid rgba(255,255,255,0.15);
+padding:14px 28px;
+border-radius:14px;
+font-weight:bold;
+color:white;
+transition:.3s;
+display:inline-block;
+text-decoration:none;
+}
+
+.secondary-btn:hover{
+border-color:#ff8c32;
+box-shadow:0 0 15px rgba(255,140,50,0.3);
+}
+
+/* Cards */
+.feature-card{
+background:rgba(10,20,40,0.95);
+border:1px solid rgba(255,255,255,0.08);
+border-radius:24px;
+padding:30px;
+transition:.3s;
+}
+
+.feature-card:hover{
+transform:translateY(-6px);
+border-color:rgba(255,140,50,0.5);
+box-shadow:0 0 25px rgba(255,140,50,0.25);
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- NAVBAR -->
+<nav class="flex justify-between items-center px-8 py-6">
+
+<div class="flex items-center gap-4">
+
+<img
+src="/static/tattva_logo.png"
+class="h-16 w-auto">
+
+<div>
+<h1 class="text-2xl font-bold">
+ARIS Nexus
+</h1>
+
+<p class="text-orange-400 text-sm">
+Intelligence System
+</p>
+</div>
+
+</div>
+
+<div class="flex gap-4">
+
+<a href="/pricing" class="secondary-btn">
+Pricing
+</a>
+
+<a href="/login" class="hero-btn">
+Launch ARIS
+</a>
+
+</div>
+
+</nav>
+
+<!-- HERO -->
+<section class="max-w-7xl mx-auto px-8 py-20 grid md:grid-cols-2 gap-12 items-center">
+
+<div>
+
+<h1 class="text-6xl font-bold leading-tight mb-6">
+
+AI Operating System
+for
+<span class="text-orange-400">
+Life, Learning & Creation
+</span>
+
+</h1>
+
+<p class="text-xl text-gray-300 mb-10 leading-relaxed">
+
+ARIS Nexus is an advanced real-time intelligence platform designed for students, professionals, creators, researchers and modern life management.
+
+</p>
+
+<div class="flex gap-5 flex-wrap">
+
+<a href="/login" class="hero-btn">
+Start Free
+</a>
+
+<a href="/pricing" class="secondary-btn">
+View Pricing
+</a>
+
+</div>
+
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="feature-card glow">
+
+<div class="mb-6">
+
+<h2 class="text-3xl font-bold mb-2">
+ARIS Intelligence
+</h2>
+
+<p class="text-gray-300">
+Unified AI workspace powered by adaptive intelligence.
+</p>
+
+</div>
+
+<div class="space-y-4">
+
+<div class="bg-black/30 p-4 rounded-xl">
+🎓 Student AI Workspace
+</div>
+
+<div class="bg-black/30 p-4 rounded-xl">
+💼 Professional Intelligence
+</div>
+
+<div class="bg-black/30 p-4 rounded-xl">
+🎨 Creator & Media AI
+</div>
+
+<div class="bg-black/30 p-4 rounded-xl">
+🔬 Research Intelligence
+</div>
+
+<div class="bg-black/30 p-4 rounded-xl">
+🧭 Life Intelligence
+</div>
+
+</div>
+
+</div>
+
+</section>
+
+<!-- FEATURES -->
+<section class="max-w-7xl mx-auto px-8 py-10">
+
+<h2 class="text-5xl font-bold text-center mb-16">
+Why ARIS Nexus?
+</h2>
+
+<div class="grid md:grid-cols-3 gap-8">
+
+<div class="feature-card">
+<h3 class="text-2xl font-bold mb-4 text-orange-400">
+Adaptive Intelligence
+</h3>
+
+<p class="text-gray-300">
+ARIS dynamically adapts responses based on academic, professional and creative workflows.
+</p>
+</div>
+
+<div class="feature-card">
+<h3 class="text-2xl font-bold mb-4 text-orange-400">
+Cross-Platform System
+</h3>
+
+<p class="text-gray-300">
+Available across web and mobile infrastructure with unified AI architecture.
+</p>
+</div>
+
+<div class="feature-card">
+<h3 class="text-2xl font-bold mb-4 text-orange-400">
+Secure Cloud AI
+</h3>
+
+<p class="text-gray-300">
+Built with protected infrastructure, token systems and intelligent security architecture.
+</p>
+</div>
+
+</div>
+
+</section>
+
+<!-- TOKEN ECONOMY -->
+<section class="max-w-5xl mx-auto px-8 py-20 text-center">
+
+<h2 class="text-5xl font-bold mb-8">
+Free to Learn.
+<span class="text-orange-400">
+Pay for Powerful Creations.
+</span>
+</h2>
+
+<p class="text-xl text-gray-300 leading-relaxed">
+
+ARIS keeps everyday learning free while premium AI creations like image generation, research intelligence and advanced media tools use token-based compute systems.
+
+</p>
+
+</section>
+
+<!-- FINAL CTA -->
+<section class="max-w-6xl mx-auto px-8 pb-24">
+
+<div class="feature-card glow text-center">
+
+<h2 class="text-5xl font-bold mb-6">
+Launch Your Intelligence System
+</h2>
+
+<p class="text-xl text-gray-300 mb-10">
+Start using ARIS Nexus today.
+</p>
+
+<div class="flex justify-center gap-5 flex-wrap">
+
+<a href="/login" class="hero-btn">
+Start Free
+</a>
+
+<a href="/pricing" class="secondary-btn">
+Pricing Plans
+</a>
+
+</div>
+
+</div>
+
+</section>
+
+</body>
+</html>

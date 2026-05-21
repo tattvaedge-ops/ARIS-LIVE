@@ -163,3 +163,43 @@ export async function uploadImage(
 
   return handleResponse(response);
 }
+
+// ==========================================
+// VOICE CHAT
+// ==========================================
+export async function sendVoiceMessage(
+  audioUri: string,
+  authToken: string
+) {
+  const formData = new FormData();
+
+  formData.append(
+    'audio',
+    {
+      uri: audioUri,
+      name: 'voice.wav',
+      type: 'audio/wav',
+    } as any
+  );
+
+  const response = await fetch(
+    `${API_BASE_URL}/voice`,
+    {
+      method: 'POST',
+      headers: {
+        Cookie: `aris_token=${authToken}`,
+      },
+      body: formData,
+    }
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(
+      text || 'Voice processing failed.'
+    );
+  }
+
+  // Backend returns audio/mpeg, not JSON.
+  return response.blob();
+}
