@@ -2222,7 +2222,7 @@ Login →
 <button
 name="action"
 value="signup"
-onclick="clearLoginFields()">
+>
 Create Account
 </button>
 
@@ -2285,11 +2285,7 @@ function togglePassword(){
     }
 }
 
-function clearLoginFields(){
 
-    document.querySelector('input[name="email"]').value = "";
-    document.getElementById("passwordField").value = "";
-}
 
 </script>
 
