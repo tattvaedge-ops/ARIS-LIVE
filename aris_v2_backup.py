@@ -4060,6 +4060,11 @@ def tokens():
             "status": "error"
         })
 
+@app.route("/home")
+def public_home():
+    return send_from_directory("static", "landing.html")
+
+
 # ===== CHAT ROUTE (JWT + SESSION HYBRID) =====
 @app.route("/chat", methods=["POST"])
 def chat():

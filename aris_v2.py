@@ -3865,6 +3865,90 @@ def login():
 
     return LOGIN_HTML.replace("{{error}}", error)
 
+
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login_page():
+
+    error = ""
+
+    try:
+        if request.method == "POST":
+
+            action = request.form.get("action", "").strip().lower()
+            email = request.form.get("email", "").strip().lower()
+            password = request.form.get("password", "").strip()
+
+            # ===============================
+            # BASIC VALIDATION
+            # ===============================
+            if not email or not password:
+                error = "Please enter email and password."
+                return LOGIN_HTML.replace("{{error}}", error)
+
+            # ===============================
+            # SIGNUP
+            # ===============================
+            if action == "signup":
+
+                user_id = create_user(email, password)
+
+                if user_id:
+                    session["user_id"] = user_id
+
+                    token = generate_token(user_id)
+
+                    resp = redirect("/aris")
+                    resp.set_cookie(
+                        "aris_token",
+                        token,
+                        httponly=True,
+                        secure=False,
+                        samesite="Lax"
+                    )
+
+                    return resp
+
+                else:
+                    error = "User already exists."
+
+            # ===============================
+            # LOGIN
+            # ===============================
+            elif action == "login":
+
+                user_id = authenticate_user(email, password)
+
+                if user_id:
+                    session["user_id"] = user_id
+
+                    token = generate_token(user_id)
+
+                    resp = redirect("/aris")
+                    resp.set_cookie(
+                        "aris_token",
+                        token,
+                        httponly=True,
+                        secure=False,
+                        samesite="Lax"
+                    )
+
+                    return resp
+
+                else:
+                    error = "Invalid credentials."
+
+            else:
+                error = "Invalid action."
+
+    except Exception as e:
+        print("❌ LOGIN ERROR:", str(e))
+        error = "Login system error. Please try again."
+
+    return LOGIN_HTML.replace("{{error}}", error)
+
+
 # ==========================================
 # MOBILE API LOGIN ENDPOINT
 # ==========================================
