@@ -2207,6 +2207,7 @@ cursor:pointer;
 font-size:18px;
 user-select:none;
 opacity:.8;
+color:#f97316;
 ">
 👁
 </span>
