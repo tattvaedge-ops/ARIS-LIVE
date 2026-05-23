@@ -3936,6 +3936,55 @@ def login_page():
 
     return LOGIN_HTML.replace("{{error}}", error)
 
+# ==========================================
+# CENTRAL AUTH HELPER
+# ==========================================
+def get_current_user_id():
+
+    try:
+
+        # ==================================
+        # 1. JWT FROM AUTH HEADER
+        # ==================================
+        auth_header = request.headers.get("Authorization", "")
+
+        if auth_header.startswith("Bearer "):
+
+            token = auth_header.split(" ")[1].strip()
+
+            user_id = verify_token(token)
+
+            if user_id:
+                return user_id
+
+        # ==================================
+        # 2. JWT FROM COOKIE
+        # ==================================
+        token = request.cookies.get("aris_token")
+
+        if token:
+
+            user_id = verify_token(token)
+
+            if user_id:
+                return user_id
+
+        # ==================================
+        # 3. SESSION FALLBACK
+        # ==================================
+        user_id = session.get("user_id")
+
+        if user_id:
+            return user_id
+
+        return None
+
+    except Exception as e:
+
+        print("❌ AUTH HELPER ERROR:", str(e))
+
+        return None
+
 
 # ==========================================
 # MOBILE API LOGIN ENDPOINT
@@ -4105,23 +4154,15 @@ def tokens():
 
     try:
         # ==================================
-        # AUTH : JWT → SESSION FALLBACK
+        # CENTRAL AUTH
         # ==================================
-        user_id = None
-
-        token = request.cookies.get("aris_token")
-
-        if token:
-            user_id = verify_token(token)
-
-        if not user_id:
-            user_id = session.get("user_id")
+        user_id = get_current_user_id()
 
         if not user_id:
             return jsonify({
                 "tokens": 0,
                 "status": "logged_out"
-            })
+        })
 
         # ==================================
         # GET BALANCE
@@ -4169,17 +4210,9 @@ def chat():
             })
 
         # ==========================================
-        # AUTH : JWT FIRST → SESSION FALLBACK
+        # CENTRAL AUTH
         # ==========================================
-        user_id = None
-
-        token = request.cookies.get("aris_token")
-
-        if token:
-            user_id = verify_token(token)
-
-        if not user_id:
-            user_id = session.get("user_id")
+        user_id = get_current_user_id()
 
         if not user_id:
             return jsonify({
@@ -4337,24 +4370,15 @@ def upload():
 def subscription_status():
     try:
         # ==================================
-        # AUTH CHECK (JWT → SESSION)
+        # CENTRAL AUTH
         # ==================================
-        user_id = None
-
-        token = request.cookies.get("aris_token")
-
-        if token:
-            user_id = verify_token(token)
-
-        if not user_id:
-            user_id = session.get("user_id")
+        user_id = get_current_user_id()
 
         if not user_id:
             return jsonify({
                 "active": False,
                 "message": "Session expired."
             }), 401
-
         conn = sqlite3.connect("aris_memory.db")
         c = conn.cursor()
 

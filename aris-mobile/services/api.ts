@@ -101,8 +101,11 @@ export async function sendMessage(
       headers: {
         'Content-Type':
           'application/json',
-        Cookie: `aris_token=${authToken}`,
+
+        Authorization:
+          `Bearer ${authToken}`,
       },
+
       body: JSON.stringify({
         message,
       }),
@@ -122,8 +125,10 @@ export async function buyTokens(
     `${API_BASE_URL}/buy_tokens`,
     {
       method: 'GET',
+
       headers: {
-        Cookie: `aris_token=${authToken}`,
+        Authorization:
+          `Bearer ${authToken}`,
       },
     }
   );
@@ -153,10 +158,14 @@ export async function uploadImage(
     `${API_BASE_URL}/api/upload-image`,
     {
       method: 'POST',
+
       headers: {
         Accept: 'application/json',
-        Cookie: `aris_token=${authToken}`,
+
+        Authorization:
+          `Bearer ${authToken}`,
       },
+
       body: formData,
     }
   );
@@ -186,20 +195,24 @@ export async function sendVoiceMessage(
     `${API_BASE_URL}/voice`,
     {
       method: 'POST',
+
       headers: {
-        Cookie: `aris_token=${authToken}`,
+        Authorization:
+          `Bearer ${authToken}`,
       },
+
       body: formData,
     }
   );
 
   if (!response.ok) {
     const text = await response.text();
+
     throw new Error(
       text || 'Voice processing failed.'
     );
   }
 
-  // Backend returns audio/mpeg, not JSON.
+  // Backend returns audio/mpeg
   return response.blob();
 }
