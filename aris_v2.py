@@ -361,7 +361,7 @@ def authenticate_user(email, password):
     finally:
         if conn:
             conn.close()
-            
+
 # ================= TOKEN SYSTEM =================
 
 def get_tokens(user_id):
@@ -2434,8 +2434,9 @@ font-family:Segoe UI;
 background:#0a192f;
 color:#0a192f;
 display:flex;
-height:100vh;
-overflow:hidden;
+min-height:100vh;
+overflow-x:hidden;
+overflow-y:auto;
 }
 
 .profile-panel{
@@ -2498,7 +2499,9 @@ flex:1;
 display:flex;
 flex-direction:column;
 min-height:0;
-padding:0 60px;   /* ⭐ ADD THIS */
+padding:0 16px;
+width:100%;
+box-sizing:border-box;
 }
 
 .aris-view{
@@ -2536,6 +2539,7 @@ display:flex;
 flex-direction:column;
 overflow-y:auto;
 height:100vh;
+flex-shrink:0;
 }
 
 /* RECTANGULAR LOGO */
@@ -2758,10 +2762,12 @@ flex-shrink:0;
 }
 
 .message{
-max-width:60%;
+max-width:85%;
 padding:12px;
 border-radius:14px;
 white-space:pre-wrap;
+word-wrap:break-word;
+overflow-wrap:break-word;
 }
 
 .user{
@@ -2879,6 +2885,103 @@ gap:16px;      /* more space between buttons */
 margin-top:10px;
 margin-bottom:10px;
 align-items:center;
+}
+
+@media screen and (max-width: 768px){
+
+body{
+flex-direction:column;
+overflow-x:hidden;
+}
+
+.sidebar{
+width:100%;
+height:auto;
+padding:10px;
+overflow-x:auto;
+}
+
+.logo-box{
+width:140px;
+height:60px;
+margin:auto;
+}
+
+.logo-box img{
+height:120px;
+}
+
+.logo-title{
+font-size:16px;
+margin-bottom:10px;
+}
+
+.main{
+width:100%;
+min-width:0;
+}
+
+.header{
+flex-direction:column;
+gap:10px;
+padding:10px;
+font-size:18px;
+text-align:center;
+}
+
+.header-right{
+width:100%;
+justify-content:center;
+flex-wrap:wrap;
+}
+
+.aris-view{
+padding:0 10px;
+}
+
+#chat{
+padding:10px;
+}
+
+.message{
+max-width:100%;
+font-size:14px;
+}
+
+#input-area{
+padding:8px;
+gap:6px;
+flex-wrap:nowrap;
+position:sticky;
+bottom:0;
+background:#0a192f;
+z-index:100;
+}
+
+#msg{
+font-size:16px;
+min-width:0;
+}
+
+.send,
+.attach-btn{
+flex-shrink:0;
+}
+
+.welcome-panel{
+max-width:100%;
+padding:18px;
+}
+
+.wow-container{
+gap:10px;
+}
+
+.wow-btn{
+font-size:13px;
+padding:8px 10px;
+}
+
 }
 
 </style>
