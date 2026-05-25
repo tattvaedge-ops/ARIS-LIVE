@@ -653,7 +653,10 @@ const runConversationLoop =
       />
 
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={{
+          flex: 1,
+          width: '100%',
+        }}
         behavior={
           Platform.OS === 'ios'
             ? 'padding'
@@ -1277,26 +1280,21 @@ const styles = StyleSheet.create({
   },
 
   bottomSafeArea: {
-    backgroundColor:
-      COLORS.background,
+    backgroundColor: COLORS.background,
+    width: '100%',
   },
 
   inputContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 12,
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 14,
     borderTopWidth: 1,
-    borderTopColor:
-      COLORS.border,
-    backgroundColor:
-      COLORS.background,
+    borderTopColor: COLORS.border,
+    backgroundColor: COLORS.background,
     gap: 8,
+    width: '100%',
   },
 
   attachButton: {
