@@ -332,9 +332,24 @@ def authenticate_user(email, password):
         if not row:
             return None
 
-        user_id, hashed_password = row
+        user_id, stored_password = row
 
-        if check_password_hash(hashed_password, password):
+        # ==================================
+        # HASHED PASSWORD SUPPORT
+        # ==================================
+        try:
+            if check_password_hash(
+                stored_password,
+                password
+            ):
+                return user_id
+        except:
+            pass
+
+        # ==================================
+        # LEGACY PLAIN PASSWORD SUPPORT
+        # ==================================
+        if stored_password == password:
             return user_id
 
         return None
@@ -346,7 +361,7 @@ def authenticate_user(email, password):
     finally:
         if conn:
             conn.close()
-
+            
 # ================= TOKEN SYSTEM =================
 
 def get_tokens(user_id):
