@@ -1127,11 +1127,13 @@ const styles = StyleSheet.create({
 
   chatArea: {
     flex: 1,
+    width: '100%',
   },
 
   chatContent: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 140,
+    flexGrow: 1,
   },
 
   chatImageWrapper: {
@@ -1280,6 +1282,10 @@ const styles = StyleSheet.create({
   },
 
   inputContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 14,
