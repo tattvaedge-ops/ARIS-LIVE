@@ -2493,6 +2493,7 @@ flex-direction:column;
 height:100vh;
 overflow:hidden;
 position:relative;
+min-width:0;
 }
 
 .aris-view{
@@ -2540,6 +2541,7 @@ padding:18px;
 display:flex;
 flex-direction:column;
 overflow-y:auto;
+overflow-x:hidden;
 height:100vh;
 box-sizing:border-box;
 }
@@ -2744,6 +2746,8 @@ display:flex;
 flex-direction:column;
 gap:12px;
 scroll-behavior:smooth;
+width:100%;
+box-sizing:border-box;
 }
 
 .message.aris:first-child{
@@ -2751,9 +2755,8 @@ margin-top:-15px;
 }
 
 #chat{
-max-width:1100px;
-margin:auto;
 width:100%;
+height:100%;
 }
 
 #input-area{
@@ -2893,6 +2896,14 @@ gap:16px;      /* more space between buttons */
 margin-top:10px;
 margin-bottom:10px;
 align-items:center;
+}
+
+*{
+box-sizing:border-box;
+}
+
+html,body{
+overflow-x:hidden;
 }
 
 </style>
