@@ -2312,6 +2312,7 @@ HTML = """
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ARIS</title>
 <script src="https://cdn.jsdelivr.net/npm/tsparticles@2/tsparticles.bundle.min.js"></script>
 
@@ -2434,9 +2435,8 @@ font-family:Segoe UI;
 background:#0a192f;
 color:#0a192f;
 display:flex;
-min-height:100vh;
-overflow-x:hidden;
-overflow-y:auto;
+height:100vh;
+overflow:hidden;
 }
 
 .profile-panel{
@@ -2490,7 +2490,8 @@ cursor:pointer;
 flex:1;
 display:flex;
 flex-direction:column;
-min-height:0;
+height:100vh;
+overflow:hidden;
 position:relative;
 }
 
@@ -2532,14 +2533,15 @@ animation:thinkingPulse 1.2s infinite;
 
 /* SIDEBAR */
 .sidebar{
-width:250px;
+width:260px;
+min-width:260px;
 background:linear-gradient(180deg,#071427,#0a192f);
 padding:18px;
 display:flex;
 flex-direction:column;
 overflow-y:auto;
 height:100vh;
-flex-shrink:0;
+box-sizing:border-box;
 }
 
 /* RECTANGULAR LOGO */
@@ -2728,19 +2730,20 @@ box-shadow:0 0 18px rgba(249,115,22,.25);
 flex:1;
 display:flex;
 flex-direction:column;
-min-height:0;
+height:100%;
 position:relative;
+overflow:hidden;
 z-index:2;
 }
 
 #chat{
 flex:1;
 overflow-y:auto;
-padding:0px 15px 15px 15px;
+padding:20px;
 display:flex;
 flex-direction:column;
-gap:10px;
-min-height:0;
+gap:12px;
+scroll-behavior:smooth;
 }
 
 .message.aris:first-child{
@@ -2791,17 +2794,22 @@ margin-top:6px;
 
 #input-area{
 display:flex;
+align-items:center;
+gap:10px;
 padding:12px;
 border-top:1px solid rgba(255,255,255,0.05);
 background:#0a192f;
-position:relative;
+flex-shrink:0;
 }
 
 #msg{
 flex:1;
-padding:12px;
-border-radius:10px;
+padding:14px;
+border-radius:12px;
 border:none;
+outline:none;
+font-size:16px;
+min-width:0;
 }
 
 .send{
@@ -2885,103 +2893,6 @@ gap:16px;      /* more space between buttons */
 margin-top:10px;
 margin-bottom:10px;
 align-items:center;
-}
-
-@media screen and (max-width: 768px){
-
-body{
-flex-direction:column;
-overflow-x:hidden;
-}
-
-.sidebar{
-width:100%;
-height:auto;
-padding:10px;
-overflow-x:auto;
-}
-
-.logo-box{
-width:140px;
-height:60px;
-margin:auto;
-}
-
-.logo-box img{
-height:120px;
-}
-
-.logo-title{
-font-size:16px;
-margin-bottom:10px;
-}
-
-.main{
-width:100%;
-min-width:0;
-}
-
-.header{
-flex-direction:column;
-gap:10px;
-padding:10px;
-font-size:18px;
-text-align:center;
-}
-
-.header-right{
-width:100%;
-justify-content:center;
-flex-wrap:wrap;
-}
-
-.aris-view{
-padding:0 10px;
-}
-
-#chat{
-padding:10px;
-}
-
-.message{
-max-width:100%;
-font-size:14px;
-}
-
-#input-area{
-padding:8px;
-gap:6px;
-flex-wrap:nowrap;
-position:sticky;
-bottom:0;
-background:#0a192f;
-z-index:100;
-}
-
-#msg{
-font-size:16px;
-min-width:0;
-}
-
-.send,
-.attach-btn{
-flex-shrink:0;
-}
-
-.welcome-panel{
-max-width:100%;
-padding:18px;
-}
-
-.wow-container{
-gap:10px;
-}
-
-.wow-btn{
-font-size:13px;
-padding:8px 10px;
-}
-
 }
 
 </style>
