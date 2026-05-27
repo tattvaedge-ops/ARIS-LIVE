@@ -2732,10 +2732,10 @@ box-shadow:0 0 18px rgba(249,115,22,.25);
 flex:1;
 display:flex;
 flex-direction:column;
-height:100%;
 position:relative;
 overflow:hidden;
 z-index:2;
+min-width:0;
 }
 
 #chat{
@@ -2755,8 +2755,20 @@ margin-top:-15px;
 }
 
 #chat{
+flex:1;
+overflow-y:auto;
+padding:20px;
+display:flex;
+flex-direction:column;
+gap:12px;
+scroll-behavior:smooth;
+
 width:100%;
-height:100%;
+max-width:1000px;
+
+margin:0 auto;
+
+box-sizing:border-box;
 }
 
 #input-area{
@@ -2799,30 +2811,59 @@ margin-top:6px;
 display:flex;
 align-items:center;
 gap:10px;
-padding:12px;
+
+padding:14px 20px;
+
 border-top:1px solid rgba(255,255,255,0.05);
+
 background:#0a192f;
+
 flex-shrink:0;
+
+width:100%;
+max-width:1000px;
+
+margin:0 auto;
+
+box-sizing:border-box;
 }
 
 #msg{
 flex:1;
-padding:14px;
-border-radius:12px;
+
+padding:16px 18px;
+
+border-radius:14px;
 border:none;
 outline:none;
+
 font-size:16px;
+
 min-width:0;
+
+background:white;
+
+height:54px;
+
+box-sizing:border-box;
 }
 
 .send{
-padding:10px 18px;
+height:54px;
+
+padding:0 22px;
+
 border:none;
-border-radius:10px;
+border-radius:12px;
+
 background:#f97316;
 color:white;
+
 cursor:pointer;
-margin-left:10px;
+
+font-weight:600;
+
+flex-shrink:0;
 }
 
 /* ===== ADD HERE ===== */
