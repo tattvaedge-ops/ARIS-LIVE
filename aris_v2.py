@@ -2490,10 +2490,16 @@ cursor:pointer;
 flex:1;
 display:flex;
 flex-direction:column;
+
 height:100vh;
+
 overflow:hidden;
+
 position:relative;
+
 min-width:0;
+
+width:100%;
 }
 
 .aris-view{
@@ -2740,13 +2746,21 @@ min-width:0;
 
 #chat{
 flex:1;
+
 overflow-y:auto;
+overflow-x:hidden;
+
 padding:20px;
+
 display:flex;
 flex-direction:column;
+
 gap:12px;
+
 scroll-behavior:smooth;
+
 width:100%;
+
 box-sizing:border-box;
 }
 
@@ -2754,29 +2768,24 @@ box-sizing:border-box;
 margin-top:-15px;
 }
 
-#chat{
-flex:1;
-overflow-y:auto;
-padding:20px;
-display:flex;
-flex-direction:column;
-gap:12px;
-scroll-behavior:smooth;
 
-width:100%;
-max-width:1000px;
-
-margin:0 auto;
-
-box-sizing:border-box;
-}
 
 #input-area{
 display:flex;
+align-items:center;
+gap:10px;
+
 padding:12px;
+
 border-top:1px solid rgba(255,255,255,0.05);
+
 background:#0a192f;
+
 flex-shrink:0;
+
+width:100%;
+
+box-sizing:border-box;
 }
 
 .message{
@@ -2807,26 +2816,7 @@ display:block;
 margin-top:6px;
 }
 
-#input-area{
-display:flex;
-align-items:center;
-gap:10px;
 
-padding:14px 20px;
-
-border-top:1px solid rgba(255,255,255,0.05);
-
-background:#0a192f;
-
-flex-shrink:0;
-
-width:100%;
-max-width:1000px;
-
-margin:0 auto;
-
-box-sizing:border-box;
-}
 
 #msg{
 flex:1;
@@ -2945,6 +2935,89 @@ box-sizing:border-box;
 
 html,body{
 overflow-x:hidden;
+}
+
+/* ================= MOBILE RESPONSIVE ================= */
+
+@media screen and (max-width:768px){
+
+body{
+flex-direction:column;
+overflow-x:hidden;
+}
+
+.sidebar{
+width:100%;
+min-width:100%;
+height:auto;
+
+padding:10px;
+
+overflow-x:auto;
+overflow-y:hidden;
+
+display:flex;
+flex-direction:row;
+align-items:center;
+gap:10px;
+}
+
+.logo-box{
+display:none;
+}
+
+.logo-title{
+display:none;
+}
+
+.menu-section{
+min-width:max-content;
+margin:0;
+}
+
+.main{
+width:100%;
+height:calc(100vh - 80px);
+}
+
+.header{
+padding:10px;
+font-size:18px;
+}
+
+#chat{
+padding:12px;
+}
+
+.message{
+max-width:95%;
+font-size:14px;
+}
+
+#input-area{
+padding:8px;
+gap:6px;
+}
+
+#msg{
+font-size:16px;
+height:46px;
+}
+
+.send{
+height:46px;
+padding:0 14px;
+}
+
+.wow-container{
+flex-wrap:wrap;
+}
+
+.wow-btn{
+font-size:12px;
+padding:8px 10px;
+}
+
 }
 
 </style>
