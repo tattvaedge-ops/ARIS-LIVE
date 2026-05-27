@@ -332,24 +332,9 @@ def authenticate_user(email, password):
         if not row:
             return None
 
-        user_id, stored_password = row
+        user_id, hashed_password = row
 
-        # ==================================
-        # HASHED PASSWORD SUPPORT
-        # ==================================
-        try:
-            if check_password_hash(
-                stored_password,
-                password
-            ):
-                return user_id
-        except:
-            pass
-
-        # ==================================
-        # LEGACY PLAIN PASSWORD SUPPORT
-        # ==================================
-        if stored_password == password:
+        if check_password_hash(hashed_password, password):
             return user_id
 
         return None
@@ -2312,7 +2297,6 @@ HTML = """
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ARIS</title>
 <script src="https://cdn.jsdelivr.net/npm/tsparticles@2/tsparticles.bundle.min.js"></script>
 
@@ -2490,16 +2474,8 @@ cursor:pointer;
 flex:1;
 display:flex;
 flex-direction:column;
-
-height:100vh;
-
-overflow:hidden;
-
+min-height:0;
 position:relative;
-
-min-width:0;
-
-width:100%;
 }
 
 .aris-view{
@@ -2507,9 +2483,7 @@ flex:1;
 display:flex;
 flex-direction:column;
 min-height:0;
-padding:0 16px;
-width:100%;
-box-sizing:border-box;
+padding:0 60px;   /* ⭐ ADD THIS */
 }
 
 .aris-view{
@@ -2540,16 +2514,13 @@ animation:thinkingPulse 1.2s infinite;
 
 /* SIDEBAR */
 .sidebar{
-width:260px;
-min-width:260px;
+width:250px;
 background:linear-gradient(180deg,#071427,#0a192f);
 padding:18px;
 display:flex;
 flex-direction:column;
 overflow-y:auto;
-overflow-x:hidden;
 height:100vh;
-box-sizing:border-box;
 }
 
 /* RECTANGULAR LOGO */
@@ -2738,63 +2709,44 @@ box-shadow:0 0 18px rgba(249,115,22,.25);
 flex:1;
 display:flex;
 flex-direction:column;
+min-height:0;
 position:relative;
-overflow:hidden;
 z-index:2;
-min-width:0;
 }
 
 #chat{
 flex:1;
-
 overflow-y:auto;
-overflow-x:hidden;
-
-padding:20px;
-
+padding:0px 15px 15px 15px;
 display:flex;
 flex-direction:column;
-
-gap:12px;
-
-scroll-behavior:smooth;
-
-width:100%;
-
-box-sizing:border-box;
+gap:10px;
+min-height:0;
 }
 
 .message.aris:first-child{
 margin-top:-15px;
 }
 
-
+#chat{
+max-width:1100px;
+margin:auto;
+width:100%;
+}
 
 #input-area{
 display:flex;
-align-items:center;
-gap:10px;
-
 padding:12px;
-
 border-top:1px solid rgba(255,255,255,0.05);
-
 background:#0a192f;
-
 flex-shrink:0;
-
-width:100%;
-
-box-sizing:border-box;
 }
 
 .message{
-max-width:85%;
+max-width:60%;
 padding:12px;
 border-radius:14px;
 white-space:pre-wrap;
-word-wrap:break-word;
-overflow-wrap:break-word;
 }
 
 .user{
@@ -2816,44 +2768,29 @@ display:block;
 margin-top:6px;
 }
 
-
+#input-area{
+display:flex;
+padding:12px;
+border-top:1px solid rgba(255,255,255,0.05);
+background:#0a192f;
+position:relative;
+}
 
 #msg{
 flex:1;
-
-padding:16px 18px;
-
-border-radius:14px;
+padding:12px;
+border-radius:10px;
 border:none;
-outline:none;
-
-font-size:16px;
-
-min-width:0;
-
-background:white;
-
-height:54px;
-
-box-sizing:border-box;
 }
 
 .send{
-height:54px;
-
-padding:0 22px;
-
+padding:10px 18px;
 border:none;
-border-radius:12px;
-
+border-radius:10px;
 background:#f97316;
 color:white;
-
 cursor:pointer;
-
-font-weight:600;
-
-flex-shrink:0;
+margin-left:10px;
 }
 
 /* ===== ADD HERE ===== */
@@ -2927,97 +2864,6 @@ gap:16px;      /* more space between buttons */
 margin-top:10px;
 margin-bottom:10px;
 align-items:center;
-}
-
-*{
-box-sizing:border-box;
-}
-
-html,body{
-overflow-x:hidden;
-}
-
-/* ================= MOBILE RESPONSIVE ================= */
-
-@media screen and (max-width:768px){
-
-body{
-flex-direction:column;
-overflow-x:hidden;
-}
-
-.sidebar{
-width:100%;
-min-width:100%;
-height:auto;
-
-padding:10px;
-
-overflow-x:auto;
-overflow-y:hidden;
-
-display:flex;
-flex-direction:row;
-align-items:center;
-gap:10px;
-}
-
-.logo-box{
-display:none;
-}
-
-.logo-title{
-display:none;
-}
-
-.menu-section{
-min-width:max-content;
-margin:0;
-}
-
-.main{
-width:100%;
-height:calc(100vh - 80px);
-}
-
-.header{
-padding:10px;
-font-size:18px;
-}
-
-#chat{
-padding:12px;
-}
-
-.message{
-max-width:95%;
-font-size:14px;
-}
-
-#input-area{
-padding:8px;
-gap:6px;
-}
-
-#msg{
-font-size:16px;
-height:46px;
-}
-
-.send{
-height:46px;
-padding:0 14px;
-}
-
-.wow-container{
-flex-wrap:wrap;
-}
-
-.wow-btn{
-font-size:12px;
-padding:8px 10px;
-}
-
 }
 
 </style>
@@ -4090,55 +3936,6 @@ def login_page():
 
     return LOGIN_HTML.replace("{{error}}", error)
 
-# ==========================================
-# CENTRAL AUTH HELPER
-# ==========================================
-def get_current_user_id():
-
-    try:
-
-        # ==================================
-        # 1. JWT FROM AUTH HEADER
-        # ==================================
-        auth_header = request.headers.get("Authorization", "")
-
-        if auth_header.startswith("Bearer "):
-
-            token = auth_header.split(" ")[1].strip()
-
-            user_id = verify_token(token)
-
-            if user_id:
-                return user_id
-
-        # ==================================
-        # 2. JWT FROM COOKIE
-        # ==================================
-        token = request.cookies.get("aris_token")
-
-        if token:
-
-            user_id = verify_token(token)
-
-            if user_id:
-                return user_id
-
-        # ==================================
-        # 3. SESSION FALLBACK
-        # ==================================
-        user_id = session.get("user_id")
-
-        if user_id:
-            return user_id
-
-        return None
-
-    except Exception as e:
-
-        print("❌ AUTH HELPER ERROR:", str(e))
-
-        return None
-
 
 # ==========================================
 # MOBILE API LOGIN ENDPOINT
@@ -4308,15 +4105,23 @@ def tokens():
 
     try:
         # ==================================
-        # CENTRAL AUTH
+        # AUTH : JWT → SESSION FALLBACK
         # ==================================
-        user_id = get_current_user_id()
+        user_id = None
+
+        token = request.cookies.get("aris_token")
+
+        if token:
+            user_id = verify_token(token)
+
+        if not user_id:
+            user_id = session.get("user_id")
 
         if not user_id:
             return jsonify({
                 "tokens": 0,
                 "status": "logged_out"
-        })
+            })
 
         # ==================================
         # GET BALANCE
@@ -4364,9 +4169,17 @@ def chat():
             })
 
         # ==========================================
-        # CENTRAL AUTH
+        # AUTH : JWT FIRST → SESSION FALLBACK
         # ==========================================
-        user_id = get_current_user_id()
+        user_id = None
+
+        token = request.cookies.get("aris_token")
+
+        if token:
+            user_id = verify_token(token)
+
+        if not user_id:
+            user_id = session.get("user_id")
 
         if not user_id:
             return jsonify({
@@ -4524,15 +4337,24 @@ def upload():
 def subscription_status():
     try:
         # ==================================
-        # CENTRAL AUTH
+        # AUTH CHECK (JWT → SESSION)
         # ==================================
-        user_id = get_current_user_id()
+        user_id = None
+
+        token = request.cookies.get("aris_token")
+
+        if token:
+            user_id = verify_token(token)
+
+        if not user_id:
+            user_id = session.get("user_id")
 
         if not user_id:
             return jsonify({
                 "active": False,
                 "message": "Session expired."
             }), 401
+
         conn = sqlite3.connect("aris_memory.db")
         c = conn.cursor()
 
