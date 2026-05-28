@@ -5,6 +5,7 @@ import datetime
 import requests
 import sys
 import os
+import logging
 
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 try:
@@ -86,6 +87,24 @@ client = OpenAI(api_key=api_key)
 
 
 app = Flask(__name__)
+
+logging.basicConfig(
+    filename='error.log',
+    level=logging.ERROR
+)
+
+
+
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024
+
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["60 per minute"]
+)
 
 app.secret_key = os.getenv("SECRET_KEY")
 if not app.secret_key:
@@ -340,6 +359,7 @@ def authenticate_user(email, password):
         return None
 
     except Exception as e:
+        logging.exception("❌ AUTH ERROR")
         print("❌ AUTH ERROR:", str(e))
         return None
 
@@ -3852,6 +3872,14 @@ def forgot_password():
 @app.route("/")
 def landing_page():
     return send_from_directory("static", "landing.html")
+
+
+@app.route("/health")
+def health():
+    return {
+        "status": "online",
+        "system": "ARIS Nexus"
+    }
    
 
 
@@ -5011,7 +5039,6 @@ def buy_tokens_page():
 def pricing():
     return send_from_directory("static", "pricing.html")
 
-import os
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

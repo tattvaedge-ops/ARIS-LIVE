@@ -2476,21 +2476,19 @@ display:flex;
 flex-direction:column;
 min-height:0;
 position:relative;
+overflow:hidden;
 }
+
 
 .aris-view{
 flex:1;
 display:flex;
 flex-direction:column;
 min-height:0;
-padding:0 60px;   /* ⭐ ADD THIS */
-}
-
-.aris-view{
-flex:1;
-display:flex;
-flex-direction:column;
-min-height:0;
+width:100%;
+overflow:hidden;
+box-sizing:border-box;
+padding:0 12px;
 }
 
 .aris-view:not(.active-view){
@@ -2712,6 +2710,8 @@ flex-direction:column;
 min-height:0;
 position:relative;
 z-index:2;
+width:100%;
+overflow:hidden;
 }
 
 #chat{
@@ -2729,9 +2729,10 @@ margin-top:-15px;
 }
 
 #chat{
-max-width:1100px;
-margin:auto;
 width:100%;
+max-width:100%;
+margin:0;
+box-sizing:border-box;
 }
 
 #input-area{
