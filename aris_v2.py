@@ -1701,39 +1701,29 @@ def process_ai_request(user_id, msg):
         # KLING VIDEO GENERATION
         # ==================================
         if msg_lower.startswith("create video"):
-            try:
-                print("🎬 KLING VIDEO MODE")
 
-                video_prompt = msg[12:].strip()
+            return {
+                "reply": """🎬 ARIS Video Generation
 
-                if not video_prompt:
-                    return {
-                        "reply": "⚠️ Please provide a prompt after 'create video'.",
-                        "suggestions": [
-                            "create video a cinematic rocket launch",
-                            "create video a futuristic AI city",
-                            "create video solar system animation"
-                        ],
-                        "tokens_left": get_tokens(user_id),
-                        "type": "text"
-                    }
+        ⚡ Cinematic AI Video Generation is coming soon.
 
-                result = generate_kling_video(video_prompt)
+        We are currently optimizing:
+        • cinematic quality
+        • scene consistency
+        • rendering speed
+        • AI storytelling
 
-                deduct_token(user_id, 15)
-                log_usage(user_id, 15)
+        🚀 Stay tuned for the full Creator AI launch.""",
 
-                return {
-                    "reply": "🎬 Video generation started successfully.",
-                    "result": result,
-                    "suggestions": [
-                        "Create another video",
-                        "Generate image from same prompt",
-                        "Write video script"
-                    ],
-                    "tokens_left": get_tokens(user_id),
-                    "type": "video"
-                }
+                "suggestions": [
+                    "Generate AI image",
+                    "Create cinematic poster",
+                    "Write video script"
+                ],
+
+                "tokens_left": get_tokens(user_id),
+                "type": "text"
+            }
 
             except Exception as e:
                 print("❌ KLING VIDEO ERROR:", str(e))
