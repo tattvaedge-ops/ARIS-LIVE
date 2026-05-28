@@ -1851,9 +1851,9 @@ def process_ai_request(user_id, msg):
                         "type": "text"
                     }
 
-                # Deduct tokens only after success
-                deduct_token(user_id, 7)
-                log_usage(user_id, 7)
+                # Deduct premium image tokens
+                deduct_token(user_id, TOKENS_IMAGE)
+                log_usage(user_id, TOKENS_IMAGE)
 
                 return {
                     "reply": "🖼️ Image generated successfully.",
@@ -1909,10 +1909,13 @@ def process_ai_request(user_id, msg):
         print("✅ FINAL REPLY:", reply[:200])
 
         # ==================================
-        # TOKEN DEDUCT
+        # FREE CHAT SYSTEM
         # ==================================
-        deduct_token(user_id, 1)
-        log_usage(user_id, 1)
+
+        # Normal chat remains free.
+        # Premium tools only consume tokens.
+
+        log_usage(user_id, 0)
 
         return {
             "reply": reply,
