@@ -1880,16 +1880,9 @@ def process_ai_request(user_id, msg):
             print("🧠 GENERAL MODE")
 
             reply = brain(msg, user_id)
-# ==================================
-# GENERAL MODE
-# ==================================
 
-else:
 
-    print("🧠 GENERAL MODE")
-
-    reply = brain(msg, user_id)
-
+    
         # ==================================
         # SAFE REPLY CHECK
         # ==================================
