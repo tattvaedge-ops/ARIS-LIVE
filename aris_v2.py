@@ -5018,10 +5018,10 @@ def api_upload_image():
         )
 
         # ==========================================
-        # TOKEN DEDUCTION
+        #  PREMIUM OCR TOKEN DEDUCTION
         # ==========================================
-        deduct_token(user_id, 1)
-        log_usage(user_id, 1)
+        deduct_token(user_id, TOKENS_OCR)
+        log_usage(user_id, TOKENS_OCR)
 
         tokens_left = get_tokens(user_id)
 
