@@ -1869,16 +1869,17 @@ def process_ai_request(user_id, msg):
             "law", "formula", "derive"
         ]
 
-# ==================================
-# STUDENT AI MODE
-# ==================================
-if any(x in msg_lower for x in student_words):
-    print("🎓 STUDENT MODE")
-    reply = solve_academic_question(msg, ask_openai)
-else:
-    print("🧠 GENERAL MODE")
-    reply = brain(msg, user_id)
+        if any(x in msg_lower for x in student_words):
 
+            print("🎓 STUDENT MODE")
+
+            reply = solve_academic_question(msg, ask_openai)
+
+        else:
+
+            print("🧠 GENERAL MODE")
+
+            reply = brain(msg, user_id)
 # ==================================
 # GENERAL MODE
 # ==================================
