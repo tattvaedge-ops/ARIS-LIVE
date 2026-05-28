@@ -1857,18 +1857,7 @@ def process_ai_request(user_id, msg):
                     "type": "text"
                 }
 
-                except Exception as e:
-    print("❌ AI ROUTING ERROR:", str(e))
-
-    return {
-        "reply": f"⚠️ AI processing failed: {str(e)}",
-        "suggestions": [
-            "Try again",
-            "Ask another question"
-        ],
-        "tokens_left": get_tokens(user_id),
-        "type": "text"
-    }
+                
 
         # ==================================
         # STUDENT AI MODE
