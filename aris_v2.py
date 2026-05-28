@@ -32,32 +32,79 @@ JWT_SECRET = os.getenv("SECRET_KEY")
 JWT_ALGO = "HS256"
 
 # ==================================
-# ARIS SUBSCRIPTION PLANS
+# ARIS FINAL TOKEN ECONOMY
 # ==================================
+
+TOKEN_VALUE_RS = 4
+
+# ==================================
+# PREMIUM TOKEN COSTS
+# ==================================
+
+TOKENS_RESEARCH = 5
+TOKENS_OCR = 5
+TOKENS_IMAGE = 15
+TOKENS_VIDEO = 50   # COMING SOON
+
+# ==================================
+# SUBSCRIPTION PLANS
+# ==================================
+
 SUBSCRIPTION_PLANS = {
+
     "monthly": {
-        "name": "ARIS Starter",
-        "price": 199,
-        "tokens": 60,
+        "name": "ARIS Monthly",
+        "price": 299,
+        "tokens": 90,
         "duration_days": 30
     },
+
     "quarterly": {
         "name": "ARIS Quarterly",
-        "price": 499,
-        "tokens": 200,
+        "price": 699,
+        "tokens": 240,
         "duration_days": 90
     },
+
     "half_yearly": {
         "name": "ARIS Half-Yearly",
-        "price": 899,
-        "tokens": 450,
+        "price": 1299,
+        "tokens": 540,
         "duration_days": 180
     },
+
     "annual": {
         "name": "ARIS Annual",
-        "price": 1499,
-        "tokens": 1000,
+        "price": 2499,
+        "tokens": 1200,
         "duration_days": 365
+    }
+}
+
+# ==================================
+# TOKEN RECHARGE PACKS
+# ==================================
+
+TOKEN_RECHARGE_PACKS = {
+
+    "starter": {
+        "price": 99,
+        "tokens": 25
+    },
+
+    "basic": {
+        "price": 199,
+        "tokens": 60
+    },
+
+    "power": {
+        "price": 399,
+        "tokens": 140
+    },
+
+    "creator": {
+        "price": 699,
+        "tokens": 300
     }
 }
 
