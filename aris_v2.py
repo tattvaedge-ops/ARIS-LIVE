@@ -1725,18 +1725,7 @@ def process_ai_request(user_id, msg):
                 "type": "text"
             }
 
-            except Exception as e:
-                print("❌ KLING VIDEO ERROR:", str(e))
-
-                return {
-                    "reply": f"⚠️ Kling video generation failed: {str(e)}",
-                    "suggestions": [
-                        "Try a shorter prompt",
-                        "Create image instead"
-                    ],
-                    "tokens_left": get_tokens(user_id),
-                    "type": "text"
-                }
+            
         
         # ==================================
         # GREETING
