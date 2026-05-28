@@ -1867,12 +1867,56 @@ def process_ai_request(user_id, msg):
             "law", "formula", "derive"
         ]
 
-        if any(x in msg_lower for x in student_words):
-            print("🎓 STUDENT MODE")
-            reply = solve_academic_question(msg, ask_openai)
-        else:
-            print("🧠 GENERAL MODE")
-            reply = brain(msg, user_id)
+        # ==================================
+# RESEARCH AI DETECTION
+# ==================================
+
+research_words = [
+    "research",
+    "thesis",
+    "dissertation",
+    "literature review",
+    "citation",
+    "journal",
+    "methodology",
+    "abstract",
+    "research paper",
+    "analysis"
+]
+
+# ==================================
+# STUDENT AI MODE
+# ==================================
+
+if any(x in msg_lower for x in student_words):
+
+    print("🎓 STUDENT MODE")
+
+    reply = solve_academic_question(msg, ask_openai)
+
+# ==================================
+# RESEARCH AI MODE
+# ==================================
+
+elif any(x in msg_lower for x in research_words):
+
+    print("🔬 RESEARCH MODE")
+
+    # Premium research token deduction
+    deduct_token(user_id, TOKENS_RESEARCH)
+    log_usage(user_id, TOKENS_RESEARCH)
+
+    reply = brain(msg, user_id)
+
+# ==================================
+# GENERAL MODE
+# ==================================
+
+else:
+
+    print("🧠 GENERAL MODE")
+
+    reply = brain(msg, user_id)
 
         # ==================================
         # SAFE REPLY CHECK
