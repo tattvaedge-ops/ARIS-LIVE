@@ -4552,26 +4552,12 @@ def subscription_status():
 # ================= SUBSCRIBE =================
 @app.route("/subscribe/<plan_key>")
 def subscribe(plan_key):
-    try:
-        # ==================================
-        # AUTH CHECK (JWT → SESSION)
-        # ==================================
-        user_id = None
 
-        token = request.cookies.get("aris_token")
-
-        if token:
-            user_id = verify_token(token)
-
-        if not user_id:
-            user_id = session.get("user_id")
-
-        if not user_id:
-            return jsonify({
-                "success": False,
-                "message": "⚠️ Session expired. Please login again."
-            }), 401
-
+    return jsonify({
+        "success": False,
+        "message": "Subscription payment integration in progress."
+    }), 403
+    
         # ==================================
         # VALIDATE PLAN
         # ==================================
