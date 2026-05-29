@@ -33,6 +33,23 @@ JWT_SECRET = os.getenv("SECRET_KEY")
 JWT_ALGO = "HS256"
 
 # ==================================
+# RAZORPAY CONFIG
+# ==================================
+
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
+
+razorpay_client = razorpay.Client(
+    auth=(
+        RAZORPAY_KEY_ID,
+        RAZORPAY_KEY_SECRET
+    )
+)
+
+
+
+
+# ==================================
 # ARIS FINAL TOKEN ECONOMY
 # ==================================
 
