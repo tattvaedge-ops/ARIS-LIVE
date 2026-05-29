@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ARIS Pricing</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
 <style>
 body {
@@ -183,14 +184,62 @@ loadSubscriptionStatus();
 
 async function buySubscription(plan){
 
-    const planUrls = {
-        monthly: "/subscribe/monthly",
-        quarterly: "/subscribe/quarterly",
-        half_yearly: "/subscribe/half_yearly",
-        annual: "/subscribe/annual"
-    };
+    try{
 
-    window.location.href = planUrls[plan];
+        const response = await fetch("/create_subscription_order", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                plan: plan
+            })
+        });
+
+        const data = await response.json();
+
+        if(!data.success){
+            alert(data.message || "Unable to start subscription payment.");
+            return;
+        }
+
+        const options = {
+
+            key: data.key,
+
+            amount: data.amount * 100,
+
+            currency: "INR",
+
+            name: "ARIS Nexus",
+
+            description: data.plan_name,
+
+            order_id: data.order_id,
+
+            handler: function(response){
+
+                alert(
+                    "Payment Successful!\n\n" +
+                    "Subscription activation will be connected next."
+                );
+
+            }
+
+        };
+
+        const rzp = new Razorpay(options);
+
+        rzp.open();
+
+    }
+    catch(err){
+
+        console.log(err);
+
+        alert("Unable to start subscription payment.");
+
+    }
 
 }
 </script>
