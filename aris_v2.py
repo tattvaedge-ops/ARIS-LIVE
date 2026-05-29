@@ -196,7 +196,7 @@ def init_db():
     c.execute("""
         CREATE TABLE IF NOT EXISTS token_wallet(
             user_id INTEGER PRIMARY KEY,
-            balance INTEGER DEFAULT 20
+            balance INTEGER DEFAULT 0
         )
     """)
 
@@ -3592,16 +3592,9 @@ async function loadTokens(){
     }
 }
 
-async function buyTokens(){
-
-
-
-    const res = await fetch("/buy_tokens");
-    const data = await res.json();
-
-    alert(data.message);
-
-    await loadTokens();   // refresh instantly
+function buyTokens(){
+    window.location.href = "/buy_tokens_page";
+   
 }
 
 // load on start
@@ -4507,7 +4500,7 @@ def subscribe(plan_key):
 
 
 # ================= BUY TOKENS =================
-@app.route("/buy_tokens")
+@app.route("/api/buy_tokens")
 def buy_tokens():
 
     try:

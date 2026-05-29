@@ -5,6 +5,7 @@ import datetime
 import requests
 import sys
 import os
+import logging
 
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 try:
@@ -31,32 +32,79 @@ JWT_SECRET = os.getenv("SECRET_KEY")
 JWT_ALGO = "HS256"
 
 # ==================================
-# ARIS SUBSCRIPTION PLANS
+# ARIS FINAL TOKEN ECONOMY
 # ==================================
+
+TOKEN_VALUE_RS = 4
+
+# ==================================
+# PREMIUM TOKEN COSTS
+# ==================================
+
+TOKENS_RESEARCH = 5
+TOKENS_OCR = 5
+TOKENS_IMAGE = 15
+TOKENS_VIDEO = 50   # COMING SOON
+
+# ==================================
+# SUBSCRIPTION PLANS
+# ==================================
+
 SUBSCRIPTION_PLANS = {
+
     "monthly": {
-        "name": "ARIS Starter",
-        "price": 199,
-        "tokens": 60,
+        "name": "ARIS Monthly",
+        "price": 299,
+        "tokens": 90,
         "duration_days": 30
     },
+
     "quarterly": {
         "name": "ARIS Quarterly",
-        "price": 499,
-        "tokens": 200,
+        "price": 699,
+        "tokens": 240,
         "duration_days": 90
     },
+
     "half_yearly": {
         "name": "ARIS Half-Yearly",
-        "price": 899,
-        "tokens": 450,
+        "price": 1299,
+        "tokens": 540,
         "duration_days": 180
     },
+
     "annual": {
         "name": "ARIS Annual",
-        "price": 1499,
-        "tokens": 1000,
+        "price": 2499,
+        "tokens": 1200,
         "duration_days": 365
+    }
+}
+
+# ==================================
+# TOKEN RECHARGE PACKS
+# ==================================
+
+TOKEN_RECHARGE_PACKS = {
+
+    "starter": {
+        "price": 99,
+        "tokens": 25
+    },
+
+    "basic": {
+        "price": 199,
+        "tokens": 60
+    },
+
+    "power": {
+        "price": 399,
+        "tokens": 140
+    },
+
+    "creator": {
+        "price": 699,
+        "tokens": 300
     }
 }
 
@@ -86,6 +134,24 @@ client = OpenAI(api_key=api_key)
 
 
 app = Flask(__name__)
+
+logging.basicConfig(
+    filename='error.log',
+    level=logging.ERROR
+)
+
+
+
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024
+
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["60 per minute"]
+)
 
 app.secret_key = os.getenv("SECRET_KEY")
 if not app.secret_key:
@@ -130,7 +196,7 @@ def init_db():
     c.execute("""
         CREATE TABLE IF NOT EXISTS token_wallet(
             user_id INTEGER PRIMARY KEY,
-            balance INTEGER DEFAULT 20
+            balance INTEGER DEFAULT 0
         )
     """)
 
@@ -340,6 +406,7 @@ def authenticate_user(email, password):
         return None
 
     except Exception as e:
+        logging.exception("❌ AUTH ERROR")
         print("❌ AUTH ERROR:", str(e))
         return None
 
@@ -1634,52 +1701,31 @@ def process_ai_request(user_id, msg):
         # KLING VIDEO GENERATION
         # ==================================
         if msg_lower.startswith("create video"):
-            try:
-                print("🎬 KLING VIDEO MODE")
 
-                video_prompt = msg[12:].strip()
+            return {
+                "reply": """🎬 ARIS Video Generation
 
-                if not video_prompt:
-                    return {
-                        "reply": "⚠️ Please provide a prompt after 'create video'.",
-                        "suggestions": [
-                            "create video a cinematic rocket launch",
-                            "create video a futuristic AI city",
-                            "create video solar system animation"
-                        ],
-                        "tokens_left": get_tokens(user_id),
-                        "type": "text"
-                    }
+        ⚡ Cinematic AI Video Generation is coming soon.
 
-                result = generate_kling_video(video_prompt)
+        We are currently optimizing:
+        • cinematic quality
+        • scene consistency
+        • rendering speed
+        • AI storytelling
 
-                deduct_token(user_id, 15)
-                log_usage(user_id, 15)
+        🚀 Stay tuned for the full Creator AI launch.""",
 
-                return {
-                    "reply": "🎬 Video generation started successfully.",
-                    "result": result,
-                    "suggestions": [
-                        "Create another video",
-                        "Generate image from same prompt",
-                        "Write video script"
-                    ],
-                    "tokens_left": get_tokens(user_id),
-                    "type": "video"
-                }
+                "suggestions": [
+                    "Generate AI image",
+                    "Create cinematic poster",
+                    "Write video script"
+                ],
 
-            except Exception as e:
-                print("❌ KLING VIDEO ERROR:", str(e))
+                "tokens_left": get_tokens(user_id),
+                "type": "text"
+            }
 
-                return {
-                    "reply": f"⚠️ Kling video generation failed: {str(e)}",
-                    "suggestions": [
-                        "Try a shorter prompt",
-                        "Create image instead"
-                    ],
-                    "tokens_left": get_tokens(user_id),
-                    "type": "text"
-                }
+            
         
         # ==================================
         # GREETING
@@ -1784,9 +1830,9 @@ def process_ai_request(user_id, msg):
                         "type": "text"
                     }
 
-                # Deduct tokens only after success
-                deduct_token(user_id, 7)
-                log_usage(user_id, 7)
+                # Deduct premium image tokens
+                deduct_token(user_id, TOKENS_IMAGE)
+                log_usage(user_id, TOKENS_IMAGE)
 
                 return {
                     "reply": "🖼️ Image generated successfully.",
@@ -1811,6 +1857,8 @@ def process_ai_request(user_id, msg):
                     "type": "text"
                 }
 
+                
+
         # ==================================
         # STUDENT AI MODE
         # ==================================
@@ -1822,12 +1870,19 @@ def process_ai_request(user_id, msg):
         ]
 
         if any(x in msg_lower for x in student_words):
+
             print("🎓 STUDENT MODE")
+
             reply = solve_academic_question(msg, ask_openai)
+
         else:
+
             print("🧠 GENERAL MODE")
+
             reply = brain(msg, user_id)
 
+
+    
         # ==================================
         # SAFE REPLY CHECK
         # ==================================
@@ -1842,10 +1897,13 @@ def process_ai_request(user_id, msg):
         print("✅ FINAL REPLY:", reply[:200])
 
         # ==================================
-        # TOKEN DEDUCT
+        # FREE CHAT SYSTEM
         # ==================================
-        deduct_token(user_id, 1)
-        log_usage(user_id, 1)
+
+        # Normal chat remains free.
+        # Premium tools only consume tokens.
+
+        log_usage(user_id, 0)
 
         return {
             "reply": reply,
@@ -3852,6 +3910,14 @@ def forgot_password():
 @app.route("/")
 def landing_page():
     return send_from_directory("static", "landing.html")
+
+
+@app.route("/health")
+def health():
+    return {
+        "status": "online",
+        "system": "ARIS Nexus"
+    }
    
 
 
@@ -4961,10 +5027,10 @@ def api_upload_image():
         )
 
         # ==========================================
-        # TOKEN DEDUCTION
+        #  PREMIUM OCR TOKEN DEDUCTION
         # ==========================================
-        deduct_token(user_id, 1)
-        log_usage(user_id, 1)
+        deduct_token(user_id, TOKENS_OCR)
+        log_usage(user_id, TOKENS_OCR)
 
         tokens_left = get_tokens(user_id)
 
@@ -5011,7 +5077,6 @@ def buy_tokens_page():
 def pricing():
     return send_from_directory("static", "pricing.html")
 
-import os
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
