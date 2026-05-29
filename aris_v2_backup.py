@@ -3592,16 +3592,9 @@ async function loadTokens(){
     }
 }
 
-async function buyTokens(){
-
-
-
-    const res = await fetch("/buy_tokens");
-    const data = await res.json();
-
-    alert(data.message);
-
-    await loadTokens();   // refresh instantly
+function buyTokens(){
+    window.location.href = "/recharge";
+   
 }
 
 // load on start
@@ -4507,7 +4500,7 @@ def subscribe(plan_key):
 
 
 # ================= BUY TOKENS =================
-@app.route("/buy_tokens")
+@app.route("/api/buy_tokens")
 def buy_tokens():
 
     try:
@@ -5053,8 +5046,8 @@ def api_upload_image():
         }), 500
 
 
-@app.route("/buy_tokens_page")
-def buy_tokens_page():
+@app.route("/recharge")
+def recharge_page():
     user_id = None
 
     token = request.cookies.get("aris_token")
@@ -5068,10 +5061,13 @@ def buy_tokens_page():
     if not user_id:
         return redirect("/login")
 
-    if not user_has_active_subscription(user_id):
-        return redirect("/pricing")
+    # TEMPORARY LAUNCH TESTING
+    # Subscription check disabled
 
-    return send_from_directory("static", "buy_tokens.html")
+    # if not user_has_active_subscription(user_id):
+    #     return redirect("/pricing")
+
+    return send_from_directory("static", "recharge.html")
 
 @app.route("/pricing")
 def pricing():
