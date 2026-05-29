@@ -39,6 +39,9 @@ JWT_ALGO = "HS256"
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
 
+print("RAZORPAY KEY ID:", RAZORPAY_KEY_ID)
+print("RAZORPAY SECRET LOADED:", bool(RAZORPAY_KEY_SECRET))
+
 razorpay_client = razorpay.Client(
     auth=(
         RAZORPAY_KEY_ID,
