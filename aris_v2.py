@@ -129,6 +129,38 @@ TOKEN_RECHARGE_PACKS = {
     }
 }
 
+# ==================================
+# SUBSCRIPTION PLANS PRICING
+# ==================================
+
+SUBSCRIPTION_PRICING = {
+
+    "monthly": {
+        "price": 299,
+        "tokens": 90,
+        "name": "ARIS Monthly"
+    },
+
+    "quarterly": {
+        "price": 699,
+        "tokens": 240,
+        "name": "ARIS Quarterly"
+    },
+
+    "half_yearly": {
+        "price": 1299,
+        "tokens": 540,
+        "name": "ARIS Half Yearly"
+    },
+
+    "annual": {
+        "price": 2499,
+        "tokens": 1200,
+        "name": "ARIS Annual"
+    }
+
+}
+
 
 def generate_token(user_id):
     payload = {

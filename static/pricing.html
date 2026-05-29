@@ -180,6 +180,19 @@ async function loadSubscriptionStatus() {
 }
 
 loadSubscriptionStatus();
+
+async function buySubscription(plan){
+
+    const planUrls = {
+        monthly: "/subscribe/monthly",
+        quarterly: "/subscribe/quarterly",
+        half_yearly: "/subscribe/half_yearly",
+        annual: "/subscribe/annual"
+    };
+
+    window.location.href = planUrls[plan];
+
+}
 </script>
 </body>
 </html>
