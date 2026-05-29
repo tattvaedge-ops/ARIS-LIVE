@@ -191,7 +191,10 @@ def create_recharge_order():
 
     except Exception as e:
 
+        import traceback
+
         print("❌ RAZORPAY ORDER ERROR:", str(e))
+        traceback.print_exc()
 
         return jsonify({
             "success": False,
