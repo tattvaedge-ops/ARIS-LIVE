@@ -4558,30 +4558,7 @@ def subscribe(plan_key):
         "message": "Subscription payment integration in progress."
     }), 403
     
-        # ==================================
-        # VALIDATE PLAN
-        # ==================================
-        if plan_key not in SUBSCRIPTION_PLANS:
-            return jsonify({
-                "success": False,
-                "message": "Invalid subscription plan."
-            }), 400
-
-        # ==================================
-        # PAYMENT REQUIRED
-        # ==================================
-        result = activate_subscription(user_id, plan_key)
-
-        return jsonify(result)
-
-    except Exception as e:
-        print("❌ SUBSCRIPTION ERROR:", str(e))
-
-        return jsonify({
-            "success": False,
-            "message": "⚠️ Subscription activation failed."
-        }), 500
-
+        
 
 # ================= BUY TOKENS =================
 @app.route("/api/buy_tokens")
