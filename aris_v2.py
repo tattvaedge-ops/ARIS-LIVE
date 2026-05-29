@@ -3593,7 +3593,7 @@ async function loadTokens(){
 }
 
 function buyTokens(){
-    window.location.href = "/buy_tokens_page";
+    window.location.href = "/recharge";
    
 }
 
@@ -5046,8 +5046,8 @@ def api_upload_image():
         }), 500
 
 
-@app.route("/buy_tokens_page")
-def buy_tokens_page():
+@app.route("/recharge")
+def recharge_page():
     user_id = None
 
     token = request.cookies.get("aris_token")
@@ -5064,7 +5064,7 @@ def buy_tokens_page():
     if not user_has_active_subscription(user_id):
         return redirect("/pricing")
 
-    return send_from_directory("static", "buy_tokens.html")
+    return send_from_directory("static", "recharge.html")
 
 @app.route("/pricing")
 def pricing():

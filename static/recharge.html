@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>ARIS Token Recharge</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+body{
+    background:#000814;
+    color:white;
+}
+
+.glow-card{
+    background:#041233;
+    border:1px solid #ff9d42;
+    border-radius:25px;
+    transition:0.3s;
+}
+
+.glow-card:hover{
+    transform:translateY(-5px);
+    box-shadow:0 0 25px rgba(255,153,51,.4);
+}
+
+.btn-aris{
+    background:#f4a24f;
+    color:black;
+    font-weight:bold;
+    border-radius:12px;
+    padding:12px 20px;
+    width:100%;
+}
+
+.btn-aris:hover{
+    opacity:.9;
+}
+
+.logo{
+    max-width:300px;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container mx-auto px-6 py-10">
+
+    <div class="text-center">
+
+        <img
+            src="/static/aris_horizontal.png"
+            class="logo mx-auto mb-4"
+        >
+
+        <h1 class="text-5xl font-bold">
+            ARIS Token Recharge
+        </h1>
+
+        <p class="text-xl text-gray-300 mt-4">
+            Recharge anytime and continue creating with ARIS.
+        </p>
+
+    </div>
+
+    <div class="grid md:grid-cols-4 gap-6 mt-12">
+
+        <!-- STARTER -->
+
+        <div class="glow-card p-6 text-center">
+
+            <h2 class="text-2xl font-bold">
+                Starter
+            </h2>
+
+            <div class="text-5xl font-bold mt-5">
+                ₹99
+            </div>
+
+            <div class="text-green-400 text-xl mt-4">
+                25 Tokens
+            </div>
+
+            <button
+                class="btn-aris mt-8"
+                onclick="buyPack('starter')"
+            >
+                Recharge Now
+            </button>
+
+        </div>
+
+        <!-- STANDARD -->
+
+        <div class="glow-card p-6 text-center">
+
+            <div class="text-yellow-400 font-bold mb-2">
+                ⭐ MOST POPULAR
+            </div>
+
+            <h2 class="text-2xl font-bold">
+                Standard
+            </h2>
+
+            <div class="text-5xl font-bold mt-5">
+                ₹199
+            </div>
+
+            <div class="text-green-400 text-xl mt-4">
+                60 Tokens
+            </div>
+
+            <button
+                class="btn-aris mt-8"
+                onclick="buyPack('standard')"
+            >
+                Recharge Now
+            </button>
+
+        </div>
+
+        <!-- POWER -->
+
+        <div class="glow-card p-6 text-center">
+
+            <h2 class="text-2xl font-bold">
+                Power
+            </h2>
+
+            <div class="text-5xl font-bold mt-5">
+                ₹399
+            </div>
+
+            <div class="text-green-400 text-xl mt-4">
+                140 Tokens
+            </div>
+
+            <button
+                class="btn-aris mt-8"
+                onclick="buyPack('power')"
+            >
+                Recharge Now
+            </button>
+
+        </div>
+
+        <!-- CREATOR -->
+
+        <div class="glow-card p-6 text-center">
+
+            <div class="text-orange-400 font-bold mb-2">
+                🔥 BEST VALUE
+            </div>
+
+            <h2 class="text-2xl font-bold">
+                Creator
+            </h2>
+
+            <div class="text-5xl font-bold mt-5">
+                ₹699
+            </div>
+
+            <div class="text-green-400 text-xl mt-4">
+                300 Tokens
+            </div>
+
+            <button
+                class="btn-aris mt-8"
+                onclick="buyPack('creator')"
+            >
+                Recharge Now
+            </button>
+
+        </div>
+
+    </div>
+
+    <div class="mt-16 glow-card p-8">
+
+        <h2 class="text-3xl font-bold text-center mb-8">
+            Premium Features
+        </h2>
+
+        <div class="grid md:grid-cols-2 gap-4 text-lg">
+
+            <div>✓ OCR Doubt Solving</div>
+            <div>✓ Research AI</div>
+            <div>✓ AI Image Generation</div>
+            <div>✓ Future AI Video Generation</div>
+            <div>✓ Advanced Creator AI Tools</div>
+            <div>✓ Priority Processing</div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+function buyPack(pack){
+
+    alert(
+        "Razorpay integration will be connected next.\n\nSelected Pack: "
+        + pack
+    );
+
+}
+
+</script>
+
+</body>
+</html>
