@@ -5061,8 +5061,11 @@ def recharge_page():
     if not user_id:
         return redirect("/login")
 
-    if not user_has_active_subscription(user_id):
-        return redirect("/pricing")
+    # TEMPORARY LAUNCH TESTING
+    # Subscription check disabled
+
+    # if not user_has_active_subscription(user_id):
+    #     return redirect("/pricing")
 
     return send_from_directory("static", "recharge.html")
 
