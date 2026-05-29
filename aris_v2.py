@@ -233,6 +233,53 @@ def create_recharge_order():
             "message": str(e)
         })
 
+@app.route("/create_subscription_order", methods=["POST"])
+def create_subscription_order():
+
+try:
+
+    data = request.get_json()
+    plan = data.get("plan")
+
+    if plan not in SUBSCRIPTION_PRICING:
+        return jsonify({
+            "success": False,
+            "message": "Invalid subscription plan."
+        })
+
+    selected_plan = SUBSCRIPTION_PRICING[plan]
+
+    amount = selected_plan["price"]
+
+    order = razorpay_client.order.create({
+        "amount": amount * 100,
+        "currency": "INR",
+        "notes": {
+            "subscription_plan": plan,
+            "tokens": selected_plan["tokens"]
+        }
+    })
+
+    return jsonify({
+        "success": True,
+        "order_id": order["id"],
+        "amount": amount,
+        "key": RAZORPAY_KEY_ID,
+        "plan_name": selected_plan["name"]
+    })
+
+except Exception as e:
+
+    import traceback
+
+    print("❌ SUBSCRIPTION ORDER ERROR:", str(e))
+    traceback.print_exc()
+
+    return jsonify({
+        "success": False,
+        "message": str(e)
+    })
+
 logging.basicConfig(
     filename='error.log',
     level=logging.ERROR
