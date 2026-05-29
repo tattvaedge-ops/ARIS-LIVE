@@ -126,6 +126,47 @@ TOKEN_RECHARGE_PACKS = {
     }
 }
 
+# ==================================
+# CREATE RECHARGE ORDER
+# ==================================
+
+@app.route("/create_recharge_order", methods=["POST"])
+def create_recharge_order():
+
+    try:
+
+        data = request.get_json()
+        pack = data.get("pack")
+
+        if pack not in TOKEN_RECHARGE_PACKS:
+            return jsonify({
+                "success": False,
+                "message": "Invalid recharge pack."
+            })
+
+        amount = TOKEN_RECHARGE_PACKS[pack]["price"]
+
+        order = razorpay_client.order.create({
+            "amount": amount * 100,
+            "currency": "INR"
+        })
+
+        return jsonify({
+            "success": True,
+            "order_id": order["id"],
+            "amount": amount,
+            "key": RAZORPAY_KEY_ID
+        })
+
+    except Exception as e:
+
+        print("❌ RAZORPAY ORDER ERROR:", str(e))
+
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        })
+
 def generate_token(user_id):
     payload = {
         "user_id": user_id,
