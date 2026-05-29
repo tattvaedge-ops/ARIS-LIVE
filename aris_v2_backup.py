@@ -6,6 +6,7 @@ import requests
 import sys
 import os
 import logging
+import razorpay
 
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 try:
@@ -30,6 +31,23 @@ from aris_security import sanitize_input, is_malicious_input
 
 JWT_SECRET = os.getenv("SECRET_KEY")
 JWT_ALGO = "HS256"
+
+# ==================================
+# RAZORPAY CONFIG
+# ==================================
+
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
+
+razorpay_client = razorpay.Client(
+    auth=(
+        RAZORPAY_KEY_ID,
+        RAZORPAY_KEY_SECRET
+    )
+)
+
+
+
 
 # ==================================
 # ARIS FINAL TOKEN ECONOMY
@@ -4484,7 +4502,7 @@ def subscribe(plan_key):
             }), 400
 
         # ==================================
-        # ACTIVATE SUBSCRIPTION
+        # PAYMENT REQUIRED
         # ==================================
         result = activate_subscription(user_id, plan_key)
 

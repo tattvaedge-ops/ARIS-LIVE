@@ -7,6 +7,7 @@
 <title>ARIS Token Recharge</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
 <style>
 body{
@@ -215,12 +216,73 @@ body{
 
 <script>
 
-function buyPack(pack){
+async function buyPack(pack){
 
-    alert(
-        "Razorpay integration will be connected next.\n\nSelected Pack: "
-        + pack
-    );
+    try{
+
+        const res = await fetch(
+            "/create_recharge_order",
+            {
+                method:"POST",
+                headers:{
+                    "Content-Type":"application/json"
+                },
+                body:JSON.stringify({
+                    pack:pack
+                })
+            }
+        );
+
+        const data = await res.json();
+
+        if(!data.success){
+            alert(data.message);
+            return;
+        }
+
+        const options = {
+
+            key:data.key,
+
+            amount:data.amount * 100,
+
+            currency:"INR",
+
+            name:"ARIS Nexus",
+
+            description:"Token Recharge",
+
+            order_id:data.order_id,
+
+            handler:function(response){
+
+                alert(
+                    "✅ Payment Successful\n\nPayment ID: "
+                    + response.razorpay_payment_id
+                );
+
+            },
+
+            theme:{
+                color:"#f4a24f"
+            }
+
+        };
+
+        const rzp = new Razorpay(options);
+
+        rzp.open();
+
+    }
+    catch(err){
+
+        console.log(err);
+
+        alert(
+            "⚠️ Unable to start payment."
+        );
+
+    }
 
 }
 
