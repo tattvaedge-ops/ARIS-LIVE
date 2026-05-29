@@ -4502,11 +4502,12 @@ def subscribe(plan_key):
             }), 400
 
         # ==================================
-        # ACTIVATE SUBSCRIPTION
+        # PAYMENT REQUIRED
         # ==================================
-        result = activate_subscription(user_id, plan_key)
-
         return jsonify(result)
+            "success": False,
+            "message": "Subscription payment verification required."
+        }), 403
 
     except Exception as e:
         print("❌ SUBSCRIPTION ERROR:", str(e))
