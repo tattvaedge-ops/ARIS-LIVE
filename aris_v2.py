@@ -135,6 +135,12 @@ TOKEN_RECHARGE_PACKS = {
 
 SUBSCRIPTION_PRICING = {
 
+    "test": {
+    "price": 1,
+    "tokens": 50,
+    "name": "ARIS Test Plan"
+    },
+
     "monthly": {
         "price": 299,
         "tokens": 90,
@@ -279,6 +285,29 @@ def create_subscription_order():
             "success": False,
             "message": str(e)
         })
+
+@app.route("/verify_subscription_payment", methods=["POST"])
+def verify_subscription_payment():
+
+    try:
+
+        data = request.get_json()
+
+        print("✅ SUBSCRIPTION PAYMENT RECEIVED")
+        print(data)
+
+        return jsonify({
+            "success": True
+        })
+
+    except Exception as e:
+
+        print("❌ VERIFY SUBSCRIPTION ERROR:", str(e))
+
+        return jsonify({
+            "success": False
+        })        
+
 logging.basicConfig(
     filename='error.log',
     level=logging.ERROR
