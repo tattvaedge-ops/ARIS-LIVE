@@ -126,6 +126,34 @@ TOKEN_RECHARGE_PACKS = {
     }
 }
 
+
+def generate_token(user_id):
+    payload = {
+        "user_id": user_id,
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=1)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
+
+def verify_token(token):
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
+        return payload["user_id"]
+    except:
+        return None
+
+print("API KEY LOADED SUCCESSFULLY")  # Safe log
+
+from openai import OpenAI
+api_key = os.getenv("OPENAI_API_KEY")
+
+if not api_key:
+    raise ValueError("❌ OPENAI_API_KEY NOT FOUND")
+
+client = OpenAI(api_key=api_key)
+
+
+app = Flask(__name__)
+
 # ==================================
 # CREATE RECHARGE ORDER
 # ==================================
@@ -166,33 +194,6 @@ def create_recharge_order():
             "success": False,
             "message": str(e)
         })
-
-def generate_token(user_id):
-    payload = {
-        "user_id": user_id,
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=1)
-    }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
-
-def verify_token(token):
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
-        return payload["user_id"]
-    except:
-        return None
-
-print("API KEY LOADED SUCCESSFULLY")  # Safe log
-
-from openai import OpenAI
-api_key = os.getenv("OPENAI_API_KEY")
-
-if not api_key:
-    raise ValueError("❌ OPENAI_API_KEY NOT FOUND")
-
-client = OpenAI(api_key=api_key)
-
-
-app = Flask(__name__)
 
 logging.basicConfig(
     filename='error.log',
