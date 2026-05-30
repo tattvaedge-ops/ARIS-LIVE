@@ -240,7 +240,11 @@ async function buySubscription(plan){
 
 
             handler: async function(response){
-                alert("HANDLER FIRED");
+                alert(
+                    "HANDLER FIRED\n\n" +
+                    JSON.stringify(response)
+                );
+                    
                 try{
 
                     const verifyResponse = await fetch(
