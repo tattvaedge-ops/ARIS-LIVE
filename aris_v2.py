@@ -116,6 +116,11 @@ SUBSCRIPTION_PLANS = {
 
 TOKEN_RECHARGE_PACKS = {
 
+    "test": {
+        "price": 1,
+        "tokens": 50
+    },
+
     "starter": {
         "price": 99,
         "tokens": 25
