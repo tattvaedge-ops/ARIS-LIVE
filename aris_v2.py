@@ -293,20 +293,80 @@ def verify_subscription_payment():
 
         data = request.get_json()
 
+        razorpay_payment_id = data.get("razorpay_payment_id")
+        razorpay_order_id = data.get("razorpay_order_id")
+        razorpay_signature = data.get("razorpay_signature")
+        plan = data.get("plan")
+
         print("✅ SUBSCRIPTION PAYMENT RECEIVED")
         print(data)
 
+        # ==================================
+        # AUTH CHECK
+        # ==================================
+        user_id = None
+
+        token = request.cookies.get("aris_token")
+
+        if token:
+            user_id = verify_token(token)
+
+        if not user_id:
+            user_id = session.get("user_id")
+
+        if not user_id:
+            return jsonify({
+                "success": False,
+                "message": "Session expired."
+            })
+
+        # ==================================
+        # VERIFY SIGNATURE
+        # ==================================
+        params_dict = {
+            "razorpay_order_id": razorpay_order_id,
+            "razorpay_payment_id": razorpay_payment_id,
+            "razorpay_signature": razorpay_signature
+        }
+
+        razorpay_client.utility.verify_payment_signature(
+            params_dict
+        )
+
+        # ==================================
+        # ACTIVATE SUBSCRIPTION
+        # ==================================
+        result = activate_subscription(
+            user_id,
+            plan
+        )
+
+        print(
+            f"✅ SUBSCRIPTION ACTIVATED | USER {user_id} | PLAN {plan}"
+        )
+
         return jsonify({
-            "success": True
+            "success": True,
+            "message": "Subscription activated successfully.",
+            "plan": result["plan_name"],
+            "tokens_added": result["tokens_added"]
         })
 
     except Exception as e:
 
-        print("❌ VERIFY SUBSCRIPTION ERROR:", str(e))
+        import traceback
+
+        print(
+            "❌ VERIFY SUBSCRIPTION ERROR:",
+            str(e)
+        )
+
+        traceback.print_exc()
 
         return jsonify({
-            "success": False
-        })        
+            "success": False,
+            "message": str(e)
+        })
 
 logging.basicConfig(
     filename='error.log',
