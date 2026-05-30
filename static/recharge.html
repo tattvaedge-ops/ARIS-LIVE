@@ -161,7 +161,7 @@ body{
 
             <button
                 class="btn-aris mt-8"
-                onclick="buyPack('basic')
+                 onclick="buyPack('basic')"
             >
                 Recharge Now
             </button>
@@ -283,7 +283,7 @@ async function buyPack(pack){
 
             order_id:data.order_id,
 
-            handler:function(response){
+            handler: async function(response){
 
                 try{
 
