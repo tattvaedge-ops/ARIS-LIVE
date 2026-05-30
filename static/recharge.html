@@ -285,12 +285,47 @@ async function buyPack(pack){
 
             handler:function(response){
 
-                alert(
-                    "✅ Payment Successful\n\nPayment ID: "
-                    + response.razorpay_payment_id
-                );
+                try{
 
-            },
+        const verify = await fetch(
+            "/verify_recharge_payment",
+            {
+                method:"POST",
+                headers:{
+                    "Content-Type":"application/json"
+                },
+                body:JSON.stringify({
+
+                    razorpay_payment_id:
+                        response.razorpay_payment_id,
+
+                    razorpay_order_id:
+                        response.razorpay_order_id,
+
+                    razorpay_signature:
+                        response.razorpay_signature,
+
+                    pack: pack
+                })
+            }
+        );
+
+        const result = await verify.json();
+
+        alert(
+            JSON.stringify(result)
+        );
+
+    }
+    catch(err){
+
+        alert(
+            "Recharge verification failed."
+        );
+
+    }
+
+},
 
             theme:{
                 color:"#f4a24f"
