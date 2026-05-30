@@ -381,6 +381,28 @@ def verify_subscription_payment():
             "message": str(e)
         })
 
+@app.route("/verify_recharge_payment", methods=["POST"])
+def verify_recharge_payment():
+
+    try:
+
+        data = request.get_json()
+
+        print("✅ RECHARGE PAYMENT RECEIVED")
+        print(data)
+
+        return jsonify({
+            "success": True
+        })
+
+    except Exception as e:
+
+        print("❌ VERIFY RECHARGE ERROR:", str(e))
+
+        return jsonify({
+            "success": False
+        })        
+
 logging.basicConfig(
     filename='error.log',
     level=logging.ERROR
