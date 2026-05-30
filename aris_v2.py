@@ -73,6 +73,14 @@ TOKENS_VIDEO = 50   # COMING SOON
 
 SUBSCRIPTION_PLANS = {
 
+
+    "test": {
+        "name": "ARIS Test Plan",
+        "price": 1,
+        "tokens": 50,
+        "duration_days": 30
+    },
+
     "monthly": {
         "name": "ARIS Monthly",
         "price": 299,
