@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>ARIS Chip Layout</title>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+}
+
+body{
+height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+background:#050816;
+overflow:hidden;
+}
+
+body::before{
+content:"";
+position:absolute;
+inset:0;
+
+background-image:
+linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+
+background-size:40px 40px;
+}
+
+/* MAIN BOARD */
+
+.board{
+position:relative;
+
+width:900px;
+height:600px;
+
+border:1px solid rgba(255,170,0,.25);
+border-radius:20px;
+}
+
+/* SOCKET */
+
+.socket{
+position:absolute;
+
+left:50%;
+top:50%;
+
+transform:translate(-50%,-50%);
+
+width:360px;
+height:360px;
+
+border:none;
+
+border-radius:24px;
+}
+
+/* CHIP */
+
+.chip{
+position:absolute;
+
+left:50%;
+top:50%;
+
+transform:translate(-50%,-50%);
+
+width:260px;
+height:260px;
+
+border:2px solid #ffb347;
+
+border-radius:28px;
+
+background:
+linear-gradient(
+180deg,
+rgba(255,183,71,.03),
+rgba(5,8,22,.85)
+);
+
+box-shadow:
+
+box-shadow:
+0 0 25px rgba(255,180,70,.8),
+0 0 60px rgba(255,180,70,.45),
+0 0 120px rgba(255,180,70,.18);
+
+inset 0 0 20px rgba(255,183,71,.08);
+
+animation:chipPulse 4s ease-in-out infinite;
+
+}
+
+/* INNER CHIP FRAME */
+
+.chip::before{
+content:"";
+position:absolute;
+
+top:14px;
+left:14px;
+right:14px;
+bottom:14px;
+
+border:1px solid rgba(255,170,0,.20);
+border-radius:20px;
+}
+
+/* PORTS */
+
+.port{
+position:absolute;
+
+width:12px;
+height:12px;
+
+border-radius:50%;
+
+background:#ffb347;
+
+box-shadow:
+
+0 0 8px #ffb347,
+
+0 0 16px #ffb347,
+
+0 0 24px rgba(255,183,71,.60);
+}
+
+/* TOP */
+
+/* TOP CONNECTORS */
+
+.port-top-left{
+top:-5px;
+left:30%;
+}
+
+.port-top{
+top:-5px;
+left:50%;
+transform:translateX(-50%);
+}
+
+.port-top-right{
+top:-5px;
+left:70%;
+}
+
+/* BOTTOM CONNECTORS */
+
+.port-bottom-left{
+bottom:-5px;
+left:30%;
+}
+
+.port-bottom{
+bottom:-5px;
+left:50%;
+transform:translateX(-50%);
+}
+
+.port-bottom-right{
+bottom:-5px;
+left:70%;
+}
+
+/* LEFT */
+
+.port-left{
+left:-5px;
+top:50%;
+transform:translateY(-50%);
+}
+
+/* RIGHT */
+
+.port-right{
+right:-5px;
+top:50%;
+transform:translateY(-50%);
+}
+
+/* TRACES */
+
+.trace-v-top{
+position:absolute;
+width:2px;
+height:100px;
+background:rgba(255,170,0,.4);
+
+left:50%;
+top:-100px;
+
+transform:translateX(-50%);
+}
+
+.trace-v-bottom{
+position:absolute;
+width:2px;
+height:100px;
+background:rgba(255,170,0,.4);
+
+left:50%;
+bottom:-100px;
+
+transform:translateX(-50%);
+}
+
+/* TOP LEFT */
+
+.trace-v-top-left{
+position:absolute;
+width:2px;
+height:80px;
+
+background:rgba(255,170,0,.4);
+
+left:30%;
+top:-80px;
+}
+
+/* TOP RIGHT */
+
+.trace-v-top-right{
+position:absolute;
+width:2px;
+height:80px;
+
+background:rgba(255,170,0,.4);
+
+left:70%;
+top:-80px;
+}
+
+/* BOTTOM LEFT */
+
+.trace-v-bottom-left{
+position:absolute;
+width:2px;
+height:80px;
+
+background:rgba(255,170,0,.4);
+
+left:30%;
+bottom:-80px;
+}
+
+/* BOTTOM RIGHT */
+
+.trace-v-bottom-right{
+position:absolute;
+width:2px;
+height:80px;
+
+background:rgba(255,170,0,.4);
+
+left:70%;
+bottom:-80px;
+}
+
+.trace-h-left{
+position:absolute;
+height:2px;
+width:120px;
+background:rgba(255,170,0,.4);
+
+left:-120px;
+top:50%;
+
+transform:translateY(-50%);
+}
+
+.trace-h-right{
+position:absolute;
+height:2px;
+width:120px;
+background:rgba(255,170,0,.4);
+
+right:-120px;
+top:50%;
+
+transform:translateY(-50%);
+}
+
+/* PCB CORNERS */
+
+.corner{
+position:absolute;
+width:40px;
+height:40px;
+}
+
+.tl{
+top:18px;
+left:18px;
+
+border-top:2px solid rgba(255,170,0,.35);
+border-left:2px solid rgba(255,170,0,.35);
+}
+
+.tr{
+top:18px;
+right:18px;
+
+border-top:2px solid rgba(255,170,0,.35);
+border-right:2px solid rgba(255,170,0,.35);
+}
+
+.bl{
+bottom:18px;
+left:18px;
+
+border-bottom:2px solid rgba(255,170,0,.35);
+border-left:2px solid rgba(255,170,0,.35);
+}
+
+.br{
+bottom:18px;
+right:18px;
+
+border-bottom:2px solid rgba(255,170,0,.35);
+border-right:2px solid rgba(255,170,0,.35);
+}
+
+
+
+/* =========================
+PCB TRACES
+========================= */
+
+.pcb{
+position:absolute;
+border-color:rgba(255,179,71,.22);
+pointer-events:none;
+}
+
+/* TOP LEFT */
+
+.pcb1{
+top:110px;
+left:90px;
+
+width:180px;
+height:80px;
+
+border-top:1px solid rgba(255,179,71,.14);
+border-left:1px solid rgba(255,179,71,.14);
+}
+
+/* TOP LEFT INNER */
+
+.pcb2{
+top:170px;
+left:170px;
+
+width:140px;
+height:60px;
+
+border-bottom:1px solid rgba(255,179,71,.14);
+border-left:1px solid rgba(255,179,71,.14);
+}
+
+/* TOP RIGHT */
+
+.pcb3{
+top:120px;
+right:100px;
+
+width:180px;
+height:90px;
+
+border-top:1px solid rgba(255,179,71,.14);
+border-right:1px solid rgba(255,179,71,.14);
+}
+
+/* TOP RIGHT INNER */
+
+.pcb4{
+top:180px;
+right:180px;
+
+width:120px;
+height:50px;
+
+border-bottom:1px solid rgba(255,179,71,.14);
+border-right:1px solid rgba(255,179,71,.14);
+}
+
+/* BOTTOM LEFT */
+
+.pcb5{
+bottom:120px;
+left:110px;
+
+width:180px;
+height:80px;
+
+border-bottom:1px solid rgba(255,179,71,.14);
+border-left:1px solid rgba(255,179,71,.14);
+}
+
+/* BOTTOM LEFT INNER */
+
+.pcb6{
+bottom:180px;
+left:180px;
+
+width:120px;
+height:60px;
+
+border-top:1px solid rgba(255,179,71,.14);
+border-left:1px solid rgba(255,179,71,.14);
+}
+
+/* BOTTOM RIGHT */
+
+.pcb7{
+bottom:120px;
+right:110px;
+
+width:180px;
+height:80px;
+
+border-bottom:1px solid rgba(255,179,71,.14);
+border-right:1px solid rgba(255,179,71,.14);
+}
+
+/* BOTTOM RIGHT INNER */
+
+.pcb8{
+bottom:180px;
+right:180px;
+
+width:120px;
+height:60px;
+
+border-top:1px solid rgba(255,179,71,.14);
+border-right:1px solid rgba(255,179,71,.14);
+}
+
+.pcb-line{
+position:absolute;
+height:1px;
+background:rgba(255,179,71,.18);
+}
+
+.pcb-line1{
+top:150px;
+left:150px;
+width:220px;
+}
+
+.pcb-line2{
+top:380px;
+left:120px;
+width:250px;
+}
+
+.pcb-line3{
+top:200px;
+right:130px;
+width:220px;
+}
+
+.pcb-line4{
+top:420px;
+right:140px;
+width:230px;
+}
+
+.pcb-line5{
+left:210px;
+top:140px;
+width:1px;
+height:140px;
+}
+
+.pcb-line6{
+right:210px;
+top:140px;
+width:1px;
+height:140px;
+}
+
+.pcb-line7{
+left:230px;
+bottom:120px;
+width:1px;
+height:120px;
+}
+
+.pcb-line8{
+right:230px;
+bottom:120px;
+width:1px;
+height:120px;
+}
+
+/* ===================================
+   CHIP CONNECTION TRACES
+=================================== */
+
+.trace-connect{
+position:absolute;
+background:rgba(255,183,71,.18);
+}
+
+/* TOP LEFT */
+
+.tl1{
+width:180px;
+height:1px;
+
+top:170px;
+left:220px;
+}
+
+.tl2{
+width:1px;
+height:120px;
+
+top:170px;
+left:400px;
+}
+
+/* TOP RIGHT */
+
+.tr1{
+width:180px;
+height:1px;
+
+top:170px;
+right:220px;
+}
+
+.tr2{
+width:1px;
+height:120px;
+
+top:170px;
+right:400px;
+}
+
+/* BOTTOM LEFT */
+
+.bl1{
+width:180px;
+height:1px;
+
+bottom:170px;
+left:220px;
+}
+
+.bl2{
+width:1px;
+height:120px;
+
+bottom:170px;
+left:400px;
+}
+
+/* BOTTOM RIGHT */
+
+.br1{
+width:180px;
+height:1px;
+
+bottom:170px;
+right:220px;
+}
+
+.br2{
+width:1px;
+height:120px;
+
+bottom:170px;
+right:400px;
+}
+
+/* GLOW NODES */
+
+.node{
+position:absolute;
+
+width:8px;
+height:8px;
+
+border-radius:50%;
+
+background:#ffb347;
+
+box-shadow:
+0 0 8px #ffb347,
+0 0 18px rgba(255,179,71,.8),
+0 0 35px rgba(255,179,71,.4);
+}
+
+.n1{
+top:170px;
+left:400px;
+}
+
+.n2{
+top:170px;
+right:400px;
+}
+
+.n3{
+bottom:170px;
+left:400px;
+}
+
+.n4{
+bottom:170px;
+right:400px;
+}
+
+/* ==========================
+   MOTHERBOARD DEPTH LAYERS
+========================== */
+
+.trace-layer{
+position:absolute;
+background:rgba(255,179,71,.12);
+}
+
+/* LEFT TOP */
+
+.layer1{
+width:140px;
+height:1px;
+
+top:260px;
+left:120px;
+}
+
+.layer2{
+width:1px;
+height:80px;
+
+top:260px;
+left:260px;
+}
+
+/* LEFT BOTTOM */
+
+.layer3{
+width:140px;
+height:1px;
+
+bottom:260px;
+left:120px;
+}
+
+.layer4{
+width:1px;
+height:80px;
+
+bottom:260px;
+left:260px;
+}
+
+/* RIGHT TOP */
+
+.layer5{
+width:140px;
+height:1px;
+
+top:260px;
+right:120px;
+}
+
+.layer6{
+width:1px;
+height:80px;
+
+top:260px;
+right:260px;
+}
+
+/* RIGHT BOTTOM */
+
+.layer7{
+width:140px;
+height:1px;
+
+bottom:260px;
+right:120px;
+}
+
+.layer8{
+width:1px;
+height:80px;
+
+bottom:260px;
+right:260px;
+}
+
+.micro-dot{
+position:absolute;
+
+width:4px;
+height:4px;
+
+border-radius:50%;
+
+background:#ffb347;
+
+box-shadow:
+0 0 6px rgba(255,179,71,.8);
+}
+
+.d1{
+top:180px;
+left:250px;
+}
+
+.d2{
+top:210px;
+left:290px;
+}
+
+.d3{
+top:240px;
+left:330px;
+}
+
+.d4{
+top:270px;
+left:370px;
+}
+
+.d5{
+top:180px;
+right:250px;
+}
+
+.d6{
+top:210px;
+right:290px;
+}
+
+.d7{
+top:240px;
+right:330px;
+}
+
+.d8{
+top:270px;
+right:370px;
+}
+
+/* ==========================
+   ARIS CORE
+========================== */
+
+.aris-core{
+
+position:absolute;
+
+top:50%;
+left:50%;
+
+transform:translate(-50%,-50%);
+margin-top:-20px;
+
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+
+z-index:200;
+}
+
+.aris-logo{
+
+font-family:Arial, sans-serif;
+
+font-size:85px;
+
+font-weight:700;
+
+letter-spacing:8px;
+
+color:white;
+
+text-shadow:
+0 0 15px rgba(255,255,255,.8),
+0 0 30px rgba(255,255,255,.4);
+}
+
+.aris-subtitle{
+
+font-size:28px;
+
+font-weight:500;
+
+color:#ffb347;
+
+line-height:1.15;
+
+text-align:center;
+
+text-shadow:
+0 0 6px rgba(255,179,71,.35);S
+}
+
+
+/* ==========================
+   INNER CHIP DETAILS
+========================== */
+
+.chip-detail{
+
+position:absolute;
+
+background:rgba(255,180,70,.18);
+
+z-index:120;
+}
+
+/* top horizontal */
+
+.detail1{
+
+top:70px;
+left:95px;
+
+width:120px;
+height:1px;
+}
+
+/* bottom horizontal */
+
+.detail2{
+
+bottom:70px;
+left:95px;
+
+width:120px;
+height:1px;
+}
+
+/* left vertical */
+
+.detail3{
+
+top:95px;
+left:70px;
+
+width:1px;
+height:120px;
+}
+
+/* right vertical */
+
+.detail4{
+
+top:95px;
+right:70px;
+
+width:1px;
+height:120px;
+}
+
+.chip-node{
+
+position:absolute;
+
+width:4px;
+height:4px;
+
+border-radius:50%;
+
+background:#ffbf57;
+
+box-shadow:
+0 0 6px #ffbf57,
+0 0 12px #ffbf57;
+
+z-index:130;
+}
+
+.node-a{
+top:58px;
+left:150px;
+}
+
+.node-b{
+top:58px;
+left:190px;
+}
+
+.node-c{
+top:150px;
+left:58px;
+}
+
+.node-d{
+top:150px;
+right:58px;
+}
+
+.node-e{
+bottom:58px;
+left:150px;
+}
+
+.node-f{
+bottom:58px;
+left:190px;
+}
+
+/* ==========================
+   MICRO CIRCUITS
+========================== */
+
+.micro-trace{
+
+position:absolute;
+
+background:rgba(255,190,90,.22);
+
+z-index:140;
+}
+
+/* top left */
+
+.trace-a{
+
+top:115px;
+left:95px;
+
+width:55px;
+height:1px;
+}
+
+/* top right */
+
+.trace-b{
+
+top:115px;
+right:95px;
+
+width:55px;
+height:1px;
+}
+
+/* bottom left */
+
+.trace-c{
+
+bottom:115px;
+left:95px;
+
+width:55px;
+height:1px;
+}
+
+/* bottom right */
+
+.trace-d{
+
+bottom:115px;
+right:95px;
+
+width:55px;
+height:1px;
+}
+
+.micro-dot{
+
+position:absolute;
+
+width:3px;
+height:3px;
+
+border-radius:50%;
+
+background:#ffc86a;
+
+box-shadow:
+0 0 8px #ffc86a,
+0 0 15px #ffc86a;
+
+z-index:150;
+}
+
+.dot-a{
+top:114px;
+left:150px;
+}
+
+.dot-b{
+top:114px;
+right:150px;
+}
+
+.dot-c{
+bottom:114px;
+left:150px;
+}
+
+.dot-d{
+bottom:114px;
+right:150px;
+}
+
+
+/* ==========================
+   ENERGY PARTICLES
+========================== */
+
+.energy-dot{
+
+position:absolute;
+
+width:2px;
+height:2px;
+
+border-radius:50%;
+
+background:#ffca70;
+
+box-shadow:
+0 0 6px #ffca70,
+0 0 12px #ffca70;
+
+z-index:160;
+
+animation:particlePulse 3s ease-in-out infinite;
+}
+
+.e1{top:85px;left:120px;}
+.e2{top:110px;left:210px;}
+.e3{top:140px;left:250px;}
+
+.e4{top:190px;left:95px;}
+.e5{top:215px;left:270px;}
+
+.e6{top:250px;left:130px;}
+.e7{top:275px;left:220px;}
+.e8{top:230px;left:180px;}
+
+@keyframes particlePulse{
+
+0%{
+opacity:.25;
+transform:scale(1);
+}
+
+50%{
+opacity:1;
+transform:scale(1.8);
+}
+
+100%{
+opacity:.25;
+transform:scale(1);
+}
+}
+
+/* ==========================
+   CHIP PULSE
+========================== */
+
+@keyframes chipPulse{
+
+0%{
+
+box-shadow:
+0 0 25px rgba(255,180,70,.65),
+0 0 60px rgba(255,180,70,.35),
+0 0 120px rgba(255,180,70,.15);
+
+}
+
+50%{
+
+box-shadow:
+0 0 35px rgba(255,180,70,.95),
+0 0 90px rgba(255,180,70,.55),
+0 0 160px rgba(255,180,70,.25);
+
+}
+
+100%{
+
+box-shadow:
+0 0 25px rgba(255,180,70,.65),
+0 0 60px rgba(255,180,70,.35),
+0 0 120px rgba(255,180,70,.15);
+
+}
+
+}
+
+
+</style>
+</head>
+
+<body>
+
+<div class="board">
+
+<div class="pcb pcb1"></div>
+<div class="pcb pcb2"></div>
+<div class="pcb pcb3"></div>
+<div class="pcb pcb4"></div>
+
+<div class="pcb pcb5"></div>
+<div class="pcb pcb6"></div>
+<div class="pcb pcb7"></div>
+<div class="pcb pcb8"></div> 
+
+<div class="pcb-line pcb-line1"></div>
+<div class="pcb-line pcb-line2"></div>
+<div class="pcb-line pcb-line3"></div>
+<div class="pcb-line pcb-line4"></div>
+
+<div class="pcb-line pcb-line5"></div>
+<div class="pcb-line pcb-line6"></div>
+<div class="pcb-line pcb-line7"></div>
+<div class="pcb-line pcb-line8"></div>
+
+<div class="socket">
+
+
+
+</div>
+
+</div>    
+
+<div class="chip">
+
+    
+
+<div class="corner tl"></div>
+<div class="corner tr"></div>
+<div class="corner bl"></div>
+<div class="corner br"></div>    
+
+<!-- TOP -->
+
+<div class="port port-top-left"></div>
+<div class="port port-top"></div>
+<div class="port port-top-right"></div>
+
+<!-- BOTTOM -->
+
+<div class="port port-bottom-left"></div>
+<div class="port port-bottom"></div>
+<div class="port port-bottom-right"></div>
+
+<div class="port port-left"></div>
+<div class="port port-right"></div>
+
+<!-- TOP TRACES -->
+
+<div class="trace-v-top-left"></div>
+<div class="trace-v-top"></div>
+<div class="trace-v-top-right"></div>
+
+<!-- BOTTOM TRACES -->
+
+<div class="trace-v-bottom-left"></div>
+<div class="trace-v-bottom"></div>
+<div class="trace-v-bottom-right"></div>
+
+<div class="trace-h-left"></div>
+<div class="trace-h-right"></div>
+
+<!-- TOP LEFT TO CHIP -->
+
+<div class="trace-connect tl1"></div>
+<div class="trace-connect tl2"></div>
+
+<!-- TOP RIGHT TO CHIP -->
+
+<div class="trace-connect tr1"></div>
+<div class="trace-connect tr2"></div>
+
+<!-- BOTTOM LEFT TO CHIP -->
+
+<div class="trace-connect bl1"></div>
+<div class="trace-connect bl2"></div>
+
+<!-- BOTTOM RIGHT TO CHIP -->
+
+<div class="trace-connect br1"></div>
+<div class="trace-connect br2"></div>
+
+<!-- GLOW NODES -->
+
+<div class="node n1"></div>
+<div class="node n2"></div>
+<div class="node n3"></div>
+<div class="node n4"></div>
+
+<div class="micro-dot d1"></div>
+<div class="micro-dot d2"></div>
+<div class="micro-dot d3"></div>
+<div class="micro-dot d4"></div>
+
+<div class="micro-dot d5"></div>
+<div class="micro-dot d6"></div>
+<div class="micro-dot d7"></div>
+<div class="micro-dot d8"></div>
+
+<div class="trace-layer layer1"></div>
+<div class="trace-layer layer2"></div>
+<div class="trace-layer layer3"></div>
+<div class="trace-layer layer4"></div>
+
+<div class="trace-layer layer5"></div>
+<div class="trace-layer layer6"></div>
+<div class="trace-layer layer7"></div>
+<div class="trace-layer layer8"></div>
+
+<div class="chip-detail detail1"></div>
+<div class="chip-detail detail2"></div>
+<div class="chip-detail detail3"></div>
+<div class="chip-detail detail4"></div>
+
+<div class="chip-node node-a"></div>
+<div class="chip-node node-b"></div>
+<div class="chip-node node-c"></div>
+<div class="chip-node node-d"></div>
+<div class="chip-node node-e"></div>
+<div class="chip-node node-f"></div>
+
+<div class="micro-trace trace-a"></div>
+<div class="micro-trace trace-b"></div>
+<div class="micro-trace trace-c"></div>
+<div class="micro-trace trace-d"></div>
+
+<div class="micro-dot dot-a"></div>
+<div class="micro-dot dot-b"></div>
+<div class="micro-dot dot-c"></div>
+<div class="micro-dot dot-d"></div>
+
+<div class="energy-dot e1"></div>
+<div class="energy-dot e2"></div>
+<div class="energy-dot e3"></div>
+<div class="energy-dot e4"></div>
+<div class="energy-dot e5"></div>
+<div class="energy-dot e6"></div>
+<div class="energy-dot e7"></div>
+<div class="energy-dot e8"></div>
+
+<div class="aris-core">
+
+<div class="aris-logo">
+ARIS
+</div>
+
+<div class="aris-subtitle">
+Intelligence
+</div>
+
+<div class="aris-subtitle">
+System
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</body>
+</html>

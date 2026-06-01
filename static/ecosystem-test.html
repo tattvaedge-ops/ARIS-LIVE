@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>ARIS Core Test</title>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+}
+
+body{
+height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+overflow:hidden;
+
+background:
+radial-gradient(circle at center,
+rgba(255,170,0,.08),
+transparent 35%),
+#050816;
+}
+
+body::before{
+content:"";
+position:absolute;
+inset:0;
+
+background-image:
+linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+
+background-size:40px 40px;
+}
+
+.core-wrapper{
+position:relative;
+width:420px;
+height:420px;
+
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+.aris-core{
+
+width:300px;
+height:300px;
+
+border-radius:34px;
+
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+
+background:#070b18;
+
+border:2px solid #ffb347;
+
+box-shadow:
+0 0 6px rgba(255,179,71,.95),
+0 0 18px rgba(255,179,71,.9),
+0 0 40px rgba(255,179,71,.8),
+0 0 80px rgba(255,179,71,.5),
+inset 0 0 25px rgba(255,179,71,.08);
+}
+
+.aris-core::before{
+content:"";
+position:absolute;
+
+top:12px;
+left:12px;
+right:12px;
+bottom:12px;
+
+border-radius:26px;
+
+border:1px solid rgba(255,179,71,.22);
+
+box-shadow:
+inset 0 0 15px rgba(255,179,71,.05);
+
+pointer-events:none;
+}
+
+.aris-core .chip-detail{
+position:absolute;
+inset:28px;
+
+border-radius:18px;
+
+border:1px solid rgba(255,179,71,.15);
+}
+
+.aris-core::after{
+content:"";
+position:absolute;
+
+top:-14px;
+left:-14px;
+right:-14px;
+bottom:-14px;
+
+border-radius:38px;
+
+border:1px solid rgba(255,179,71,.25);
+
+box-shadow:
+0 0 30px rgba(255,179,71,.20);
+
+pointer-events:none;
+}
+
+.core-title{
+font-family:'Inter',sans-serif;
+font-size:82px;
+font-weight:800;
+letter-spacing:4px;
+color:#f8f8f8;
+
+text-shadow:
+0 0 15px rgba(255,255,255,.25);
+
+margin-bottom:18px;
+}
+
+.core-subtitle{
+font-size:26px;
+font-weight:600;
+line-height:1.45;
+text-align:center;
+
+color:#ffb347;
+
+text-shadow:
+0 0 10px rgba(255,179,71,.15);
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="core-wrapper">
+    
+
+<div class="aris-core">
+
+<div class="chip-detail"></div>    
+
+<div class="core-title">
+ARIS
+</div>
+
+<div class="core-subtitle">
+Intelligence<br>
+System
+</div>
+
+</div>
+
+</div>
+
+</body>
+</html>
