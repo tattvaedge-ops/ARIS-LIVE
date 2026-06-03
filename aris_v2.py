@@ -8,6 +8,7 @@ import os
 import logging
 import razorpay
 
+
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 try:
     import pytesseract
@@ -28,6 +29,7 @@ from aris_tools.aris_image_engine import generate_image
 from kling_video import generate_kling_video
 from aris_self_repair_engine import run_self_diagnostics
 from aris_security import sanitize_input, is_malicious_input
+from aris_db import get_db_connection
 
 JWT_SECRET = os.getenv("SECRET_KEY")
 JWT_ALGO = "HS256"
