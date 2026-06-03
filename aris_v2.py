@@ -475,7 +475,7 @@ def init_db():
     # ---------------- USERS ----------------
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             email TEXT UNIQUE,
             password TEXT,
             created_at TEXT
@@ -510,7 +510,7 @@ def init_db():
     # ---------------- CONVERSATION MEMORY ----------------
     c.execute("""
         CREATE TABLE IF NOT EXISTS conversation_memory(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             user_id INTEGER,
             role TEXT,
             message TEXT,
@@ -531,7 +531,7 @@ def init_db():
     # ---------------- USER TASK MEMORY ----------------
     c.execute("""
         CREATE TABLE IF NOT EXISTS user_tasks(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             user_id INTEGER,
             task TEXT,
             status TEXT,
