@@ -446,6 +446,26 @@ if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
 
+def test_postgres_connection():
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("SELECT 1;")
+
+        result = cur.fetchone()
+
+        print("✅ POSTGRES CONNECTED:", result)
+
+        cur.close()
+        conn.close()
+
+    except Exception as e:
+
+        print("❌ POSTGRES ERROR:", str(e))
+
+
 # ================= DATABASE =================
 def init_db():
 
@@ -535,6 +555,7 @@ def init_db():
     conn.close()
 
 init_db()
+test_postgres_connection()
 
 def create_user(email, password):
 
