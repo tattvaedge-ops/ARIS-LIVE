@@ -469,7 +469,7 @@ def test_postgres_connection():
 # ================= DATABASE =================
 def init_db():
 
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     # ---------------- USERS ----------------
