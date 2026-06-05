@@ -672,14 +672,14 @@ def authenticate_user(email, password):
         if not email or not password:
             return None
 
-        conn = sqlite3.connect("aris_memory.db")
+        cconn = get_db_connection()
         c = conn.cursor()
 
         c.execute(
             """
             SELECT id, password
             FROM users
-            WHERE email = ?
+            WHERE email =  %s
             LIMIT 1
             """,
             (email,)
@@ -751,13 +751,13 @@ def get_tokens(user_id):
 
 
 def user_has_active_subscription(user_id):
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     c.execute("""
         SELECT end_date, status
         FROM subscriptions
-        WHERE user_id = ?
+        WHERE user_id =  %s
     """, (user_id,))
 
     row = c.fetchone()
@@ -800,7 +800,7 @@ def activate_subscription(user_id, plan_key):
     start_date = datetime.datetime.utcnow()
     end_date = start_date + datetime.timedelta(days=plan["duration_days"])
 
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     # Insert or update subscription record
@@ -812,7 +812,13 @@ def activate_subscription(user_id, plan_key):
             end_date,
             status
         )
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (user_id)
+        DO UPDATE SET
+            plan_name = EXCLUDED.plan_name,
+            start_date = EXCLUDED.start_date,
+            end_date = EXCLUDED.end_date,
+            status = EXCLUDED.status
     """, (
         user_id,
         plan["name"],
@@ -823,19 +829,15 @@ def activate_subscription(user_id, plan_key):
 
     # Add plan tokens to wallet
     c.execute("""
-        INSERT OR REPLACE INTO token_wallet (
+        INSERT INTO token_wallet (
             user_id,
             balance
         )
         VALUES (
-            ?,
-            COALESCE(
-                (SELECT balance FROM token_wallet WHERE user_id = ?),
-                0
-            ) + ?
-        )
+        ON CONFLICT (user_id)
+        DO UPDATE SET
+            balance = token_wallet.balance + EXCLUDED.balance   
     """, (
-        user_id,
         user_id,
         plan["tokens"]
     ))
