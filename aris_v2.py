@@ -4231,16 +4231,16 @@ def login_page():
             # ===============================
             if action == "signup":
 
-    user_id = create_user(email, password)
+                user_id = create_user(email, password)
 
-    if user_id:
+                if user_id:
 
-        session["pending_user_id"] = user_id
+                    session["pending_user_id"] = user_id
 
-        return redirect("/pricing")
-
-    else:
-        error = "User already exists."
+                    return redirect("/pricing")
+                    
+                else:
+                    error = "User already exists."
 
             # ===============================
             # LOGIN
