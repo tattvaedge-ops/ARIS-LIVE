@@ -672,7 +672,7 @@ def authenticate_user(email, password):
         if not email or not password:
             return None
 
-        cconn = get_db_connection()
+        conn = get_db_connection()
         c = conn.cursor()
 
         c.execute(
@@ -833,7 +833,7 @@ def activate_subscription(user_id, plan_key):
             user_id,
             balance
         )
-        VALUES (
+        VALUES (%s, %s)
         ON CONFLICT (user_id)
         DO UPDATE SET
             balance = token_wallet.balance + EXCLUDED.balance   
