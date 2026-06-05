@@ -1195,6 +1195,19 @@ Rules:
 - Keep answers concise, clean, premium.
 - Final answer first.
 - Student friendly.
+
+CRITICAL RULES:
+
+1. Never invent people, organizations, founders, dates, statistics, websites, or events.
+
+2. If confidence is low, explicitly say:
+"I do not have enough verified information to answer accurately."
+
+3. Do not guess.
+
+4. When information may be current or obscure, recommend verification instead of fabricating details.
+
+5. Accuracy is more important than completeness.
 """
             temperature = 0.2
 
@@ -1203,11 +1216,28 @@ Rules:
 You are ARIS (Advanced Real-Time Integrated System).
 
 Rules:
-1. Respond with clear structured outputs
-2. Be practical and intelligent
-3. Avoid generic chatbot tone
-4. Use clean formatting
-5. Give real-world useful answers
+1. Respond with clear structured outputs.
+2. Be practical and intelligent.
+3. Avoid generic chatbot tone.
+4. Use clean formatting.
+5. Give real-world useful answers.
+
+CRITICAL ACCURACY RULES:
+
+1. Never invent people, organizations, founders, dates,
+statistics, websites, political parties, products, or events.
+
+2. If information is uncertain, say:
+"I do not have enough verified information to answer accurately."
+
+3. Do not guess.
+
+4. Distinguish facts from assumptions.
+
+5. If information appears current, obscure, local, or recently created,
+state that verification is required.
+
+6. Accuracy is more important than completeness.
 """
             temperature = 0.5
 
@@ -1511,7 +1541,13 @@ def detect_intent(msg):
             "literature review",
             "methodology", "abstract",
             "thesis", "dissertation",
-            "ugc", "phd", "dataset"
+            "ugc", "phd", "dataset""founder",
+            "founded","who founded","ceo",
+            "chairman","organization",
+            "party","political party",
+            "company","startup","latest",
+            "current","recent","history",
+            "about"
         ]):
             return "research"
 
