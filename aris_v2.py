@@ -588,7 +588,8 @@ def create_user(email, password):
         c.execute(
             """
             INSERT INTO users (email, password, created_at)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
+            RETURNING id
             """,
             (
                 email,
@@ -599,7 +600,7 @@ def create_user(email, password):
 
         conn.commit()
 
-        user_id = c.lastrowid
+        user_id = c.fetchone()[0]
 
         # ==================================
         # FREE STARTER TOKENS
@@ -607,7 +608,7 @@ def create_user(email, password):
         c.execute(
             """
             INSERT INTO token_wallet (user_id, balance)
-            VALUES (?, ?)
+            VALUES  (%s, %s)
             """,
             (user_id, 20)
         )
@@ -2212,6 +2213,15 @@ def process_ai_request(user_id, msg):
             "tokens_left": get_tokens(user_id),
             "type": "text"
         }
+        
+# ==========================================
+# SIGNUP ROUTE
+# ==========================================
+
+@app.route("/signup", methods=["GET"])
+def signup_page():
+    return redirect("/login")
+        
 
 
 # ================= LOGIN PAGE =================
@@ -4238,7 +4248,7 @@ def login_page():
                     session["pending_user_id"] = user_id
 
                     return redirect("/pricing")
-                    
+
                 else:
                     error = "User already exists."
 
