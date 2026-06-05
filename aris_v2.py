@@ -1547,7 +1547,9 @@ def detect_intent(msg):
             "party","political party",
             "company","startup","latest",
             "current","recent","history",
-            "about"
+            "about","who is","what is",
+            "tell me about","information about",
+            "details about","background of"
         ]):
             return "research"
 
@@ -1676,14 +1678,20 @@ Tips
         return f"""
 You are ARIS Research Intelligence.
 
-Write analytical and academic quality responses.
+CRITICAL RESEARCH RULES:
 
-Format:
-Title
-Abstract
-Explanation
-Key Insights
-Conclusion
+1. Never assume an acronym has only one meaning.
+
+2. If a term, acronym, organization, party, company, person, or concept could refer to multiple entities, ask a clarifying question first.
+
+3. Never invent founders, dates, locations, leaders, statistics, or historical facts.
+
+4. If information cannot be verified from the provided context, clearly say:
+"I do not have enough verified information."
+
+5. Accuracy is more important than completeness.
+
+6. For obscure or newly created organizations, request additional information before answering.
 {context_block}
 """
 
