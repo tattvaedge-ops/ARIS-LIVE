@@ -628,12 +628,12 @@ def create_user(email, password):
 
 def save_user_task(user_id, task):
 
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     c.execute("""
     INSERT INTO user_tasks (user_id, task, status, updated_at)
-    VALUES (?, ?, 'active', ?)
+    VALUES (%s, %s, 'active', %s)
     """, (
         user_id,
         task,
@@ -645,12 +645,12 @@ def save_user_task(user_id, task):
 
 def get_last_task(user_id):
 
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     c.execute("""
     SELECT task FROM user_tasks
-    WHERE user_id=? AND status='active'
+    WHERE user_id=%s AND status='active'
     ORDER BY id DESC
     LIMIT 1
     """, (user_id,))
@@ -716,14 +716,14 @@ def get_tokens(user_id):
         if not user_id:
             return 0
 
-        conn = sqlite3.connect("aris_memory.db")
+        conn = get_db_connection()
         c = conn.cursor()
 
         c.execute(
             """
             SELECT balance
             FROM token_wallet
-            WHERE user_id = ?
+             WHERE user_id = %s
             LIMIT 1
             """,
             (user_id,)
@@ -865,15 +865,15 @@ def deduct_token(user_id, amount):
         if amount <= 0:
             return False
 
-        conn = sqlite3.connect("aris_memory.db")
+        conn = get_db_connection()
         c = conn.cursor()
 
         c.execute(
             """
             UPDATE token_wallet
-            SET balance = balance - ?
-            WHERE user_id = ?
-            AND balance >= ?
+            SET balance = balance - %s
+            WHERE user_id = %s
+            AND balance >= %s
             """,
             (amount, user_id, amount)
         )
@@ -906,7 +906,7 @@ def log_usage(user_id, tokens):
         if tokens <= 0:
             return False
 
-        conn = sqlite3.connect("aris_memory.db")
+        conn = get_db_connection()
         c = conn.cursor()
 
         c.execute(
@@ -916,7 +916,7 @@ def log_usage(user_id, tokens):
                 tokens_used,
                 timestamp
             )
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
             """,
             (
                 user_id,
@@ -940,13 +940,23 @@ def log_usage(user_id, tokens):
 
 # ================= LIVE USER TRACKING =================
 def update_last_seen(user_id):
-    conn = sqlite3.connect("aris_memory.db")
+
+    conn = get_db_connection()
     c = conn.cursor()
 
     c.execute("""
-        INSERT OR REPLACE INTO live_users(user_id, last_seen)
-        VALUES (?, ?)
-    """, (user_id, str(datetime.datetime.now())))
+        INSERT INTO live_users (
+            user_id,
+            last_seen
+        )
+        VALUES (%s, %s)
+        ON CONFLICT (user_id)
+        DO UPDATE SET
+            last_seen = EXCLUDED.last_seen
+    """, (
+        user_id,
+        str(datetime.datetime.now())
+    ))
 
     conn.commit()
     conn.close()
@@ -973,14 +983,14 @@ def save_message(user_id, role, message):
         if len(message) > 12000:
             message = message[:12000]
 
-        conn = sqlite3.connect("aris_memory.db")
+        conn = get_db_connection()
         c = conn.cursor()
 
         c.execute(
             """
             INSERT INTO conversation_memory
             (user_id, role, message, timestamp)
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s))
             """,
             (
                 user_id,
@@ -1018,16 +1028,16 @@ def get_recent_memory(user_id, limit=6):
         if limit > 15:
             limit = 15
 
-        conn = sqlite3.connect("aris_memory.db")
+        conn = get_db_connection()
         c = conn.cursor()
 
         c.execute(
             """
             SELECT role, message
             FROM conversation_memory
-            WHERE user_id = ?
+            WHERE user_id = %s
             ORDER BY id DESC
-            LIMIT ?
+            LIMIT %s
             """,
             (user_id, limit)
         )
@@ -1066,13 +1076,21 @@ def get_recent_memory(user_id, limit=6):
             conn.close()
 
 def save_user_goal(user_id, goal):
-    conn = sqlite3.connect("aris_memory.db")
+
+    conn = get_db_connection()
     c = conn.cursor()
 
     c.execute("""
-        INSERT OR REPLACE INTO user_memory
-        (user_id, goals, updated_at)
-        VALUES (?, ?, ?)
+        INSERT INTO user_memory (
+            user_id,
+            goals,
+            updated_at
+        )
+        VALUES (%s, %s, %s)
+        ON CONFLICT (user_id)
+        DO UPDATE SET
+            goals = EXCLUDED.goals,
+            updated_at = EXCLUDED.updated_at
     """, (
         user_id,
         goal,
@@ -1084,12 +1102,12 @@ def save_user_goal(user_id, goal):
 
 
 def get_user_goal(user_id):
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     c.execute("""
         SELECT goals FROM user_memory
-        WHERE user_id=?
+        WHERE user_id=%s
     """, (user_id,))
 
     row = c.fetchone()
@@ -1099,14 +1117,14 @@ def get_user_goal(user_id):
 
 # ================= ONLINE USERS COUNT =================
 def get_live_users():
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     cutoff = datetime.datetime.now() - datetime.timedelta(seconds=60)
 
     c.execute("""
         SELECT COUNT(*) FROM live_users
-        WHERE last_seen >= ?
+        WHERE last_seen >= %s
     """, (str(cutoff),))
 
     count = c.fetchone()[0]
@@ -1120,7 +1138,7 @@ AI_COST_PER_TOKEN = 0.02          # estimated AI cost (₹)
 
 def get_profit_metrics():
 
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     # total users
@@ -4229,10 +4247,10 @@ def forgot_password():
     data = request.get_json()
     email = data.get("email")
 
-    conn = sqlite3.connect("aris_memory.db", check_same_thread=False)
+    conn = get_db_connection()
     c = conn.cursor()
 
-    c.execute("SELECT id FROM users WHERE email=?", (email,))
+    c.execute( "SELECT id FROM users WHERE email=%s", (email,))
     user = c.fetchone()
 
     conn.close()
@@ -4469,10 +4487,10 @@ def aris():
     if not user_id:
         return redirect("/login")
 
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
-    c.execute("SELECT email FROM users WHERE id=?", (user_id,))
+    c.execute("SELECT email FROM users WHERE id=%s", (user_id,))
     row = c.fetchone()
 
     if not row:
@@ -4752,13 +4770,13 @@ def subscription_status():
                 "message": "Session expired."
             }), 401
 
-        conn = sqlite3.connect("aris_memory.db")
+        conn = get_db_connection()
         c = conn.cursor()
 
         c.execute("""
             SELECT plan_name, end_date, status
             FROM subscriptions
-            WHERE user_id = ?
+            WHERE user_id = %s
         """, (user_id,))
 
         row = c.fetchone()
@@ -4834,21 +4852,21 @@ def buy_tokens():
         # ==================================
         # TOKEN CREDIT
         # ==================================
-        conn = sqlite3.connect("aris_memory.db")
+        conn = get_db_connection()
         c = conn.cursor()
 
         c.execute("""
             UPDATE token_wallet
-            SET balance = balance + 20
-            WHERE user_id = ?
-        """, (user_id,))
+           SET balance = balance + %s
+            WHERE user_id = %s
+        """, (20,user_id,))
 
         conn.commit()
 
         # get updated balance
         c.execute("""
             SELECT balance FROM token_wallet
-            WHERE user_id = ?
+            WHERE user_id = %s
         """, (user_id,))
 
         row = c.fetchone()
@@ -4900,10 +4918,10 @@ def is_admin():
     if "user_id" not in session:
         return False
 
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
-    c.execute("SELECT email FROM users WHERE id=?", (session["user_id"],))
+    c.execute("SELECT email FROM users WHERE id=%s", (session["user_id"],))
     row = c.fetchone()
 
     conn.close()
@@ -4912,7 +4930,7 @@ def is_admin():
 
 
 def get_admin_stats():
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     c.execute("SELECT COUNT(*) FROM users")
@@ -5088,7 +5106,7 @@ checkStatus();
 
 def admin_intelligence():
 
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     # total users
@@ -5111,8 +5129,9 @@ def admin_intelligence():
 
     rpm = c.execute("""
         SELECT COUNT(*) FROM usage_logs
-        WHERE timestamp >= ?
-    """, (one_min_ago,)).fetchone()[0]
+        WHERE timestamp >= %s
+    """, (one_min_ago,))
+    rpm = c.fetchone()[0]
 
     conn.close()
 
@@ -5138,7 +5157,7 @@ def admin_intelligence():
 @app.route("/admin")
 def admin():
 
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     c.execute("SELECT COUNT(*) FROM users")
