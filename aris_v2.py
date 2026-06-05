@@ -598,9 +598,9 @@ def create_user(email, password):
             )
         )
 
-       user_id = c.fetchone()[0]
+        user_id = c.fetchone()[0]
 
-       conn.commit()
+        conn.commit()
 
         # ==================================
         # FREE STARTER TOKENS
