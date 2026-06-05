@@ -574,7 +574,7 @@ def create_user(email, password):
         if len(password) < 6:
             return None
 
-        conn = sqlite3.connect("aris_memory.db")
+        conn = get_db_connection()
         c = conn.cursor()
 
         # ==================================
@@ -4231,26 +4231,16 @@ def login_page():
             # ===============================
             if action == "signup":
 
-                user_id = create_user(email, password)
+    user_id = create_user(email, password)
 
-                if user_id:
-                    session["user_id"] = user_id
+    if user_id:
 
-                    token = generate_token(user_id)
+        session["pending_user_id"] = user_id
 
-                    resp = redirect("/aris")
-                    resp.set_cookie(
-                        "aris_token",
-                        token,
-                        httponly=True,
-                        secure=False,
-                        samesite="Lax"
-                    )
+        return redirect("/pricing")
 
-                    return resp
-
-                else:
-                    error = "User already exists."
+    else:
+        error = "User already exists."
 
             # ===============================
             # LOGIN
