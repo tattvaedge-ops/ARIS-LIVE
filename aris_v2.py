@@ -3777,6 +3777,20 @@ chat.scrollTop = chat.scrollHeight;
 
 }
 
+else if(text.includes("practice questions")){
+
+response =
+`🎯 Which practice questions would you like?
+
+Please specify:
+• Subject
+• Chapter / Topic
+• Class / Exam
+• Difficulty
+• Number of Questions`;
+
+}
+
 function quickStart(text){
 
 const chat = document.getElementById("chat");
