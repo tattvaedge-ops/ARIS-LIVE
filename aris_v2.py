@@ -3778,8 +3778,67 @@ chat.scrollTop = chat.scrollHeight;
 }
 
 function quickStart(text){
-document.getElementById("msg").value=text;
+
+const chat = document.getElementById("chat");
+
+let response = "";
+
+if(text.includes("concept")){
+
+response =
+`📘 Which concept would you like me to explain?
+
+Examples:
+• Newton's Laws
+• Photosynthesis
+• Trigonometry
+• Supply & Demand`;
+
+}
+
+else if(text.includes("notes")){
+
+response =
+`📝 Which topic do you want notes for?
+
+Please tell:
+• Subject
+• Chapter
+• Class / Exam`;
+
+}
+
+else if(text.includes("Solve")){
+
+response =
+`🧠 Please paste the question or upload a photo.
+
+I will solve it step-by-step.`;
+
+}
+
+else if(text.includes("mock test")){
+
+response =
+`🎯 Which mock test would you like?
+
+Please specify:
+• Subject
+• Chapter
+• Difficulty
+• Number of Questions`;
+
+}
+
+else{
+
+document.getElementById("msg").value = text;
 send();
+return;
+}
+
+addMessage(response,"aris");
+
 }
 
 function triggerDoubtUpload(){

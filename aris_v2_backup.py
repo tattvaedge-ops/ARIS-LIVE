@@ -8,6 +8,7 @@ import os
 import logging
 import razorpay
 
+
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 try:
     import pytesseract
@@ -28,6 +29,7 @@ from aris_tools.aris_image_engine import generate_image
 from kling_video import generate_kling_video
 from aris_self_repair_engine import run_self_diagnostics
 from aris_security import sanitize_input, is_malicious_input
+from aris_db import get_db_connection
 
 JWT_SECRET = os.getenv("SECRET_KEY")
 JWT_ALGO = "HS256"
@@ -38,6 +40,9 @@ JWT_ALGO = "HS256"
 
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
+
+print("RAZORPAY KEY ID:", RAZORPAY_KEY_ID)
+print("RAZORPAY SECRET LOADED:", bool(RAZORPAY_KEY_SECRET))
 
 razorpay_client = razorpay.Client(
     auth=(
@@ -69,6 +74,14 @@ TOKENS_VIDEO = 50   # COMING SOON
 # ==================================
 
 SUBSCRIPTION_PLANS = {
+
+
+    "test": {
+        "name": "ARIS Test Plan",
+        "price": 1,
+        "tokens": 50,
+        "duration_days": 30
+    },
 
     "monthly": {
         "name": "ARIS Monthly",
@@ -105,6 +118,11 @@ SUBSCRIPTION_PLANS = {
 
 TOKEN_RECHARGE_PACKS = {
 
+    "test": {
+        "price": 1,
+        "tokens": 50
+    },
+
     "starter": {
         "price": 99,
         "tokens": 25
@@ -125,6 +143,45 @@ TOKEN_RECHARGE_PACKS = {
         "tokens": 300
     }
 }
+
+# ==================================
+# SUBSCRIPTION PLANS PRICING
+# ==================================
+
+SUBSCRIPTION_PRICING = {
+
+    "test": {
+    "price": 1,
+    "tokens": 50,
+    "name": "ARIS Test Plan"
+    },
+
+    "monthly": {
+        "price": 299,
+        "tokens": 90,
+        "name": "ARIS Monthly"
+    },
+
+    "quarterly": {
+        "price": 699,
+        "tokens": 240,
+        "name": "ARIS Quarterly"
+    },
+
+    "half_yearly": {
+        "price": 1299,
+        "tokens": 540,
+        "name": "ARIS Half Yearly"
+    },
+
+    "annual": {
+        "price": 2499,
+        "tokens": 1200,
+        "name": "ARIS Annual"
+    }
+
+}
+
 
 def generate_token(user_id):
     payload = {
@@ -152,6 +209,263 @@ client = OpenAI(api_key=api_key)
 
 
 app = Flask(__name__)
+
+# ==================================
+# CREATE RECHARGE ORDER
+# ==================================
+
+@app.route("/create_recharge_order", methods=["POST"])
+def create_recharge_order():
+
+    try:
+
+        data = request.get_json()
+        pack = data.get("pack")
+
+        if pack not in TOKEN_RECHARGE_PACKS:
+            return jsonify({
+                "success": False,
+                "message": "Invalid recharge pack."
+            })
+
+        amount = TOKEN_RECHARGE_PACKS[pack]["price"]
+
+        order = razorpay_client.order.create({
+            "amount": amount * 100,
+            "currency": "INR"
+        })
+
+        return jsonify({
+            "success": True,
+            "order_id": order["id"],
+            "amount": amount,
+            "key": RAZORPAY_KEY_ID
+        })
+
+    except Exception as e:
+
+        import traceback
+
+        print("❌ RAZORPAY ORDER ERROR:", str(e))
+        traceback.print_exc()
+
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        })
+
+@app.route("/create_subscription_order", methods=["POST"])
+def create_subscription_order():
+
+    try:
+
+        data = request.get_json()
+        plan = data.get("plan")
+
+        if plan not in SUBSCRIPTION_PRICING:
+            return jsonify({
+                "success": False,
+                "message": "Invalid subscription plan."
+            })
+
+        selected_plan = SUBSCRIPTION_PRICING[plan]
+
+        amount = selected_plan["price"]
+
+        order = razorpay_client.order.create({
+            "amount": amount * 100,
+            "currency": "INR",
+            "notes": {
+                "subscription_plan": plan,
+                "tokens": selected_plan["tokens"]
+            }
+        })
+
+        return jsonify({
+            "success": True,
+            "order_id": order["id"],
+            "amount": amount,
+            "key": RAZORPAY_KEY_ID,
+            "plan_name": selected_plan["name"]
+        })
+
+    except Exception as e:
+
+        import traceback
+
+        print("❌ SUBSCRIPTION ORDER ERROR:", str(e))
+        traceback.print_exc()
+
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        })
+
+@app.route("/verify_subscription_payment", methods=["POST"])
+def verify_subscription_payment():
+
+    try:
+
+        data = request.get_json()
+
+        razorpay_payment_id = data.get("razorpay_payment_id")
+        razorpay_order_id = data.get("razorpay_order_id")
+        razorpay_signature = data.get("razorpay_signature")
+        plan = data.get("plan")
+
+        print("✅ SUBSCRIPTION PAYMENT RECEIVED")
+        print(data)
+
+        # ==================================
+        # AUTH CHECK
+        # ==================================
+        user_id = None
+
+        token = request.cookies.get("aris_token")
+
+        if token:
+            user_id = verify_token(token)
+
+        if not user_id:
+            user_id = session.get("user_id")
+
+        if not user_id:
+            return jsonify({
+                "success": False,
+                "message": "Session expired."
+            })
+
+        # ==================================
+        # VERIFY SIGNATURE
+        # ==================================
+        params_dict = {
+            "razorpay_order_id": razorpay_order_id,
+            "razorpay_payment_id": razorpay_payment_id,
+            "razorpay_signature": razorpay_signature
+        }
+
+        razorpay_client.utility.verify_payment_signature(
+            params_dict
+        )
+        print("🔥 CALLING ACTIVATE SUBSCRIPTION")
+        print("USER:", user_id)
+        print("PLAN:", plan)
+        # ==================================
+        # ACTIVATE SUBSCRIPTION
+        # ==================================
+        result = activate_subscription(
+            user_id,
+            plan
+        )
+        print("🔥 ACTIVATE RESULT")
+        print(result)
+
+        print(
+            f"✅ SUBSCRIPTION ACTIVATED | USER {user_id} | PLAN {plan}"
+        )
+
+        return jsonify({
+            "success": True,
+            "message": "Subscription activated successfully.",
+            "plan": result["plan_name"],
+            "tokens_added": result["tokens_added"]
+        })
+
+    except Exception as e:
+
+        import traceback
+
+        print(
+            "❌ VERIFY SUBSCRIPTION ERROR:",
+            str(e)
+        )
+
+        traceback.print_exc()
+
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        })
+
+@app.route("/verify_recharge_payment", methods=["POST"])
+def verify_recharge_payment():
+
+    conn = None
+
+    try:
+
+        data = request.get_json()
+
+        print("✅ RECHARGE PAYMENT RECEIVED")
+        print(data)
+
+        user_id = session.get("user_id")
+
+        if not user_id:
+            return jsonify({
+                "success": False,
+                "message": "Login required."
+            })
+
+        pack = data.get("pack")
+
+        if pack not in TOKEN_RECHARGE_PACKS:
+            return jsonify({
+                "success": False,
+                "message": "Invalid pack."
+            })
+
+        tokens = TOKEN_RECHARGE_PACKS[pack]["tokens"]
+
+        conn = get_db_connection()
+        c = conn.cursor()
+
+        c.execute(
+            """
+            UPDATE token_wallet
+            SET balance = balance + %s
+            WHERE user_id = %s
+            """,
+            (tokens, user_id)
+        )
+
+        conn.commit()
+
+        c.execute(
+            """
+            SELECT balance
+            FROM token_wallet
+            WHERE user_id = %s
+            """,
+            (user_id,)
+        )
+
+        row = c.fetchone()
+
+        balance = row[0] if row else 0
+
+        print("✅ TOKENS ADDED:", tokens)
+        print("✅ NEW BALANCE:", balance)
+
+        return jsonify({
+            "success": True,
+            "tokens_added": tokens,
+            "balance": balance
+        })
+
+    except Exception as e:
+
+        print("❌ VERIFY RECHARGE ERROR:", str(e))
+
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        })
+
+    finally:
+
+        if conn:
+            conn.close()
 
 logging.basicConfig(
     filename='error.log',
@@ -194,16 +508,36 @@ if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
 
+def test_postgres_connection():
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("SELECT 1;")
+
+        result = cur.fetchone()
+
+        print("✅ POSTGRES CONNECTED:", result)
+
+        cur.close()
+        conn.close()
+
+    except Exception as e:
+
+        print("❌ POSTGRES ERROR:", str(e))
+
+
 # ================= DATABASE =================
 def init_db():
 
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     # ---------------- USERS ----------------
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             email TEXT UNIQUE,
             password TEXT,
             created_at TEXT
@@ -238,7 +572,7 @@ def init_db():
     # ---------------- CONVERSATION MEMORY ----------------
     c.execute("""
         CREATE TABLE IF NOT EXISTS conversation_memory(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             user_id INTEGER,
             role TEXT,
             message TEXT,
@@ -259,7 +593,7 @@ def init_db():
     # ---------------- USER TASK MEMORY ----------------
     c.execute("""
         CREATE TABLE IF NOT EXISTS user_tasks(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             user_id INTEGER,
             task TEXT,
             status TEXT,
@@ -283,6 +617,7 @@ def init_db():
     conn.close()
 
 init_db()
+test_postgres_connection()
 
 def create_user(email, password):
 
@@ -301,7 +636,7 @@ def create_user(email, password):
         if len(password) < 6:
             return None
 
-        conn = sqlite3.connect("aris_memory.db")
+        conn = get_db_connection()
         c = conn.cursor()
 
         # ==================================
@@ -315,7 +650,8 @@ def create_user(email, password):
         c.execute(
             """
             INSERT INTO users (email, password, created_at)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
+            RETURNING id
             """,
             (
                 email,
@@ -324,9 +660,9 @@ def create_user(email, password):
             )
         )
 
-        conn.commit()
+        user_id = c.fetchone()[0]
 
-        user_id = c.lastrowid
+        conn.commit()
 
         # ==================================
         # FREE STARTER TOKENS
@@ -334,7 +670,7 @@ def create_user(email, password):
         c.execute(
             """
             INSERT INTO token_wallet (user_id, balance)
-            VALUES (?, ?)
+            VALUES  (%s, %s)
             """,
             (user_id, 20)
         )
@@ -354,12 +690,12 @@ def create_user(email, password):
 
 def save_user_task(user_id, task):
 
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     c.execute("""
     INSERT INTO user_tasks (user_id, task, status, updated_at)
-    VALUES (?, ?, 'active', ?)
+    VALUES (%s, %s, 'active', %s)
     """, (
         user_id,
         task,
@@ -371,12 +707,12 @@ def save_user_task(user_id, task):
 
 def get_last_task(user_id):
 
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     c.execute("""
     SELECT task FROM user_tasks
-    WHERE user_id=? AND status='active'
+    WHERE user_id=%s AND status='active'
     ORDER BY id DESC
     LIMIT 1
     """, (user_id,))
@@ -398,14 +734,14 @@ def authenticate_user(email, password):
         if not email or not password:
             return None
 
-        conn = sqlite3.connect("aris_memory.db")
+        conn = get_db_connection()
         c = conn.cursor()
 
         c.execute(
             """
             SELECT id, password
             FROM users
-            WHERE email = ?
+            WHERE email =  %s
             LIMIT 1
             """,
             (email,)
@@ -442,14 +778,14 @@ def get_tokens(user_id):
         if not user_id:
             return 0
 
-        conn = sqlite3.connect("aris_memory.db")
+        conn = get_db_connection()
         c = conn.cursor()
 
         c.execute(
             """
             SELECT balance
             FROM token_wallet
-            WHERE user_id = ?
+             WHERE user_id = %s
             LIMIT 1
             """,
             (user_id,)
@@ -477,13 +813,13 @@ def get_tokens(user_id):
 
 
 def user_has_active_subscription(user_id):
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     c.execute("""
         SELECT end_date, status
         FROM subscriptions
-        WHERE user_id = ?
+        WHERE user_id =  %s
     """, (user_id,))
 
     row = c.fetchone()
@@ -526,19 +862,28 @@ def activate_subscription(user_id, plan_key):
     start_date = datetime.datetime.utcnow()
     end_date = start_date + datetime.timedelta(days=plan["duration_days"])
 
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
+    print("🔥 ACTIVATING PLAN")
+    print("USER:", user_id)
+    print("PLAN:", plan_key)
 
     # Insert or update subscription record
     c.execute("""
-        INSERT OR REPLACE INTO subscriptions (
+        INSERT INTO subscriptions (
             user_id,
             plan_name,
             start_date,
             end_date,
             status
         )
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (user_id)
+        DO UPDATE SET
+            plan_name = EXCLUDED.plan_name,
+            start_date = EXCLUDED.start_date,
+            end_date = EXCLUDED.end_date,
+            status = EXCLUDED.status
     """, (
         user_id,
         plan["name"],
@@ -549,19 +894,15 @@ def activate_subscription(user_id, plan_key):
 
     # Add plan tokens to wallet
     c.execute("""
-        INSERT OR REPLACE INTO token_wallet (
+        INSERT INTO token_wallet (
             user_id,
             balance
         )
-        VALUES (
-            ?,
-            COALESCE(
-                (SELECT balance FROM token_wallet WHERE user_id = ?),
-                0
-            ) + ?
-        )
+        VALUES (%s, %s)
+        ON CONFLICT (user_id)
+        DO UPDATE SET
+            balance = token_wallet.balance + EXCLUDED.balance   
     """, (
-        user_id,
         user_id,
         plan["tokens"]
     ))
@@ -589,15 +930,15 @@ def deduct_token(user_id, amount):
         if amount <= 0:
             return False
 
-        conn = sqlite3.connect("aris_memory.db")
+        conn = get_db_connection()
         c = conn.cursor()
 
         c.execute(
             """
             UPDATE token_wallet
-            SET balance = balance - ?
-            WHERE user_id = ?
-            AND balance >= ?
+            SET balance = balance - %s
+            WHERE user_id = %s
+            AND balance >= %s
             """,
             (amount, user_id, amount)
         )
@@ -630,7 +971,7 @@ def log_usage(user_id, tokens):
         if tokens <= 0:
             return False
 
-        conn = sqlite3.connect("aris_memory.db")
+        conn = get_db_connection()
         c = conn.cursor()
 
         c.execute(
@@ -640,7 +981,7 @@ def log_usage(user_id, tokens):
                 tokens_used,
                 timestamp
             )
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
             """,
             (
                 user_id,
@@ -664,13 +1005,23 @@ def log_usage(user_id, tokens):
 
 # ================= LIVE USER TRACKING =================
 def update_last_seen(user_id):
-    conn = sqlite3.connect("aris_memory.db")
+
+    conn = get_db_connection()
     c = conn.cursor()
 
     c.execute("""
-        INSERT OR REPLACE INTO live_users(user_id, last_seen)
-        VALUES (?, ?)
-    """, (user_id, str(datetime.datetime.now())))
+        INSERT INTO live_users (
+            user_id,
+            last_seen
+        )
+        VALUES (%s, %s)
+        ON CONFLICT (user_id)
+        DO UPDATE SET
+            last_seen = EXCLUDED.last_seen
+    """, (
+        user_id,
+        str(datetime.datetime.now())
+    ))
 
     conn.commit()
     conn.close()
@@ -697,14 +1048,14 @@ def save_message(user_id, role, message):
         if len(message) > 12000:
             message = message[:12000]
 
-        conn = sqlite3.connect("aris_memory.db")
+        conn = get_db_connection()
         c = conn.cursor()
 
         c.execute(
             """
             INSERT INTO conversation_memory
             (user_id, role, message, timestamp)
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s))
             """,
             (
                 user_id,
@@ -742,16 +1093,16 @@ def get_recent_memory(user_id, limit=6):
         if limit > 15:
             limit = 15
 
-        conn = sqlite3.connect("aris_memory.db")
+        conn = get_db_connection()
         c = conn.cursor()
 
         c.execute(
             """
             SELECT role, message
             FROM conversation_memory
-            WHERE user_id = ?
+            WHERE user_id = %s
             ORDER BY id DESC
-            LIMIT ?
+            LIMIT %s
             """,
             (user_id, limit)
         )
@@ -790,13 +1141,21 @@ def get_recent_memory(user_id, limit=6):
             conn.close()
 
 def save_user_goal(user_id, goal):
-    conn = sqlite3.connect("aris_memory.db")
+
+    conn = get_db_connection()
     c = conn.cursor()
 
     c.execute("""
-        INSERT OR REPLACE INTO user_memory
-        (user_id, goals, updated_at)
-        VALUES (?, ?, ?)
+        INSERT INTO user_memory (
+            user_id,
+            goals,
+            updated_at
+        )
+        VALUES (%s, %s, %s)
+        ON CONFLICT (user_id)
+        DO UPDATE SET
+            goals = EXCLUDED.goals,
+            updated_at = EXCLUDED.updated_at
     """, (
         user_id,
         goal,
@@ -808,12 +1167,12 @@ def save_user_goal(user_id, goal):
 
 
 def get_user_goal(user_id):
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     c.execute("""
         SELECT goals FROM user_memory
-        WHERE user_id=?
+        WHERE user_id=%s
     """, (user_id,))
 
     row = c.fetchone()
@@ -823,14 +1182,14 @@ def get_user_goal(user_id):
 
 # ================= ONLINE USERS COUNT =================
 def get_live_users():
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     cutoff = datetime.datetime.now() - datetime.timedelta(seconds=60)
 
     c.execute("""
         SELECT COUNT(*) FROM live_users
-        WHERE last_seen >= ?
+        WHERE last_seen >= %s
     """, (str(cutoff),))
 
     count = c.fetchone()[0]
@@ -844,7 +1203,7 @@ AI_COST_PER_TOKEN = 0.02          # estimated AI cost (₹)
 
 def get_profit_metrics():
 
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     # total users
@@ -919,6 +1278,19 @@ Rules:
 - Keep answers concise, clean, premium.
 - Final answer first.
 - Student friendly.
+
+CRITICAL RULES:
+
+1. Never invent people, organizations, founders, dates, statistics, websites, or events.
+
+2. If confidence is low, explicitly say:
+"I do not have enough verified information to answer accurately."
+
+3. Do not guess.
+
+4. When information may be current or obscure, recommend verification instead of fabricating details.
+
+5. Accuracy is more important than completeness.
 """
             temperature = 0.2
 
@@ -927,11 +1299,28 @@ Rules:
 You are ARIS (Advanced Real-Time Integrated System).
 
 Rules:
-1. Respond with clear structured outputs
-2. Be practical and intelligent
-3. Avoid generic chatbot tone
-4. Use clean formatting
-5. Give real-world useful answers
+1. Respond with clear structured outputs.
+2. Be practical and intelligent.
+3. Avoid generic chatbot tone.
+4. Use clean formatting.
+5. Give real-world useful answers.
+
+CRITICAL ACCURACY RULES:
+
+1. Never invent people, organizations, founders, dates,
+statistics, websites, political parties, products, or events.
+
+2. If information is uncertain, say:
+"I do not have enough verified information to answer accurately."
+
+3. Do not guess.
+
+4. Distinguish facts from assumptions.
+
+5. If information appears current, obscure, local, or recently created,
+state that verification is required.
+
+6. Accuracy is more important than completeness.
 """
             temperature = 0.5
 
@@ -1235,7 +1624,15 @@ def detect_intent(msg):
             "literature review",
             "methodology", "abstract",
             "thesis", "dissertation",
-            "ugc", "phd", "dataset"
+            "ugc", "phd", "dataset""founder",
+            "founded","who founded","ceo",
+            "chairman","organization",
+            "party","political party",
+            "company","startup","latest",
+            "current","recent","history",
+            "about","who is","what is",
+            "tell me about","information about",
+            "details about","background of"
         ]):
             return "research"
 
@@ -1364,14 +1761,20 @@ Tips
         return f"""
 You are ARIS Research Intelligence.
 
-Write analytical and academic quality responses.
+CRITICAL RESEARCH RULES:
 
-Format:
-Title
-Abstract
-Explanation
-Key Insights
-Conclusion
+1. Never assume an acronym has only one meaning.
+
+2. If a term, acronym, organization, party, company, person, or concept could refer to multiple entities, ask a clarifying question first.
+
+3. Never invent founders, dates, locations, leaders, statistics, or historical facts.
+
+4. If information cannot be verified from the provided context, clearly say:
+"I do not have enough verified information."
+
+5. Accuracy is more important than completeness.
+
+6. For obscure or newly created organizations, request additional information before answering.
 {context_block}
 """
 
@@ -1939,6 +2342,15 @@ def process_ai_request(user_id, msg):
             "tokens_left": get_tokens(user_id),
             "type": "text"
         }
+        
+# ==========================================
+# SIGNUP ROUTE
+# ==========================================
+
+@app.route("/signup", methods=["GET"])
+def signup_page():
+    return redirect("/login")
+        
 
 
 # ================= LOGIN PAGE =================
@@ -3900,10 +4312,10 @@ def forgot_password():
     data = request.get_json()
     email = data.get("email")
 
-    conn = sqlite3.connect("aris_memory.db", check_same_thread=False)
+    conn = get_db_connection()
     c = conn.cursor()
 
-    c.execute("SELECT id FROM users WHERE email=?", (email,))
+    c.execute( "SELECT id FROM users WHERE email=%s", (email,))
     user = c.fetchone()
 
     conn.close()
@@ -3961,20 +4373,10 @@ def login_page():
                 user_id = create_user(email, password)
 
                 if user_id:
-                    session["user_id"] = user_id
 
-                    token = generate_token(user_id)
+                    session["pending_user_id"] = user_id
 
-                    resp = redirect("/aris")
-                    resp.set_cookie(
-                        "aris_token",
-                        token,
-                        httponly=True,
-                        secure=False,
-                        samesite="Lax"
-                    )
-
-                    return resp
+                    return redirect("/pricing")
 
                 else:
                     error = "User already exists."
@@ -4150,10 +4552,10 @@ def aris():
     if not user_id:
         return redirect("/login")
 
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
-    c.execute("SELECT email FROM users WHERE id=?", (user_id,))
+    c.execute("SELECT email FROM users WHERE id=%s", (user_id,))
     row = c.fetchone()
 
     if not row:
@@ -4433,13 +4835,13 @@ def subscription_status():
                 "message": "Session expired."
             }), 401
 
-        conn = sqlite3.connect("aris_memory.db")
+        conn = get_db_connection()
         c = conn.cursor()
 
         c.execute("""
             SELECT plan_name, end_date, status
             FROM subscriptions
-            WHERE user_id = ?
+            WHERE user_id = %s
         """, (user_id,))
 
         row = c.fetchone()
@@ -4472,50 +4874,13 @@ def subscription_status():
 # ================= SUBSCRIBE =================
 @app.route("/subscribe/<plan_key>")
 def subscribe(plan_key):
-    try:
-        # ==================================
-        # AUTH CHECK (JWT → SESSION)
-        # ==================================
-        user_id = None
 
-        token = request.cookies.get("aris_token")
-
-        if token:
-            user_id = verify_token(token)
-
-        if not user_id:
-            user_id = session.get("user_id")
-
-        if not user_id:
-            return jsonify({
-                "success": False,
-                "message": "⚠️ Session expired. Please login again."
-            }), 401
-
-        # ==================================
-        # VALIDATE PLAN
-        # ==================================
-        if plan_key not in SUBSCRIPTION_PLANS:
-            return jsonify({
-                "success": False,
-                "message": "Invalid subscription plan."
-            }), 400
-
-        # ==================================
-        # PAYMENT REQUIRED
-        # ==================================
-        result = activate_subscription(user_id, plan_key)
-
-        return jsonify(result)
-
-    except Exception as e:
-        print("❌ SUBSCRIPTION ERROR:", str(e))
-
-        return jsonify({
-            "success": False,
-            "message": "⚠️ Subscription activation failed."
-        }), 500
-
+    return jsonify({
+        "success": False,
+        "message": "Subscription payment integration in progress."
+    }), 403
+    
+        
 
 # ================= BUY TOKENS =================
 @app.route("/api/buy_tokens")
@@ -4552,21 +4917,21 @@ def buy_tokens():
         # ==================================
         # TOKEN CREDIT
         # ==================================
-        conn = sqlite3.connect("aris_memory.db")
+        conn = get_db_connection()
         c = conn.cursor()
 
         c.execute("""
             UPDATE token_wallet
-            SET balance = balance + 20
-            WHERE user_id = ?
-        """, (user_id,))
+           SET balance = balance + %s
+            WHERE user_id = %s
+        """, (20,user_id,))
 
         conn.commit()
 
         # get updated balance
         c.execute("""
             SELECT balance FROM token_wallet
-            WHERE user_id = ?
+            WHERE user_id = %s
         """, (user_id,))
 
         row = c.fetchone()
@@ -4618,10 +4983,10 @@ def is_admin():
     if "user_id" not in session:
         return False
 
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
-    c.execute("SELECT email FROM users WHERE id=?", (session["user_id"],))
+    c.execute("SELECT email FROM users WHERE id=%s", (session["user_id"],))
     row = c.fetchone()
 
     conn.close()
@@ -4630,7 +4995,7 @@ def is_admin():
 
 
 def get_admin_stats():
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     c.execute("SELECT COUNT(*) FROM users")
@@ -4806,7 +5171,7 @@ checkStatus();
 
 def admin_intelligence():
 
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     # total users
@@ -4829,8 +5194,9 @@ def admin_intelligence():
 
     rpm = c.execute("""
         SELECT COUNT(*) FROM usage_logs
-        WHERE timestamp >= ?
-    """, (one_min_ago,)).fetchone()[0]
+        WHERE timestamp >= %s
+    """, (one_min_ago,))
+    rpm = c.fetchone()[0]
 
     conn.close()
 
@@ -4856,7 +5222,7 @@ def admin_intelligence():
 @app.route("/admin")
 def admin():
 
-    conn = sqlite3.connect("aris_memory.db")
+    conn = get_db_connection()
     c = conn.cursor()
 
     c.execute("SELECT COUNT(*) FROM users")
