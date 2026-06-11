@@ -3786,13 +3786,27 @@ let response = "";
 if(text.includes("concept")){
 
 response =
-`📘 Which concept would you like me to explain?
+`📘 ARIS Concept Explainer
 
-Examples:
-• Newton's Laws
-• Photosynthesis
-• Trigonometry
-• Supply & Demand`;
+I'd be happy to explain a concept.
+
+Please tell me:
+
+1. What concept are you studying?
+
+2. Which class or exam is this for?
+(Class 8, Class 10, JEE, NEET, UPSC, etc.)
+
+3. How would you like it explained?
+• Beginner Friendly
+• Exam Focused
+• Deep Conceptual Understanding
+
+4. Do you want:
+• Examples
+• Diagrams
+• Practice Questions
+• All of the Above`;
 
 }
 
