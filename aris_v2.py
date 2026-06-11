@@ -347,7 +347,9 @@ def verify_subscription_payment():
         razorpay_client.utility.verify_payment_signature(
             params_dict
         )
-
+        print("🔥 CALLING ACTIVATE SUBSCRIPTION")
+        print("USER:", user_id)
+        print("PLAN:", plan)
         # ==================================
         # ACTIVATE SUBSCRIPTION
         # ==================================
@@ -355,6 +357,8 @@ def verify_subscription_payment():
             user_id,
             plan
         )
+        print("🔥 ACTIVATE RESULT")
+        print(result)
 
         print(
             f"✅ SUBSCRIPTION ACTIVATED | USER {user_id} | PLAN {plan}"
@@ -802,10 +806,13 @@ def activate_subscription(user_id, plan_key):
 
     conn = get_db_connection()
     c = conn.cursor()
+    print("🔥 ACTIVATING PLAN")
+    print("USER:", user_id)
+    print("PLAN:", plan_key)
 
     # Insert or update subscription record
     c.execute("""
-        INSERT OR REPLACE INTO subscriptions (
+        INSERT INTO subscriptions (
             user_id,
             plan_name,
             start_date,
