@@ -390,6 +390,8 @@ def verify_subscription_payment():
 @app.route("/verify_recharge_payment", methods=["POST"])
 def verify_recharge_payment():
 
+    conn = None
+
     try:
 
         data = request.get_json()
@@ -397,8 +399,58 @@ def verify_recharge_payment():
         print("✅ RECHARGE PAYMENT RECEIVED")
         print(data)
 
+        user_id = session.get("user_id")
+
+        if not user_id:
+            return jsonify({
+                "success": False,
+                "message": "Login required."
+            })
+
+        pack = data.get("pack")
+
+        if pack not in TOKEN_RECHARGE_PACKS:
+            return jsonify({
+                "success": False,
+                "message": "Invalid pack."
+            })
+
+        tokens = TOKEN_RECHARGE_PACKS[pack]["tokens"]
+
+        conn = get_db_connection()
+        c = conn.cursor()
+
+        c.execute(
+            """
+            UPDATE token_wallet
+            SET balance = balance + %s
+            WHERE user_id = %s
+            """,
+            (tokens, user_id)
+        )
+
+        conn.commit()
+
+        c.execute(
+            """
+            SELECT balance
+            FROM token_wallet
+            WHERE user_id = %s
+            """,
+            (user_id,)
+        )
+
+        row = c.fetchone()
+
+        balance = row[0] if row else 0
+
+        print("✅ TOKENS ADDED:", tokens)
+        print("✅ NEW BALANCE:", balance)
+
         return jsonify({
-            "success": True
+            "success": True,
+            "tokens_added": tokens,
+            "balance": balance
         })
 
     except Exception as e:
@@ -406,8 +458,14 @@ def verify_recharge_payment():
         print("❌ VERIFY RECHARGE ERROR:", str(e))
 
         return jsonify({
-            "success": False
-        })        
+            "success": False,
+            "message": str(e)
+        })
+
+    finally:
+
+        if conn:
+            conn.close()
 
 logging.basicConfig(
     filename='error.log',
