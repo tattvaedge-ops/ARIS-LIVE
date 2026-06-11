@@ -76,6 +76,48 @@ def solve_academic_question(question, ask_openai_func):
 
     subject = detect_subject(question)
 
+    q = question.lower()
+
+    # Career Guidance
+    if any(x in q for x in [
+        "jee",
+        "neet",
+        "career",
+        "doctor",
+        "engineer",
+        "stream",
+        "future"
+    ]):
+
+        prompt = f"""
+You are ARIS Student Career Mentor.
+
+Student Query:
+{question}
+
+Respond naturally.
+
+Act like an experienced career counsellor.
+
+Do NOT use:
+
+Final Answer
+Concept
+Step-by-Step Solution
+Exam Tip
+
+Instead:
+
+1. Understand the student's situation.
+2. Compare options if relevant.
+3. Ask follow-up questions if needed.
+4. Guide the student toward a decision.
+5. Be conversational and helpful.
+"""
+
+        return ask_openai_func(prompt)
+
+    # Default Academic Mode
     prompt = build_student_prompt(question, subject)
 
     answer = ask_openai_func(prompt).strip()
