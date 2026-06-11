@@ -2364,32 +2364,32 @@ def process_ai_request(user_id, msg):
         # ==================================
         # STUDENT AI MODE
         # ==================================
-        student_words = [
+                student_words = [
             "solve", "question", "physics", "math",
             "chemistry", "biology", "concept",
             "exam", "jee", "neet", "theory",
             "law", "formula", "derive"
         ]
 
-       if any(x in msg_lower for x in student_words):
+        if any(x in msg_lower for x in student_words):
 
-    print("🎓 STUDENT MODE")
+            print("🎓 STUDENT MODE")
 
-    student_context = build_conversation_context(
-        user_id,
-        msg
-    )
+            student_context = build_conversation_context(
+                user_id,
+                msg
+            )
 
-    reply = solve_academic_question(
-        student_context,
-        ask_openai
-    )
+            reply = solve_academic_question(
+                student_context,
+                ask_openai
+            )
 
-else:
+        else:
 
-    print("🧠 GENERAL MODE")
+            print("🧠 GENERAL MODE")
 
-    reply = brain(msg, user_id)
+            reply = brain(msg, user_id)
 
 
     
