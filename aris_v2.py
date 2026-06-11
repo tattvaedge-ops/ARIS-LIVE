@@ -2371,38 +2371,25 @@ def process_ai_request(user_id, msg):
             "law", "formula", "derive"
         ]
 
-        if any(x in msg_lower for x in student_words):
+       if any(x in msg_lower for x in student_words):
 
-           print("🎓 STUDENT MODE")
+    print("🎓 STUDENT MODE")
 
-           recent_memory = get_recent_memory(
-           user_id,
-           limit=6
-           )
+    student_context = build_conversation_context(
+        user_id,
+        msg
+    )
 
-           enriched_msg = f"""
-        Recent Conversation:
+    reply = solve_academic_question(
+        student_context,
+        ask_openai
+    )
 
-        {recent_memory}
+else:
 
-        Current User Message:
+    print("🧠 GENERAL MODE")
 
-        {msg}
-        """
-            student_context = build_conversation_context(
-                user_id,
-                msg
-            )
-            reply = solve_academic_question(
-                student_context,
-                ask_openai
-            )
-
-        else:
-
-            print("🧠 GENERAL MODE")
-
-            reply = brain(msg, user_id)
+    reply = brain(msg, user_id)
 
 
     
