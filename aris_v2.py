@@ -3783,30 +3783,16 @@ const chat = document.getElementById("chat");
 
 let response = "";
 
-else if(text.includes("concept")){
+if(text.includes("concept")){
 
 response =
-`📘 ARIS Concept Explainer
+`📘 Which concept would you like me to explain?
 
-I'd be happy to explain a concept.
-
-Please tell me:
-
-1. What concept are you studying?
-
-2. Which class or exam is this for?
-(Class 8, Class 10, JEE, NEET, UPSC, etc.)
-
-3. How would you like it explained?
-• Beginner Friendly
-• Exam Focused
-• Deep Conceptual Understanding
-
-4. Do you want:
-• Examples
-• Diagrams
-• Practice Questions
-• All of the Above`;
+Examples:
+• Newton's Laws
+• Photosynthesis
+• Trigonometry
+• Supply & Demand`;
 
 }
 
@@ -3828,6 +3814,20 @@ response =
 `🧠 Please paste the question or upload a photo.
 
 I will solve it step-by-step.`;
+
+}
+
+else if(text.includes("practice questions")){
+
+response =
+`🎯 Which practice questions would you like?
+
+Please specify:
+• Subject
+• Chapter / Topic
+• Class / Exam
+• Difficulty
+• Number of Questions`;
 
 }
 
