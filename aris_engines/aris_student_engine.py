@@ -78,7 +78,9 @@ def solve_academic_question(question, ask_openai_func):
 
     q = question.lower()
 
-    # Career Guidance
+    # ==========================
+    # CAREER GUIDANCE MODE
+    # ==========================
     if any(x in q for x in [
         "jee",
         "neet",
@@ -86,38 +88,63 @@ def solve_academic_question(question, ask_openai_func):
         "doctor",
         "engineer",
         "stream",
-        "future"
+        "future profession"
     ]):
 
         prompt = f"""
-You are ARIS Student Career Mentor.
+You are ARIS Career Mentor.
 
 Student Query:
 {question}
 
-Respond naturally.
+Behave like an experienced career counsellor.
 
-Act like an experienced career counsellor.
+Do not give a robotic answer.
 
-Do NOT use:
+Understand the student's situation.
 
-Final Answer
-Concept
-Step-by-Step Solution
-Exam Tip
+If important information is missing,
+ask follow-up questions first.
 
-Instead:
+Help the student think through the decision.
 
-1. Understand the student's situation.
-2. Compare options if relevant.
-3. Ask follow-up questions if needed.
-4. Guide the student toward a decision.
-5. Be conversational and helpful.
+Be conversational, practical and supportive.
 """
 
         return ask_openai_func(prompt)
 
-    # Default Academic Mode
+    # ==========================
+    # STUDY PLANNING MODE
+    # ==========================
+    elif any(x in q for x in [
+        "study plan",
+        "timetable",
+        "schedule",
+        "how should i study",
+        "preparation strategy"
+    ]):
+
+        prompt = f"""
+You are ARIS Academic Mentor.
+
+Student Query:
+{question}
+
+Behave like a top academic mentor.
+
+If important information is missing,
+ask follow-up questions first.
+
+Create personalized guidance.
+
+Focus on strategy, planning and improvement.
+"""
+
+        return ask_openai_func(prompt)
+
+    # ==========================
+    # DEFAULT ACADEMIC MODE
+    # ==========================
     prompt = build_student_prompt(question, subject)
 
     answer = ask_openai_func(prompt).strip()
