@@ -3817,6 +3817,20 @@ I will solve it step-by-step.`;
 
 }
 
+else if(text.includes("practice questions")){
+
+response =
+`🎯 Which practice questions would you like?
+
+Please specify:
+• Subject
+• Chapter / Topic
+• Class / Exam
+• Difficulty
+• Number of Questions`;
+
+}
+
 else if(text.includes("mock test")){
 
 response =
