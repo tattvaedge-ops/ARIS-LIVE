@@ -3783,16 +3783,30 @@ const chat = document.getElementById("chat");
 
 let response = "";
 
-if(text.includes("concept")){
+else if(text.includes("concept")){
 
 response =
-`📘 Which concept would you like me to explain?
+`📘 ARIS Concept Explainer
 
-Examples:
-• Newton's Laws
-• Photosynthesis
-• Trigonometry
-• Supply & Demand`;
+I'd be happy to explain a concept.
+
+Please tell me:
+
+1. What concept are you studying?
+
+2. Which class or exam is this for?
+(Class 8, Class 10, JEE, NEET, UPSC, etc.)
+
+3. How would you like it explained?
+• Beginner Friendly
+• Exam Focused
+• Deep Conceptual Understanding
+
+4. Do you want:
+• Examples
+• Diagrams
+• Practice Questions
+• All of the Above`;
 
 }
 
@@ -3817,20 +3831,6 @@ I will solve it step-by-step.`;
 
 }
 
-else if(text.includes("practice questions")){
-
-response =
-`🎯 Which practice questions would you like?
-
-Please specify:
-• Subject
-• Chapter / Topic
-• Class / Exam
-• Difficulty
-• Number of Questions`;
-
-}
-
 else if(text.includes("mock test")){
 
 response =
@@ -3843,140 +3843,6 @@ Please specify:
 • Number of Questions`;
 
 }
-
-else if(text.includes("document")){
-
-response =
-`📄 What document would you like me to create?
-
-Please specify:
-• Document Type
-• Purpose
-• Audience
-• Length`;
-
-}
-
-else if(text.includes("presentation")){
-
-response =
-`📊 Let's build a presentation.
-
-Please specify:
-• Topic
-• Audience
-• Number of Slides
-• Purpose`;
-
-}
-
-else if(text.includes("email")){
-
-response =
-`✉️ Let's create an email.
-
-Please specify:
-• Recipient
-• Purpose
-• Tone
-• Key Points`;
-
-}
-
-else if(text.includes("report")){
-
-response =
-`📑 What report would you like?
-
-Please specify:
-• Topic
-• Business/Academic
-• Report Length
-• Key Objectives`;
-
-}
-
-else if(text.includes("business data")){
-
-response =
-`📈 Please provide the data or describe it.
-
-Include:
-• Business Type
-• Metrics
-• Goals
-• Challenges`;
-
-}
-
-else if(text.includes("logo")){
-
-response =
-`🎨 Let's design a logo.
-
-Please specify:
-• Brand Name
-• Industry
-• Style
-• Colors
-• Tagline (Optional)`;
-
-}
-
-else if(text.includes("AI image")){
-
-response =
-`🖼️ What image would you like to create?
-
-Please specify:
-• Subject
-• Style
-• Aspect Ratio
-• Background
-• Quality`;
-
-}
-
-else if(text.includes("video")){
-
-response =
-`🎬 Let's create a video concept.
-
-Please specify:
-• Topic
-• Audience
-• Duration
-• Style`;
-
-}
-
-else if(text.includes("caption")){
-
-response =
-`📱 Let's create a caption.
-
-Please specify:
-• Platform
-• Topic
-• Tone
-• Audience`;
-
-}
-
-else if(text.includes("script")){
-
-response =
-`✍️ Let's write a script.
-
-Please specify:
-• Topic
-• Audience
-• Platform
-• Duration`;
-
-}
-
-
 
 else{
 
