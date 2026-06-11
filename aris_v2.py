@@ -2340,9 +2340,27 @@ def process_ai_request(user_id, msg):
 
         if any(x in msg_lower for x in student_words):
 
-            print("🎓 STUDENT MODE")
+           print("🎓 STUDENT MODE")
 
-            reply = solve_academic_question(msg, ask_openai)
+           recent_memory = get_recent_memory(
+           user_id,
+           limit=6
+           )
+
+           enriched_msg = f"""
+        Recent Conversation:
+
+        {recent_memory}
+
+        Current User Message:
+
+        {msg}
+        """
+
+            reply = solve_academic_question(
+            enriched_msg,
+            ask_openai
+            )
 
         else:
 
