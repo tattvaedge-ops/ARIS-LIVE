@@ -1140,6 +1140,39 @@ def get_recent_memory(user_id, limit=6):
         if conn:
             conn.close()
 
+def build_conversation_context(user_id, current_msg):
+
+    try:
+
+        recent_memory = get_recent_memory(
+            user_id,
+            limit=10
+        )
+
+        goal_context = get_user_goal(
+            user_id
+        ) or ""
+
+        return f"""
+User Goal:
+{goal_context}
+
+Recent Conversation:
+{recent_memory}
+
+Current User Message:
+{current_msg}
+"""
+
+    except Exception as e:
+
+        print(
+            "❌ CONTEXT BUILD ERROR:",
+            str(e)
+        )
+
+        return current_msg            
+
 def save_user_goal(user_id, goal):
 
     conn = get_db_connection()
@@ -2356,10 +2389,13 @@ def process_ai_request(user_id, msg):
 
         {msg}
         """
-
+            student_context = build_conversation_context(
+                user_id,
+                msg
+            )
             reply = solve_academic_question(
-            enriched_msg,
-            ask_openai
+                student_context,
+                ask_openai
             )
 
         else:
