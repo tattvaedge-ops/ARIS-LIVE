@@ -3844,6 +3844,263 @@ Please specify:
 
 }
 
+else if(text.includes("document")){
+
+response =
+`📄 What document would you like me to create?
+
+Please specify:
+• Document Type
+• Purpose
+• Audience
+• Length`;
+
+}
+
+else if(text.includes("presentation")){
+
+response =
+`📊 Let's build a presentation.
+
+Please specify:
+• Topic
+• Audience
+• Number of Slides
+• Purpose`;
+
+}
+
+else if(text.includes("email")){
+
+response =
+`✉️ Let's create an email.
+
+Please specify:
+• Recipient
+• Purpose
+• Tone
+• Key Points`;
+
+}
+
+else if(text.includes("report")){
+
+response =
+`📑 What report would you like?
+
+Please specify:
+• Topic
+• Business/Academic
+• Report Length
+• Key Objectives`;
+
+}
+
+else if(text.includes("business data")){
+
+response =
+`📈 Please provide the data or describe it.
+
+Include:
+• Business Type
+• Metrics
+• Goals
+• Challenges`;
+
+}
+
+else if(text.includes("logo")){
+
+response =
+`🎨 Let's design a logo.
+
+Please specify:
+• Brand Name
+• Industry
+• Style
+• Colors
+• Tagline (Optional)`;
+
+}
+
+else if(text.includes("AI image")){
+
+response =
+`🖼️ What image would you like to create?
+
+Please specify:
+• Subject
+• Style
+• Aspect Ratio
+• Background
+• Quality`;
+
+}
+
+else if(text.includes("video")){
+
+response =
+`🎬 Let's create a video concept.
+
+Please specify:
+• Topic
+• Audience
+• Duration
+• Style`;
+
+}
+
+else if(text.includes("caption")){
+
+response =
+`📱 Let's create a caption.
+
+Please specify:
+• Platform
+• Topic
+• Tone
+• Audience`;
+
+}
+
+else if(text.includes("script")){
+
+response =
+`✍️ Let's write a script.
+
+Please specify:
+• Topic
+• Audience
+• Platform
+• Duration`;
+
+}
+
+else if(text.includes("literature review")){
+
+response =
+`📚 Literature Review Request
+
+Please specify:
+• Topic
+• Academic Level
+• Research Area
+• Scope`;
+
+}
+
+else if(text.includes("research summary")){
+
+response =
+`🔬 What would you like summarized?
+
+Please specify:
+• Topic
+• Research Paper
+• Subject Area`;
+
+}
+
+else if(text.includes("citations")){
+
+response =
+`🔗 Citation Generator
+
+Please specify:
+• Citation Style
+• Source Type
+• Topic`;
+
+}
+
+else if(text.includes("research data")){
+
+response =
+`📊 Research Data Analysis
+
+Please provide:
+• Dataset Description
+• Objective
+• Variables
+• Expected Insights`;
+
+}
+
+else if(text.includes("research proposal")){
+
+response =
+`📝 Research Proposal Builder
+
+Please specify:
+• Topic
+• Research Problem
+• Objectives
+• Academic Level`;
+
+}
+
+else if(text.includes("life goals")){
+
+response =
+`🎯 Goal Planner
+
+Please specify:
+• Goal
+• Timeline
+• Current Status
+• Target Outcome`;
+
+}
+
+else if(text.includes("daily schedule")){
+
+response =
+`📅 Daily Planner
+
+Please specify:
+• Tasks
+• Available Hours
+• Priorities`;
+
+}
+
+else if(text.includes("decision")){
+
+response =
+`⚖️ Decision Support
+
+Please describe:
+• The Decision
+• Available Options
+• Constraints`;
+
+}
+
+else if(text.includes("career")){
+
+response =
+`🚀 Career Planner
+
+Please specify:
+• Current Status
+• Career Goal
+• Skills
+• Timeline`;
+
+}
+
+else if(text.includes("productivity")){
+
+response =
+`⏰ Productivity System Builder
+
+Please specify:
+• Main Challenges
+• Daily Routine
+• Goals`;
+
+}
+
 else{
 
 document.getElementById("msg").value = text;
