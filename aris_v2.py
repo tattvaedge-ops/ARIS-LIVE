@@ -1055,7 +1055,7 @@ def save_message(user_id, role, message):
             """
             INSERT INTO conversation_memory
             (user_id, role, message, timestamp)
-            VALUES (%s, %s, %s, %s))
+            VALUES (%s, %s, %s, %s)
             """,
             (
                 user_id,
@@ -2364,7 +2364,7 @@ def process_ai_request(user_id, msg):
         # ==================================
         # STUDENT AI MODE
         # ==================================
-                student_words = [
+        student_words = [
             "solve", "question", "physics", "math",
             "chemistry", "biology", "concept",
             "exam", "jee", "neet", "theory",
