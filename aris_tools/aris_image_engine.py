@@ -5,6 +5,7 @@ import requests
 from dotenv import load_dotenv
 from openai import OpenAI
 import aris_engines.aris_prompt_engine as prompt_engine
+from aris_tools.aris_image_rag import get_image_rag_context
 
 smart_prompt = prompt_engine.smart_prompt
 
@@ -36,6 +37,8 @@ professional lighting, volumetric light,
 sharp focus, masterpiece quality,
 {user_prompt}
 """
+
+
 
 
 # ===============================
@@ -165,7 +168,13 @@ def generate_stability_image(prompt):
 def generate_image(prompt, mode="normal"):
 
     try:
-        prompt = smart_prompt(prompt, mode, "image")
+        rag_context = get_image_rag_context(prompt)
+
+        prompt = smart_prompt(
+            f"{prompt}\n\n{rag_context}",
+            mode,
+            "image"
+        )
 
         print("🔥 SMART PROMPT:", prompt)
         print("🖼️ IMAGE GENERATION STARTED")
