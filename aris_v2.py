@@ -3462,50 +3462,19 @@ align-items:center;
 <div class="menu-title">WORKSPACE ⭐</div>
 </div>
 
-
 <!-- STUDENT AI -->
 <div class="menu-section" onclick="toggleMenu(this)">
 <div class="menu-title">🎓 Student AI</div>
 
 <div class="submenu">
 
-<!-- 🔥 MAIN CTA -->
-<div onclick="triggerDoubtUpload()" style="
-background:linear-gradient(90deg,#f97316,#ff8c3a);
-color:#0a192f;
-font-weight:700;
-padding:10px;
-border-radius:10px;
-margin-bottom:10px;
-text-align:center;
-cursor:pointer;
-">
-📸 Upload Question / Photo
-</div>
-
-<div onclick="quickStart('Solve this question step by step')">
-🧠 Solve Question
-</div>
-
-<div onclick="quickStart('Explain this concept clearly with examples')">
-📘 Concept Explainer
-</div>
-
-<div onclick="quickStart('Generate exam ready notes')">
-📝 Notes Generator
-</div>
-
-<div onclick="quickStart('Generate practice questions with solutions')">
-🎯 Practice Questions
-</div>
-
-<div onclick="quickStart('Generate a mock test with answers')">
-🧪 Mock Test
-</div>
-
-<div onclick="quickStart('Generate full exam paper with solutions')">
-📄 Full Paper Generator
-</div>
+<div onclick="triggerDoubtUpload()">📸 Upload Question / Photo</div>
+<div onclick="quickStart('Concept Explainer')">🧠 Concept Explainer</div>
+<div onclick="quickStart('Notes Generator')">📝 Notes Generator</div>
+<div onclick="quickStart('Practice Questions')">❓ Practice Questions</div>
+<div onclick="quickStart('Mock Test')">🎯 Mock Test</div>
+<div onclick="quickStart('Study Planner')">📅 Study Planner</div>
+<div onclick="quickStart('Performance Analysis')">📊 Performance Analysis</div>
 
 </div>
 </div>
@@ -3516,29 +3485,17 @@ cursor:pointer;
 
 <div class="submenu">
 
-<div onclick="quickStart('Write a professional document')">
-Document Writer
-</div>
-
-<div onclick="quickStart('Create a business presentation')">
-Presentation Maker
-</div>
-
-<div onclick="quickStart('Generate professional email')">
-Email Generator
-</div>
-
-<div onclick="quickStart('Create business report')">
-Report Builder
-</div>
-
-<div onclick="quickStart('Analyze business data')">
-Data Analyzer
-</div>
+<div onclick="quickStart('Document Writer')">📄 Document Writer</div>
+<div onclick="quickStart('Presentation Maker')">📊 Presentation Maker</div>
+<div onclick="quickStart('Email Generator')">✉️ Email Generator</div>
+<div onclick="quickStart('Report Builder')">📑 Report Builder</div>
+<div onclick="quickStart('Business Strategy')">📈 Business Strategy</div>
+<div onclick="quickStart('Project Planner')">📋 Project Planner</div>
+<div onclick="quickStart('Resume Builder')">💼 Resume Builder</div>
+<div onclick="quickStart('Proposal Generator')">🤝 Proposal Generator</div>
 
 </div>
 </div>
-
 
 <!-- CREATOR AI -->
 <div class="menu-section" onclick="toggleMenu(this)">
@@ -3546,59 +3503,34 @@ Data Analyzer
 
 <div class="submenu">
 
-<div onclick="quickStart('Generate logo ideas')">
-Logo Generator
-</div>
-
-<div onclick="quickStart('Generate AI image')">
-Image Generator
-</div>
-
-<div onclick="quickStart('Generate video concept')">
-Video Creator
-</div>
-
-<div onclick="quickStart('Create social media caption')">
-Caption Generator
-</div>
-
-<div onclick="quickStart('Write creative script')">
-Script Writer
-</div>
+<div onclick="quickStart('Logo Generator')">🎨 Logo Generator</div>
+<div onclick="quickStart('Image Generator')">🖼️ Image Generator</div>
+<div onclick="quickStart('Video Creator')">🎬 Video Creator</div>
+<div onclick="quickStart('Social Media Post')">📱 Social Media Post</div>
+<div onclick="quickStart('Script Writer')">✍️ Script Writer</div>
+<div onclick="quickStart('Caption Generator')">📝 Caption Generator</div>
+<div onclick="quickStart('Ad Copy Generator')">📢 Ad Copy Generator</div>
+<div onclick="quickStart('Brand Kit Creator')">🎯 Brand Kit Creator</div>
 
 </div>
 </div>
-
 
 <!-- RESEARCH AI -->
 <div class="menu-section" onclick="toggleMenu(this)">
-<div class="menu-title">🔬 Research AI</div>
+<div class="menu-title">🔍 Research AI</div>
 
 <div class="submenu">
 
-<div onclick="quickStart('Write literature review')">
-Literature Review
-</div>
-
-<div onclick="quickStart('Generate research summary')">
-Research Summary
-</div>
-
-<div onclick="quickStart('Generate research citations')">
-Citation Generator
-</div>
-
-<div onclick="quickStart('Analyze research data')">
-Data Analysis
-</div>
-
-<div onclick="quickStart('Create research proposal')">
-Research Proposal
-</div>
+<div onclick="quickStart('Deep Research')">🔍 Deep Research</div>
+<div onclick="quickStart('Literature Review')">📚 Literature Review</div>
+<div onclick="quickStart('Research Summary')">📄 Research Summary</div>
+<div onclick="quickStart('Market Research')">📈 Market Research</div>
+<div onclick="quickStart('Competitor Analysis')">🏢 Competitor Analysis</div>
+<div onclick="quickStart('Data Analysis')">📊 Data Analysis</div>
+<div onclick="quickStart('Citation Generator')">🔗 Citation Generator</div>
 
 </div>
 </div>
-
 
 <!-- LIFE AI -->
 <div class="menu-section" onclick="toggleMenu(this)">
@@ -3606,35 +3538,24 @@ Research Proposal
 
 <div class="submenu">
 
-<div onclick="quickStart('Create life goals plan')">
-Goal Planner
-</div>
-
-<div onclick="quickStart('Create daily schedule')">
-Daily Planner
-</div>
-
-<div onclick="quickStart('Help me make a decision')">
-Decision Matrix
-</div>
-
-<div onclick="quickStart('Plan my career')">
-Career Planner
-</div>
-
-<div onclick="quickStart('Create productivity system')">
-Productivity System
-</div>
+<div onclick="quickStart('Goal Planner')">🎯 Goal Planner</div>
+<div onclick="quickStart('Daily Planner')">📅 Daily Planner</div>
+<div onclick="quickStart('Decision Matrix')">⚖️ Decision Matrix</div>
+<div onclick="quickStart('Career Planner')">🚀 Career Planner</div>
+<div onclick="quickStart('Financial Planner')">💰 Financial Planner</div>
+<div onclick="quickStart('Habit Builder')">⏰ Habit Builder</div>
+<div onclick="quickStart('Life Coach')">❤️ Life Coach</div>
+<div onclick="quickStart('Wellness Guide')">🧘 Wellness Guide</div>
 
 </div>
 </div>
 
-
-<!-- PROFILE TAB -->
+<!-- PROFILE -->
 <div class="menu-section" onclick="toggleProfile(this)">
 <div class="menu-title">PROFILE 👤</div>
 </div>
 
+</div>
 
 <!-- PROFILE PANEL -->
 <div id="profile-panel" class="profile-panel">
